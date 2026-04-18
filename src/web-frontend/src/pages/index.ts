@@ -4,3 +4,4 @@ export { GalleryPage } from './Gallery';
 export { AuthPage } from './Auth';
 export { UploadPage } from './Upload';
 export { SuperSplatPage } from './SuperSplat';
+export { EnhancedSuperSplatEditor } from './Editor';

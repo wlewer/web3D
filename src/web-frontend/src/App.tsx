@@ -1,6 +1,6 @@
 // 应用入口
 import { useState, useEffect } from 'react';
-import { HomePage, GalleryPage, AuthPage, UploadPage, SuperSplatPage } from './pages';
+import { HomePage, GalleryPage, AuthPage, UploadPage, SuperSplatPage, EnhancedSuperSplatEditor } from './pages';
 import { I18nProvider, useLanguage, useTranslation } from './i18n';
 import { getCurrentUser, logout, type User } from './pages/Auth';
 import './App.css';
@@ -41,11 +41,12 @@ function UserAvatar({ user, onLogout }: { user: User; onLogout: () => void }) {
 // 导航栏组件
 function NavBar({ currentPage, setCurrentPage, user, onLogout }: {
   currentPage: string;
-  setCurrentPage: (page: 'home' | 'gallery' | 'auth' | 'upload' | 'supersplat') => void;
+  setCurrentPage: (page: 'home' | 'gallery' | 'auth' | 'upload' | 'supersplat' | 'editor') => void;
   user: User | null;
   onLogout: () => void;
 }) {
   const { t } = useTranslation();
+  const { language } = useLanguage();
 
   return (
     <nav className="app-nav">
@@ -64,7 +65,13 @@ function NavBar({ currentPage, setCurrentPage, user, onLogout }: {
           className={`app-nav-link ${currentPage === 'supersplat' ? 'active' : ''}`}
           onClick={() => setCurrentPage('supersplat')}
         >
-          🎯 SuperSplat
+          🎯 {language === 'zh' ? '官方展示' : 'Official'}
+        </button>
+        <button
+          className={`app-nav-link ${currentPage === 'editor' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('editor')}
+        >
+          ✏️ {language === 'zh' ? '编辑器' : 'Editor'}
         </button>
         <button
           className={`app-nav-link ${currentPage === 'gallery' ? 'active' : ''}`}
@@ -96,7 +103,7 @@ function NavBar({ currentPage, setCurrentPage, user, onLogout }: {
 
 // 主应用组件
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'gallery' | 'auth' | 'upload' | 'supersplat'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'gallery' | 'auth' | 'upload' | 'supersplat' | 'editor'>('home');
   const [user, setUser] = useState<User | null>(null);
 
   // 初始化检查登录状态
@@ -132,6 +139,7 @@ function AppContent() {
       <main className="app-main">
         {currentPage === 'home' && <HomePage onNavigate={setCurrentPage} />}
         {currentPage === 'supersplat' && <SuperSplatPage />}
+        {currentPage === 'editor' && <EnhancedSuperSplatEditor />}
         {currentPage === 'gallery' && <GalleryPage user={user} />}
         {currentPage === 'auth' && (
           <AuthPage 
