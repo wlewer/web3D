@@ -326,11 +326,13 @@ export function SparkViewer({
       {/* Three.js Canvas */}
       <canvas ref={canvasRef} className="spark-canvas" />
 
-      {/* Spark 2.0 徽章 */}
+      {/* Spark 2.0 徽章 - 隐藏以避免与其他按钮重叠 */}
+      {/* 
       <div className="spark-badge">
         <span>Spark 2.0</span>
         <span className="spark-badge-tag">3DGS</span>
-      </div>
+      </div> 
+      */}
 
       {/* 加载指示器 */}
       {loading && (

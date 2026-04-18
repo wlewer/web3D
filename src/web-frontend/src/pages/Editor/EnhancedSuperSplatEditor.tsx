@@ -164,6 +164,9 @@ export function EnhancedSuperSplatEditor() {
   const [rotation, setRotation] = useState(0);
   const [autoRotate, setAutoRotate] = useState(true);
   
+  // 判断是否为中文
+  const isZh = language === 'zh';
+  
   // 3D场景引用
   const sceneRef = useRef<any>(null);
   const cameraRef = useRef<any>(null);
@@ -525,11 +528,11 @@ export function EnhancedSuperSplatEditor() {
                 <span className="perf-value">{performanceStats.fps}</span>
               </div>
               <div className="perf-item">
-                <span className="perf-label">{t.editor.performance === '性能监控' ? '高斯点' : 'Splats'}</span>
+                <span className="perf-label">{isZh ? '高斯点' : 'Splats'}</span>
                 <span className="perf-value">{(performanceStats.splats / 1000000).toFixed(1)}M</span>
               </div>
               <div className="perf-item">
-                <span className="perf-label">{t.editor.performance === '性能监控' ? '内存' : 'Memory'}</span>
+                <span className="perf-label">{isZh ? '内存' : 'Memory'}</span>
                 <span className="perf-value">{performanceStats.memory}</span>
               </div>
             </div>
@@ -540,13 +543,13 @@ export function EnhancedSuperSplatEditor() {
             <h3>🚀 {t.editor.quickActions}</h3>
             <div className="quick-actions">
               <button className="action-btn" onClick={() => setAutoRotate(!autoRotate)}>
-                {autoRotate ? '⏸️ ' + (t.editor.performance === '性能监控' ? '暂停旋转' : 'Pause Rotation') : '▶️ ' + (t.editor.performance === '性能监控' ? '开始旋转' : 'Start Rotation')}
+                {autoRotate ? '⏸️ ' + (isZh ? '暂停旋转' : 'Pause Rotation') : '▶️ ' + (isZh ? '开始旋转' : 'Start Rotation')}
               </button>
               <button className="action-btn" onClick={handleExport} disabled={!currentModel}>
                 📥 {t.editor.exportModel}
               </button>
-              <button className="action-btn" onClick={openOfficialEditor}>
-                🌐 {t.editor.officialEditor}
+              <button className="action-btn primary" onClick={openOfficialEditor}>
+                🌐 {isZh ? '打开官方编辑器' : 'Open Official Editor'}
               </button>
             </div>
           </div>

@@ -8,7 +8,7 @@ import './HomePage.css';
 const MODELS_3D = [
   { 
     id: 'butterfly', 
-    name: '🦋 Blue Morpho Butterfly', 
+    name: '🦋 蓝色大闪蝶', 
     category: '自然生物',
     desc: '3D Gaussian Splatting 真实重建，完美还原蝴蝶翅膀纹理和鳞粉效果',
     color: '#667eea',
@@ -16,7 +16,7 @@ const MODELS_3D = [
   },
   { 
     id: 'cat', 
-    name: '🐱 Cute Cat', 
+    name: '🐱 可爱猫咪', 
     category: '可爱动物',
     desc: '真实猫咪3DGS重建，毛发细节栩栩如生，眼神灵动可爱',
     color: '#f97316',
@@ -24,7 +24,7 @@ const MODELS_3D = [
   },
   { 
     id: 'burger', 
-    name: '🍔 Gourmet Burger', 
+    name: '🍔 精致汉堡', 
     category: '美食料理',
     desc: '精致汉堡3DGS数字化，完美呈现食材纹理和光泽质感',
     color: '#eab308',
@@ -32,7 +32,7 @@ const MODELS_3D = [
   },
   { 
     id: 'robot', 
-    name: '🤖 Robot Head', 
+    name: '🤖 机器人头', 
     category: '科技产品',
     desc: '未来科技机器人3DGS重建，精细到每个金属零件和电路纹理',
     color: '#06b6d4',
@@ -40,7 +40,7 @@ const MODELS_3D = [
   },
   { 
     id: 'penguin', 
-    name: '🐧 Adélie Penguin', 
+    name: '🐧 南极企鹅', 
     category: '极地动物',
     desc: '南极企鹅3DGS数字化，完美还原羽毛质感和呆萌姿态',
     color: '#1e293b',
@@ -48,7 +48,7 @@ const MODELS_3D = [
   },
   { 
     id: 'dessert', 
-    name: '🍰 Exquisite Dessert', 
+    name: '🍰 精致甜点', 
     category: '甜品糕点',
     desc: '精致甜点3DGS重建，奶油层次和糖霜细节纤毫毕现',
     color: '#ec4899',
@@ -115,13 +115,8 @@ export function HomePage() {
         
         {/* 顶部信息栏 - 透明不遮挡 */}
         <div className="top-info-bar">
-          <div className="brand-info">
-            <span className="brand-logo">🎨</span>
-            <div className="brand-text">
-              <span className="brand-name">SmartAI 3D</span>
-              <span className="brand-tagline">Gaussian Splatting</span>
-            </div>
-          </div>
+          {/* 品牌信息 - 已在主导航栏显示，此处留空或用于其他功能 */}
+          <div style={{ width: '200px' }}></div>
           
           {/* 顶部模型切换器 */}
           <div className="top-model-switcher">
