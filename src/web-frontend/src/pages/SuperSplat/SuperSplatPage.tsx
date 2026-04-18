@@ -49,33 +49,6 @@ export function SuperSplatPage() {
 
   return (
     <div className="supersplat-page">
-      {/* 顶部导航栏 */}
-      <header className="supersplat-header">
-        <div className="header-left">
-          <span className="header-logo">🎨</span>
-          <div className="header-title">
-            <h1>SmartAI 3D</h1>
-            <span className="header-subtitle">3D Gaussian Splatting Gallery</span>
-          </div>
-        </div>
-        
-        <div className="header-center">
-          <a 
-            href="https://superspl.at/editor" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="official-link-btn"
-          >
-            🌐 访问官方编辑器
-          </a>
-        </div>
-        
-        <div className="header-right">
-          <span className="tech-badge-small">MIT开源</span>
-          <span className="tech-badge-small">PlayCanvas</span>
-        </div>
-      </header>
-
       {/* 主内容区域 */}
       <main className="supersplat-main">
         {/* 左侧场景列表 */}
