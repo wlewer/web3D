@@ -1,0 +1,234 @@
+/* SparkViewer 样式 - 完整版 */
+.spark-viewer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  background: #0a0a0f;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.spark-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Spark 2.0 徽章 */
+.spark-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 24px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 10;
+}
+
+.spark-badge-tag {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+/* 加载指示器 */
+.spark-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  z-index: 10;
+}
+
+.spark-loading-ring {
+  width: 80px;
+  height: 80px;
+  position: relative;
+}
+
+.spark-loading-ring div {
+  width: 100%;
+  height: 100%;
+  border: 3px solid transparent;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  position: absolute;
+  animation: spark-spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+.spark-loading-ring div:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.spark-loading-ring div:nth-child(2) {
+  width: 80%;
+  height: 80%;
+  top: 10%;
+  left: 10%;
+  border-top-color: #764ba2;
+  animation-delay: 0.15s;
+  animation-direction: reverse;
+}
+
+.spark-loading-ring div:nth-child(3) {
+  width: 60%;
+  height: 60%;
+  top: 20%;
+  left: 20%;
+  border-top-color: #f093fb;
+  animation-delay: 0.3s;
+}
+
+.spark-loading-ring div:nth-child(4) {
+  width: 40%;
+  height: 40%;
+  top: 30%;
+  left: 30%;
+  border-top-color: #4facfe;
+  animation-delay: 0.45s;
+  animation-direction: reverse;
+}
+
+@keyframes spark-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spark-loading-bar-container {
+  width: 200px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.spark-loading-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+  background-size: 200% 100%;
+  animation: spark-gradient 2s linear infinite;
+  transition: width 0.3s ease;
+  border-radius: 2px;
+}
+
+@keyframes spark-gradient {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.spark-loading-text {
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  text-shadow: 0 0 20px rgba(102, 126, 234, 0.8);
+  letter-spacing: 1px;
+}
+
+/* 错误提示 */
+.spark-error {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  max-width: 80%;
+  text-align: center;
+  backdrop-filter: blur(8px);
+  z-index: 10;
+}
+
+/* 统计信息 */
+.spark-stats {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: white;
+  font-size: 12px;
+  font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(12px);
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  z-index: 10;
+}
+
+.spark-stats-fps {
+  color: #4facfe;
+  font-weight: 600;
+}
+
+.spark-badge-small {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* 控制提示 */
+.spark-hints {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  gap: 10px;
+  z-index: 10;
+}
+
+.spark-hints span {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.8);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 响应式适配 */
+@media (max-width: 768px) {
+  .spark-badge {
+    top: 10px;
+    right: 10px;
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  .spark-stats {
+    bottom: 10px;
+    left: 10px;
+    padding: 8px 12px;
+    font-size: 11px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .spark-hints {
+    display: none;
+  }
+}

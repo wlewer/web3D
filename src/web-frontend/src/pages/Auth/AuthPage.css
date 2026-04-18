@@ -1,0 +1,176 @@
+/* 认证页面样式 */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%);
+  padding: 2rem;
+}
+
+.auth-container {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(26, 26, 46, 0.95);
+  border-radius: 20px;
+  padding: 2.5rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 切换标签 */
+.auth-tabs {
+  display: flex;
+  margin-bottom: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 0.75rem;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.auth-tab:hover {
+  color: white;
+}
+
+.auth-tab.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+/* 表单样式 */
+.auth-form {
+  width: 100%;
+}
+
+.auth-form .ant-input-affix-wrapper {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 10px !important;
+  padding: 0.75rem 1rem !important;
+}
+
+.auth-form .ant-input-affix-wrapper:hover,
+.auth-form .ant-input-affix-wrapper:focus,
+.auth-form .ant-input-affix-wrapper-focused {
+  border-color: #667eea !important;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
+}
+
+.auth-form .ant-input {
+  background: transparent !important;
+  color: white !important;
+  font-size: 1rem;
+}
+
+.auth-form .ant-input-prefix {
+  color: rgba(255, 255, 255, 0.5);
+  margin-right: 0.75rem;
+}
+
+.auth-form .ant-input-password-icon {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.auth-form .ant-input-password-icon:hover {
+  color: white !important;
+}
+
+/* 按钮样式 */
+.auth-form .ant-btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  height: 48px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 10px;
+  margin-top: 0.5rem;
+}
+
+.auth-form .ant-btn-primary:hover {
+  background: linear-gradient(135deg, #7a8ef0 0%, #8a5cb3 100%);
+  transform: translateY(-1px);
+}
+
+.auth-form .ant-btn-primary:active {
+  transform: translateY(0);
+}
+
+/* 选项 */
+.auth-options {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1.5rem;
+}
+
+.auth-link {
+  color: #667eea;
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.3s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.auth-link:hover {
+  color: #8a5cb3;
+  text-decoration: underline;
+}
+
+/* 底部 */
+.auth-footer {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.auth-footer .auth-link {
+  margin-left: 0.5rem;
+}
+
+/* 测试提示 */
+.auth-hint {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(102, 126, 234, 0.1);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.auth-hint p {
+  margin: 0.25rem 0;
+}
+
+/* 表单项间距 */
+.auth-form .ant-form-item {
+  margin-bottom: 1.25rem;
+}
+
+/* 响应式 */
+@media (max-width: 480px) {
+  .auth-container {
+    padding: 1.5rem;
+    border-radius: 16px;
+  }
+
+  .auth-tab {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+  }
+}

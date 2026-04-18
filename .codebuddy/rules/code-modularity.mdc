@@ -1,0 +1,478 @@
+# CodeBuddy 代码模块化规范规则
+
+> **版本**: v1.0
+> **创建日期**: 2026-04-18
+> **优先级**: P1 (核心规范)
+> **自动加载**: 是
+
+---
+
+## 一、核心原则
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    代码模块化五大原则                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  1. 单一职责原则 (SRP)                                            │
+│     → 每个文件/函数只做一件事                                     │
+│                                                                  │
+│  2. 最小暴露原则 (Least Knowledge)                               │
+│     → 内部实现对外部不可见，只暴露必要接口                         │
+│                                                                  │
+│  3. 依赖倒置原则 (DIP)                                           │
+│     → 依赖抽象接口，不依赖具体实现                                │
+│                                                                  │
+│  4. 组合优于继承 (Composition)                                    │
+│     → 使用组合代替继承，减少耦合                                  │
+│                                                                  │
+│  5. 稳定依赖原则 (Stable Dependencies)                            │
+│     → 依赖关系应该指向更稳定的方向                                │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 二、文件大小规范
+
+### 硬性限制
+
+| 文件类型 | 最大行数 | 原因 |
+|:---|:---|:---|
+| **React组件 (.tsx)** | 300行 | 组件过大会导致难以理解和测试 |
+| **工具函数 (.ts)** | 200行 | 工具函数应该原子化 |
+| **类型定义 (.d.ts)** | 150行 | 类型定义应该简洁明了 |
+| **样式文件 (.css/.scss)** | 500行 | 样式应该按组件或功能拆分 |
+| **配置文件** | 100行 | 配置应该尽量简洁 |
+
+### 触发拆分信号
+
+```
+⚠️ 出现以下情况必须拆分：
+├── 文件超过 300 行
+├── 函数超过 50 行
+├── 超过 10 个 props
+├── 超过 5 个 useState
+├── 超过 3 个 useEffect
+└── 存在重复代码块
+```
+
+---
+
+## 三、模块化目录结构
+
+### React 前端项目结构
+
+```
+src/
+├── components/                    # 可复用组件
+│   ├── common/                    # 通用组件（按钮、输入框等）
+│   │   ├── Button/
+│   │   │   ├── Button.tsx
+│   │   │   ├── Button.module.css
+│   │   │   └── Button.test.tsx
+│   │   └── index.ts
+│   │
+│   ├── layout/                    # 布局组件
+│   │   ├── Header/
+│   │   ├── Footer/
+│   │   └── Sidebar/
+│   │
+│   └── 3d/                        # 3D组件 ⭐
+│       ├── Scene/
+│       │   ├── Scene.tsx         # 场景容器
+│       │   ├── useScene.ts       # 场景Hook
+│       │   └── scene.config.ts  # 场景配置
+│       │
+│       ├── Viewer/
+│       │   ├── ModelViewer.tsx   # 模型查看器
+│       │   ├── CameraControls.tsx
+│       │   └── viewer.hooks.ts
+│       │
+│       └── Background/
+│           ├── ParticleBackground.tsx
+│           └── background.config.ts
+│
+├── pages/                         # 页面组件
+│   ├── Home/
+│   │   ├── HomePage.tsx
+│   │   ├── components/           # 页面私有组件
+│   │   └── hooks/                # 页面私有Hook
+│   │
+│   └── Gallery/
+│       └── GalleryPage.tsx
+│
+├── hooks/                         # 可复用Hook
+│   ├── useAuth.ts
+│   ├── useFetch.ts
+│   └── useLocalStorage.ts
+│
+├── utils/                         # 工具函数
+│   ├── format/
+│   │   ├── formatDate.ts
+│   │   └── formatNumber.ts
+│   │
+│   ├── validation/
+│   │   ├── validateEmail.ts
+│   │   └── validatePassword.ts
+│   │
+│   └── helpers/
+│       ├── debounce.ts
+│       └── throttle.ts
+│
+├── services/                      # API服务层
+│   ├── apiClient.ts               # Axios实例配置
+│   ├── auth.service.ts
+│   ├── user.service.ts
+│   └── model.service.ts
+│
+├── types/                         # 类型定义
+│   ├── user.types.ts
+│   ├── model.types.ts
+│   └── api.types.ts
+│
+├── constants/                     # 常量定义
+│   ├── api.constants.ts
+│   └── app.constants.ts
+│
+├── stores/                        # 状态管理 (Zustand)
+│   ├── auth.store.ts
+│   └── ui.store.ts
+│
+└── App.tsx                        # 应用入口
+```
+
+---
+
+## 四、组件拆分规范
+
+### 4.1 React 组件拆分模式
+
+```
+❌ 错误示例（单一文件过大）：
+HomePage.tsx (500+ 行)
+├── Header (内联)
+├── HeroSection (内联)
+├── FeatureGrid (内联)
+├── GalleryPreview (内联)
+├── PricingSection (内联)
+└── Footer (内联)
+
+✅ 正确示例（模块化拆分）：
+HomePage/
+├── index.tsx                      # 组合导出
+├── HomePage.tsx                   # 主组件（100行）
+├── HeroSection.tsx                # Hero区（80行）
+├── FeatureGrid.tsx                # 特性网格（80行）
+├── GalleryPreview.tsx             # 画廊预览（80行）
+├── PricingSection.tsx             # 价格区（80行）
+├── components/                    # 子组件
+│   ├── FeatureCard.tsx
+│   └── PricingCard.tsx
+│   └── index.ts
+```
+
+### 4.2 组件拆分决策树
+
+```
+组件是否需要拆分？
+│
+├── 是否被多个页面使用？
+│   ├── 是 → 移到 components/common/
+│   └── 否 → 继续判断
+│
+├── 是否超过 300 行？
+│   ├── 是 → 按功能块拆分
+│   └── 否 → 继续判断
+│
+├── 是否有独立的状态逻辑？
+│   ├── 是 → 提取为自定义 Hook
+│   └── 否 → 继续判断
+│
+└── 是否需要单独测试？
+    ├── 是 → 拆分为独立文件
+    └── 否 → 保持当前结构
+```
+
+---
+
+## 五、函数设计规范
+
+### 5.1 函数大小限制
+
+| 类型 | 最大行数 | 说明 |
+|:---|:---|:---|
+| **普通函数** | 30行 | 保持函数简短易读 |
+| **复杂函数** | 50行 | 包含复杂逻辑可放宽 |
+| **Hook函数** | 100行 | 允许Hook稍大但需拆分逻辑 |
+| **事件处理器** | 20行 | 事件处理应简洁 |
+
+### 5.2 函数签名规范
+
+```typescript
+// ✅ 推荐：清晰的输入输出
+async function fetchUserModels(userId: string): Promise<Model[]> {
+  // ...
+}
+
+// ✅ 推荐：使用TypeScript类型
+function validateModelFile(file: File): ValidationResult {
+  // ...
+}
+
+// ❌ 避免：模糊的参数
+function process(data: any): any {
+  // ...
+}
+```
+
+### 5.3 函数命名规范
+
+```
+✅ 命名规范：
+├── 组件：PascalCase (UserCard.tsx)
+├── Hook：camelCase + use前缀 (useAuth.ts)
+├── 工具函数：camelCase (formatDate.ts)
+├── 类型/接口：PascalCase (UserModel.ts)
+├── 常量：SCREAMING_SNAKE_CASE
+│
+└── 命名规则：
+    ├── 组件：描述UI元素 (FeatureCard, ModelViewer)
+    ├── Hook：描述行为 (useAuth, useFetch)
+    ├── 函数：动词 + 名词 (fetchUser, validateFile)
+    ├── 布尔：is/has/can前缀 (isLoading, hasPermission)
+    └── 事件：handle + 事件名 (handleClick, handleSubmit)
+```
+
+---
+
+## 六、依赖管理规范
+
+### 6.1 依赖层级
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      依赖层级关系                                 │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  UI层 (components)                                              │
+│       ↓                                                          │
+│  业务逻辑层 (hooks, stores)                                      │
+│       ↓                                                          │
+│  服务层 (services)                                               │
+│       ↓                                                          │
+│  工具层 (utils)                                                  │
+│       ↓                                                          │
+│  类型层 (types)                                                  │
+│                                                                  │
+│  规则：上层可以依赖下层，下层不能依赖上层                           │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 6.2 循环依赖检测
+
+```
+⚠️ 禁止循环依赖：
+├── A.ts → B.ts → C.ts → A.ts (❌ 禁止)
+│
+└── 正确依赖：
+    ├── A.ts → B.ts → C.ts (✅ 单向依赖)
+    └── D.ts → C.ts (✅ 可以)
+```
+
+---
+
+## 七、避免连锁反应的规范
+
+### 7.1 导出管理
+
+```typescript
+// ✅ 推荐：显式导出，使用index.ts统一管理
+// components/common/Button/index.ts
+export { Button } from './Button';
+export type { ButtonProps } from './Button';
+export { ButtonSkeleton } from './ButtonSkeleton';
+
+// ❌ 避免：直接导出，导致追踪困难
+// components/common/Button.tsx
+export { Button, ButtonSkeleton, ButtonGroup } from './Button';
+```
+
+### 7.2 接口稳定性
+
+```typescript
+// ✅ 推荐：显式声明接口
+export interface ModelViewerProps {
+  modelUrl: string;
+  onLoad?: () => void;
+  onError?: (error: Error) => void;
+}
+
+// ❌ 避免：内部属性泄漏
+export interface ModelViewerProps {
+  // 内部属性不应暴露
+  _internalRef?: React.RefObject<any>;
+}
+```
+
+### 7.3 版本兼容
+
+```typescript
+// ✅ 推荐：添加废弃标记
+/**
+ * @deprecated Use `useNewAuth` instead
+ */
+export function useAuth(): AuthContext {
+  // ...
+}
+
+// ✅ 推荐：类型兼容
+type LegacyProps = NewProps & {
+  legacyField?: string;
+};
+```
+
+---
+
+## 八、代码复用规范
+
+### 8.1 复用优先级
+
+```
+优先级（从高到低）：
+1. Hook复用 → useXxx.ts
+2. 工具函数复用 → utils/
+3. 组件复用 → components/common/
+4. 样式复用 → CSS变量 + Tailwind
+5. 复制粘贴 → 最后手段
+```
+
+### 8.2 Hook 提取时机
+
+```
+需要提取为Hook的情况：
+├── 超过 2 个 useState
+├── 超过 1 个 useEffect
+├── 有副作用逻辑
+├── 需要复用状态逻辑
+└── 超过 20 行相关代码
+```
+
+### 8.3 工具函数提取时机
+
+```
+需要提取为工具函数的情况：
+├── 超过 3 处使用
+├── 纯函数无副作用
+├── 独立可测试
+└── 超过 10 行代码
+```
+
+---
+
+## 九、文件命名规范
+
+### 9.1 命名约定
+
+| 类型 | 规范 | 示例 |
+|:---|:---|:---|
+| 组件文件 | PascalCase + 组件名 | `ModelViewer.tsx` |
+| Hook文件 | use + 功能名 | `useModelLoader.ts` |
+| 工具文件 | 功能名 | `formatDate.ts` |
+| 类型文件 | 类型名.types.ts | `user.types.ts` |
+| 测试文件 | 原文件名.test.tsx | `ModelViewer.test.tsx` |
+| 样式文件 | 同名.module.css | `ModelViewer.module.css` |
+
+### 9.2 目录命名
+
+```
+目录命名规则：
+├── components: 复数形式 (components)
+├── hooks: 复数形式 (hooks)
+├── pages: 复数形式 (pages)
+├── 功能模块: 单数形式 (auth, model, gallery)
+└── 测试文件: __tests__ 或 .test.tsx
+```
+
+---
+
+## 十、检查清单
+
+### 创建文件前检查
+
+```
+✅ 文件大小检查
+   ├── 预估行数 < 300？
+   ├── 是否需要拆分？
+
+✅ 复用检查
+   ├── 是否有现成组件？
+   ├── 是否需要提取Hook？
+   ├── 是否有可复用工具函数？
+
+✅ 命名检查
+   ├── 符合命名规范？
+   ├── 不会被其他名称混淆？
+
+✅ 依赖检查
+   ├── 是否产生循环依赖？
+   ├── 依赖方向是否正确？
+   ├── 是否需要新建目录？
+```
+
+### 代码审查检查
+
+```
+✅ 模块化检查
+   ├── 文件是否过大？
+   ├── 函数是否过长？
+   ├── 是否违反单一职责？
+
+✅ 可维护性检查
+   ├── 修改是否影响其他模块？
+   ├── 是否有隐藏的耦合？
+   ├── 是否便于单独测试？
+
+✅ 命名检查
+   ├── 命名是否清晰？
+   ├── 是否符合规范？
+```
+
+---
+
+## 十一、违规处理
+
+```
+违规级别：
+
+🔴 P0 - 必须立即修复
+├── 循环依赖
+├── 文件超过 500 行
+└── 严重内存泄漏
+
+🟠 P1 - 下一版本修复
+├── 文件超过 300 行
+├── 函数超过 50 行
+└── 缺少类型定义
+
+🟡 P2 - 计划优化
+├── 代码重复 > 3处
+├── 命名不规范
+└── 缺少注释
+```
+
+---
+
+## 十二、相关文档
+
+| 文档 | 位置 | 说明 |
+|:---|:---|:---|
+| 根目录规范 | `docs/09-规范标准/根目录规范.md` | 根目录文件管理 |
+| 文档组织规范 | `docs/09-规范标准/文档组织规范.md` | 文档目录结构 |
+| React-3D核心实现方案 | `docs/03-技术文档/React-3D核心实现方案.md` | 3D技术实现 |
+
+---
+
+**执行规则**: 每次创建/修改代码文件前，必须检查本规范并确保遵守。遇到不明确的情况，先拆分再优化。

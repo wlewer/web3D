@@ -1,0 +1,54 @@
+/* ============================================
+   SuperSplat Viewer 组件样式
+   ============================================ */
+
+.supersplat-viewer-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background: #0f0f23;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.supersplat-viewer-content {
+  width: 100%;
+  height: 100%;
+}
+
+.supersplat-viewer-content iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: inherit;
+}
+
+/* 加载状态 */
+.supersplat-viewer-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+  color: #667eea;
+  font-size: 1rem;
+}
+
+.supersplat-viewer-loading::after {
+  content: '';
+  width: 24px;
+  height: 24px;
+  margin-left: 12px;
+  border: 3px solid rgba(102, 126, 234, 0.3);
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: supersplat-spin 1s linear infinite;
+}
+
+@keyframes supersplat-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
