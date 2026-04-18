@@ -147,6 +147,72 @@ export const zhCN = {
     likes: '点赞',
     downloads: '下载',
   },
+
+  // 编辑器
+  editor: {
+    title: 'SmartAI 3D 编辑器',
+    titleShort: '编辑器',
+    selectModel: '选择模型',
+    view: '查看',
+    edit: '编辑',
+    optimize: '优化',
+    settings: '设置',
+    export: '导出',
+    tools: '操作工具',
+    renderPresets: '渲染预设',
+    rotation: '旋转控制',
+    autoRotate: '自动旋转',
+    performance: '性能监控',
+    quickActions: '快捷操作',
+    shortcuts: '快捷键',
+    techInfo: '技术信息',
+    modelLibrary: '模型库',
+    renderSettings: '渲染设置',
+    fieldOfView: '视野角度 (FOV)',
+    cameraDistance: '相机距离',
+    backgroundColor: '背景颜色',
+    transparentBg: '透明背景',
+    mode: '模式',
+    // 工具
+    toolMove: '移动',
+    toolRotate: '旋转',
+    toolScale: '缩放',
+    toolBoxSelect: '框选',
+    toolBrushSelect: '画笔选择',
+    toolMeasure: '测量',
+    // 渲染预设
+    presetDefault: '默认设置',
+    presetTransparency: '透明背景',
+    presetStudio: '影棚效果',
+    presetPresentation: '演示模式',
+    // 状态
+    loading3d: '正在加载3D模型...',
+    selectModelToStart: '选择3D模型开始编辑',
+    browseModelLibrary: '浏览模型库',
+    clickToLoad: '点击左侧「选择模型」按钮加载示例模型',
+    // 操作
+    pauseRotation: '暂停旋转',
+    startRotation: '开始旋转',
+    exportModel: '导出模型',
+    officialEditor: '官方编辑器',
+    poweredBy: '基于',
+    // 快捷键
+    shortcutAutoRotate: '自动旋转',
+    shortcutResetView: '重置视角',
+    shortcutFocusModel: '聚焦模型',
+    shortcutDeselect: '取消选择',
+    // 技术信息
+    engine: 'Engine',
+    renderer: 'Renderer',
+    format: 'Format',
+    license: 'License',
+    // 分类
+    category: '分类',
+    animal: '动物',
+    food: '美食',
+    tech: '科技',
+    scene: '场景',
+  },
 };
 
 export type Translations = typeof zhCN;

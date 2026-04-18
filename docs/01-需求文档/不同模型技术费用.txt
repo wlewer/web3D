@@ -70,8 +70,12 @@ https://github.com/VAST-AI-Research/TripoSR
 https://superspl.at/
 https://github.com/alicevision/meshroom/releases
 
+https://8thwall.org/?site_path=visionaries777%2Fcandela-gallery
+https://github.com/8thwall/8thwall
+
 https://github.com/VAST-AI-Research/TripoSR
 腾讯混元世界模型
 https://github.com/Tencent-Hunyuan/HY-World-2.0
 多视图输入生成 3D 资产(2-4 张图片)
 https://github.com/Tencent/Hunyuan3D-2。
+这是所有关于3D技术效果渲染的开源技术社区。必须咱们融合好技术打造最强最专业的技术；

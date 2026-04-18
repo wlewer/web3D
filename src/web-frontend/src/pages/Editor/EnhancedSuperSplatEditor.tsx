@@ -336,7 +336,7 @@ export function EnhancedSuperSplatEditor() {
         <div className="toolbar-left">
           <div className="brand">
             <span className="brand-icon">🎨</span>
-            <span className="brand-name">SmartAI 3D Editor</span>
+            <span className="brand-name">{t.editor.title}</span>
           </div>
         </div>
         
@@ -346,7 +346,7 @@ export function EnhancedSuperSplatEditor() {
             className="toolbar-btn"
             onClick={() => setShowTemplatePanel(!showTemplatePanel)}
           >
-            📁 {language === 'zh' ? '选择模型' : 'Select Model'}
+            📁 {t.editor.selectModel}
           </button>
           
           {/* 编辑器模式 */}
@@ -355,19 +355,19 @@ export function EnhancedSuperSplatEditor() {
               className={`mode-btn ${editorMode === 'view' ? 'active' : ''}`}
               onClick={() => setEditorMode('view')}
             >
-              👁️ {language === 'zh' ? '查看' : 'View'}
+              👁️ {t.editor.view}
             </button>
             <button 
               className={`mode-btn ${editorMode === 'edit' ? 'active' : ''}`}
               onClick={() => setEditorMode('edit')}
             >
-              ✏️ {language === 'zh' ? '编辑' : 'Edit'}
+              ✏️ {t.editor.edit}
             </button>
             <button 
               className={`mode-btn ${editorMode === 'optimize' ? 'active' : ''}`}
               onClick={() => setEditorMode('optimize')}
             >
-              ⚡ {language === 'zh' ? '优化' : 'Optimize'}
+              ⚡ {t.editor.optimize}
             </button>
           </div>
         </div>
@@ -378,7 +378,7 @@ export function EnhancedSuperSplatEditor() {
             className="toolbar-btn"
             onClick={() => setShowSettingsPanel(!showSettingsPanel)}
           >
-            ⚙️ {language === 'zh' ? '设置' : 'Settings'}
+            ⚙️ {t.editor.settings}
           </button>
           
           {/* 导出 */}
@@ -387,7 +387,7 @@ export function EnhancedSuperSplatEditor() {
             onClick={handleExport}
             disabled={!currentModel}
           >
-            📤 {language === 'zh' ? '导出' : 'Export'}
+            📤 {t.editor.export}
           </button>
         </div>
       </div>
@@ -397,31 +397,31 @@ export function EnhancedSuperSplatEditor() {
         {/* 左侧工具面板 */}
         <div className="left-panel">
           <div className="panel-section">
-            <h3>{language === 'zh' ? '操作工具' : 'Tools'}</h3>
+            <h3>{t.editor.tools}</h3>
             <div className="tool-grid">
-              <button className="tool-btn" title={language === 'zh' ? '移动' : 'Move'}>
+              <button className="tool-btn" title={t.editor.toolMove}>
                 <span>⬆️</span>
               </button>
-              <button className="tool-btn" title={language === 'zh' ? '旋转' : 'Rotate'}>
+              <button className="tool-btn" title={t.editor.toolRotate}>
                 <span>🔄</span>
               </button>
-              <button className="tool-btn" title={language === 'zh' ? '缩放' : 'Scale'}>
+              <button className="tool-btn" title={t.editor.toolScale}>
                 <span>📏</span>
               </button>
-              <button className="tool-btn" title={language === 'zh' ? '框选' : 'Box Select'}>
+              <button className="tool-btn" title={t.editor.toolBoxSelect}>
                 <span>⬜</span>
               </button>
-              <button className="tool-btn" title={language === 'zh' ? '画笔选择' : 'Brush Select'}>
+              <button className="tool-btn" title={t.editor.toolBrushSelect}>
                 <span>🖌️</span>
               </button>
-              <button className="tool-btn" title={language === 'zh' ? '测量' : 'Measure'}>
+              <button className="tool-btn" title={t.editor.toolMeasure}>
                 <span>📐</span>
               </button>
             </div>
           </div>
 
           <div className="panel-section">
-            <h3>{language === 'zh' ? '渲染预设' : 'Render Presets'}</h3>
+            <h3>{t.editor.renderPresets}</h3>
             <div className="preset-list">
               {RENDER_PRESETS.map(preset => (
                 <button
@@ -437,7 +437,7 @@ export function EnhancedSuperSplatEditor() {
           </div>
 
           <div className="panel-section">
-            <h3>{language === 'zh' ? '旋转控制' : 'Rotation'}</h3>
+            <h3>{t.editor.rotation}</h3>
             <div className="rotation-control">
               <label>
                 <input
@@ -445,7 +445,7 @@ export function EnhancedSuperSplatEditor() {
                   checked={autoRotate}
                   onChange={(e) => setAutoRotate(e.target.checked)}
                 />
-                {language === 'zh' ? '自动旋转' : 'Auto Rotate'}
+                {t.editor.autoRotate}
               </label>
               <input
                 type="range"
@@ -471,7 +471,7 @@ export function EnhancedSuperSplatEditor() {
               <div className="loading-progress">
                 <div className="progress-bar" style={{ width: `${loadingProgress}%` }}></div>
               </div>
-              <p>{language === 'zh' ? '正在加载3D模型...' : 'Loading 3D Model...'}</p>
+              <p>{t.editor.loading3d}</p>
             </div>
           )}
 
@@ -479,13 +479,13 @@ export function EnhancedSuperSplatEditor() {
           {!currentModel && !isLoading && (
             <div className="empty-state">
               <div className="empty-icon">🎯</div>
-              <h2>{language === 'zh' ? '选择3D模型开始编辑' : 'Select a 3D Model to Start'}</h2>
-              <p>{language === 'zh' ? '点击左侧「选择模型」按钮加载示例模型' : 'Click "Select Model" on the left to load sample models'}</p>
+              <h2>{t.editor.selectModelToStart}</h2>
+              <p>{t.editor.clickToLoad}</p>
               <button 
                 className="btn-primary"
                 onClick={() => setShowTemplatePanel(true)}
               >
-                {language === 'zh' ? '浏览模型库' : 'Browse Model Library'}
+                {t.editor.browseModelLibrary}
               </button>
             </div>
           )}
@@ -518,18 +518,18 @@ export function EnhancedSuperSplatEditor() {
         <div className="right-panel">
           {/* 性能监控 */}
           <div className="panel-section performance">
-            <h3>⚡ {language === 'zh' ? '性能监控' : 'Performance'}</h3>
+            <h3>⚡ {t.editor.performance}</h3>
             <div className="perf-grid">
               <div className="perf-item">
                 <span className="perf-label">FPS</span>
                 <span className="perf-value">{performanceStats.fps}</span>
               </div>
               <div className="perf-item">
-                <span className="perf-label">{language === 'zh' ? '高斯点' : 'Splats'}</span>
+                <span className="perf-label">{t.editor.performance === '性能监控' ? '高斯点' : 'Splats'}</span>
                 <span className="perf-value">{(performanceStats.splats / 1000000).toFixed(1)}M</span>
               </div>
               <div className="perf-item">
-                <span className="perf-label">{language === 'zh' ? '内存' : 'Memory'}</span>
+                <span className="perf-label">{t.editor.performance === '性能监控' ? '内存' : 'Memory'}</span>
                 <span className="perf-value">{performanceStats.memory}</span>
               </div>
             </div>
@@ -537,54 +537,54 @@ export function EnhancedSuperSplatEditor() {
 
           {/* 快捷操作 */}
           <div className="panel-section">
-            <h3>🚀 {language === 'zh' ? '快捷操作' : 'Quick Actions'}</h3>
+            <h3>🚀 {t.editor.quickActions}</h3>
             <div className="quick-actions">
               <button className="action-btn" onClick={() => setAutoRotate(!autoRotate)}>
-                {autoRotate ? '⏸️ 暂停旋转' : '▶️ 开始旋转'}
+                {autoRotate ? '⏸️ ' + (t.editor.performance === '性能监控' ? '暂停旋转' : 'Pause Rotation') : '▶️ ' + (t.editor.performance === '性能监控' ? '开始旋转' : 'Start Rotation')}
               </button>
               <button className="action-btn" onClick={handleExport} disabled={!currentModel}>
-                📥 {language === 'zh' ? '导出模型' : 'Export Model'}
+                📥 {t.editor.exportModel}
               </button>
               <button className="action-btn" onClick={openOfficialEditor}>
-                🌐 {language === 'zh' ? '官方编辑器' : 'Official Editor'}
+                🌐 {t.editor.officialEditor}
               </button>
             </div>
           </div>
 
           {/* 键盘快捷键 */}
           <div className="panel-section">
-            <h3>⌨️ {language === 'zh' ? '快捷键' : 'Shortcuts'}</h3>
+            <h3>⌨️ {t.editor.shortcuts}</h3>
             <div className="shortcut-list">
               <div className="shortcut">
                 <kbd>Space</kbd>
-                <span>{language === 'zh' ? '自动旋转' : 'Auto Rotate'}</span>
+                <span>{t.editor.shortcutAutoRotate}</span>
               </div>
               <div className="shortcut">
                 <kbd>R</kbd>
-                <span>{language === 'zh' ? '重置视角' : 'Reset View'}</span>
+                <span>{t.editor.shortcutResetView}</span>
               </div>
               <div className="shortcut">
                 <kbd>F</kbd>
-                <span>{language === 'zh' ? '聚焦模型' : 'Focus Model'}</span>
+                <span>{t.editor.shortcutFocusModel}</span>
               </div>
               <div className="shortcut">
                 <kbd>Esc</kbd>
-                <span>{language === 'zh' ? '取消选择' : 'Deselect'}</span>
+                <span>{t.editor.shortcutDeselect}</span>
               </div>
             </div>
           </div>
 
           {/* 技术信息 */}
           <div className="panel-section tech-info">
-            <h3>🔧 {language === 'zh' ? '技术信息' : 'Tech Info'}</h3>
+            <h3>🔧 {t.editor.techInfo}</h3>
             <div className="tech-details">
-              <p><strong>Engine:</strong> PlayCanvas (MIT)</p>
-              <p><strong>Renderer:</strong> WebGL 2.0</p>
-              <p><strong>Format:</strong> 3DGS (.splat)</p>
-              <p><strong>License:</strong> MIT</p>
+              <p><strong>{t.editor.engine}:</strong> PlayCanvas (MIT)</p>
+              <p><strong>{t.editor.renderer}:</strong> WebGL 2.0</p>
+              <p><strong>{t.editor.format}:</strong> 3DGS (.splat)</p>
+              <p><strong>{t.editor.license}:</strong> MIT</p>
             </div>
             <div className="powered-by">
-              <span>{language === 'zh' ? '基于' : 'Powered by'}</span>
+              <span>{t.editor.poweredBy}</span>
               <a href="https://github.com/playcanvas/supersplat" target="_blank" rel="noopener noreferrer">
                 SuperSplat Editor
               </a>
@@ -597,7 +597,7 @@ export function EnhancedSuperSplatEditor() {
       {showTemplatePanel && (
         <div className="template-panel">
           <div className="template-header">
-            <h2>📦 {language === 'zh' ? '模型库' : 'Model Library'}</h2>
+            <h2>📦 {t.editor.modelLibrary}</h2>
             <button className="close-btn" onClick={() => setShowTemplatePanel(false)}>×</button>
           </div>
           <div className="template-grid">
@@ -611,7 +611,7 @@ export function EnhancedSuperSplatEditor() {
                 <div className="template-info">
                   <h4>{language === 'zh' ? model.name : model.nameEn}</h4>
                   <p>{language === 'zh' ? model.description : model.descriptionEn}</p>
-                  <span className="template-category">{model.category}</span>
+                  <span className="template-category">{t.editor[model.category as keyof typeof t.editor] || model.category}</span>
                 </div>
               </div>
             ))}
@@ -623,12 +623,12 @@ export function EnhancedSuperSplatEditor() {
       {showSettingsPanel && (
         <div className="settings-panel">
           <div className="settings-header">
-            <h2>⚙️ {language === 'zh' ? '渲染设置' : 'Render Settings'}</h2>
+            <h2>⚙️ {t.editor.renderSettings}</h2>
             <button className="close-btn" onClick={() => setShowSettingsPanel(false)}>×</button>
           </div>
           <div className="settings-content">
             <div className="setting-group">
-              <label>{language === 'zh' ? '视野角度 (FOV)' : 'Field of View'}</label>
+              <label>{t.editor.fieldOfView}</label>
               <input 
                 type="range" 
                 min="20" 
@@ -639,7 +639,7 @@ export function EnhancedSuperSplatEditor() {
               <span>{renderPreset.fov}°</span>
             </div>
             <div className="setting-group">
-              <label>{language === 'zh' ? '相机距离' : 'Camera Distance'}</label>
+              <label>{t.editor.cameraDistance}</label>
               <input 
                 type="range" 
                 min="1" 
@@ -651,7 +651,7 @@ export function EnhancedSuperSplatEditor() {
               <span>{renderPreset.cameraDistance.toFixed(1)}</span>
             </div>
             <div className="setting-group">
-              <label>{language === 'zh' ? '背景颜色' : 'Background Color'}</label>
+              <label>{t.editor.backgroundColor}</label>
               <input 
                 type="color" 
                 value={renderPreset.backgroundColor === 'transparent' ? '#1a1a2e' : renderPreset.backgroundColor}
@@ -668,7 +668,7 @@ export function EnhancedSuperSplatEditor() {
                     backgroundColor: e.target.checked ? 'transparent' : '#1a1a2e'
                   })}
                 />
-                {language === 'zh' ? '透明背景' : 'Transparent Background'}
+                {t.editor.transparentBg}
               </label>
             </div>
           </div>
@@ -679,12 +679,12 @@ export function EnhancedSuperSplatEditor() {
       <div className="editor-status-bar">
         <div className="status-left">
           <span className="status-item">
-            🎨 SmartAI 3D Editor
+            🎨 {t.editor.title}
           </span>
           <span className="status-item">
-            | {language === 'zh' ? '模式' : 'Mode' }: {editorMode === 'view' ? (language === 'zh' ? '查看' : 'View') : 
-             editorMode === 'edit' ? (language === 'zh' ? '编辑' : 'Edit') : 
-             (language === 'zh' ? '优化' : 'Optimize')}
+            | {t.editor.mode}: {editorMode === 'view' ? t.editor.view : 
+             editorMode === 'edit' ? t.editor.edit : 
+             t.editor.optimize}
           </span>
         </div>
         <div className="status-right">
