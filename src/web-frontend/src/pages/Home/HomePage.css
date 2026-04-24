@@ -4,9 +4,8 @@
 
 /* 全屏页面布局 */
 .home-page-fullscreen {
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  width: 100%;
+  min-height: 100vh;
   background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
   position: relative;
 }
@@ -16,8 +15,9 @@
    ============================================ */
 .fullscreen-3d-container {
   width: 100%;
-  height: 100%;
+  height: 100vh;
   position: relative;
+  overflow: hidden; /* 防止内容溢出 */
 }
 
 .fullscreen-3d-viewer {
@@ -183,12 +183,19 @@
    ============================================ */
 .bottom-left-hint {
   position: absolute;
-  bottom: 100px;
+  bottom: 90px; /* 从30px改为90px，向上移动60px */
   left: 30px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  z-index: 100;
+  z-index: 110; /* 确保在导航栏之上，绝对不会被遮挡 */
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.bottom-left-hint.hidden {
+  opacity: 0;
+  transform: translateX(-20px);
+  pointer-events: none;
 }
 
 .hint-badge-glass {
@@ -236,19 +243,26 @@
    ============================================ */
 .bottom-right-info {
   position: absolute;
-  bottom: 100px;
+  bottom: 90px; /* 从30px改为90px，向上移动60px */
   right: 30px;
   width: 320px;
   padding: 20px;
-  background: rgba(15, 15, 35, 0.8);
-  border: 1px solid rgba(102, 126, 234, 0.3);
+  background: rgba(15, 15, 35, 0.85);
+  border: 1px solid rgba(102, 126, 234, 0.4);
   border-radius: 16px;
-  backdrop-filter: blur(15px);
-  z-index: 100;
+  backdrop-filter: blur(20px);
+  z-index: 110; /* 确保在导航栏之上，绝对不会被遮挡 */
   transition: all 0.5s ease;
   box-shadow: 
-    0 0 40px rgba(102, 126, 234, 0.2),
-    inset 0 0 30px rgba(102, 126, 234, 0.05);
+    0 0 40px rgba(102, 126, 234, 0.3),
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 0 30px rgba(102, 126, 234, 0.1);
+}
+
+.bottom-right-info.hidden {
+  opacity: 0;
+  transform: translateX(20px);
+  pointer-events: none;
 }
 
 .bottom-right-info.transitioning {
@@ -296,60 +310,134 @@
   color: #667eea;
 }
 
+.products-tag {
+  background: rgba(102, 126, 234, 0.3);
+  border-color: #667eea;
+  animation: pulse-tag 2s ease-in-out infinite;
+}
+
+@keyframes pulse-tag {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
 /* ============================================
-   底部快捷操作栏
+   左侧快捷操作栏 - 垂直布局
    ============================================ */
 .bottom-action-bar {
   position: absolute;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 30px;
+  top: calc(50% - 60px); /* 向上移动60px */
+  transform: translateY(-50%);
   display: flex;
-  gap: 16px;
-  z-index: 100;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 110; /* 确保在导航栏之上，绝对不会被遮挡 */
+  transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
+.bottom-action-bar.hidden {
+  opacity: 0;
+  transform: translateY(-50%) translateX(-20px);
+  pointer-events: none;
+}
+
+/* 按钮组容器 */
+.action-bar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 主要功能按钮 */
 .action-btn-primary,
-.action-btn-secondary {
+.action-btn-secondary,
+.action-btn-tertiary {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 14px 28px;
-  border-radius: 30px;
-  font-size: 14px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
+  white-space: nowrap;
+  min-width: 160px;
+  text-align: left;
+  border: 1px solid rgba(102, 126, 234, 0.3);
 }
 
+/* 主要按钮 */
 .action-btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%);
   color: white;
   box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+  border: none;
 }
 
 .action-btn-primary:hover {
-  transform: translateY(-3px);
+  transform: translateX(5px);
   box-shadow: 0 8px 30px rgba(102, 126, 234, 0.5);
 }
 
+/* 次要按钮 */
 .action-btn-secondary {
-  background: rgba(15, 15, 35, 0.7);
-  border: 1px solid rgba(102, 126, 234, 0.3);
+  background: rgba(15, 15, 35, 0.8);
   color: white;
 }
 
 .action-btn-secondary:hover {
+  background: rgba(30, 30, 60, 0.9);
+  border-color: rgba(102, 126, 234, 0.6);
+  transform: translateX(5px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+/* 第三级按钮 */
+.action-btn-tertiary {
+  background: rgba(15, 15, 35, 0.6);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  padding: 12px 16px;
+}
+
+.action-btn-tertiary:hover {
   background: rgba(30, 30, 60, 0.8);
   border-color: rgba(102, 126, 234, 0.5);
-  transform: translateY(-2px);
+  transform: translateX(5px);
+  color: white;
+}
+
+/* 分组标题 */
+.action-group-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 0 8px;
+  margin-bottom: 4px;
+}
+
+/* 分隔线 */
+.action-bar-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.3), transparent);
+  margin: 4px 0;
 }
 
 /* ============================================
-   响应式设计
+   渐进式响应式设计 - 逐步隐藏非核心元素
+   目标：手机宽度只保留中心3D作品
    ============================================ */
+
+/* 1200px - 大屏桌面：完整显示 */
 @media (max-width: 1200px) {
   .bottom-right-info {
     width: 280px;
@@ -360,70 +448,559 @@
   .model-name-glass {
     font-size: 1.1rem;
   }
+
+  .bottom-action-bar {
+    left: 20px;
+  }
+  
+  .action-btn-primary,
+  .action-btn-secondary {
+    padding: 12px 16px;
+    font-size: 12px;
+    min-width: 140px;
+  }
 }
 
+/* 992px - 平板/小桌面：隐藏第三级按钮 */
+@media (max-width: 992px) {
+  .bottom-action-bar {
+    left: 20px;
+    top: auto;
+    bottom: 100px;
+    transform: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    max-width: calc(100% - 40px);
+    gap: 10px;
+  }
+  
+  .action-bar-group {
+    flex-direction: row;
+    gap: 10px;
+  }
+  
+  /* 隐藏第三级按钮(showcase, book等) */
+  .action-btn-tertiary {
+    display: none;
+  }
+  
+  .action-group-label,
+  .action-bar-divider {
+    display: none;
+  }
+  
+  .action-btn-primary,
+  .action-btn-secondary {
+    min-width: auto;
+    padding: 12px 16px;
+    font-size: 12px;
+  }
+}
+
+/* 768px - 大屏手机：隐藏次要按钮，只保留核心操作 */
 @media (max-width: 768px) {
   .top-info-bar {
-    padding: 0 16px;
-    height: 60px;
+    padding: 0 12px;
+    height: 50px;
   }
   
   .brand-name {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
   
   .brand-tagline {
     display: none;
   }
   
-  .bottom-right-info {
-    left: 16px;
-    right: 16px;
-    width: auto;
-    bottom: 90px;
-  }
-  
+  /* 隐藏左下角提示 */
   .bottom-left-hint {
-    left: 16px;
-    bottom: 90px;
+    display: none;
   }
   
+  /* 隐藏右下角模型详情 */
+  .bottom-right-info {
+    display: none;
+  }
+  
+  /* 只保留核心操作按钮 */
   .bottom-action-bar {
-    flex-wrap: wrap;
+    left: 50%;
+    top: auto;
+    bottom: 20px;
+    transform: translateX(-50%);
+    flex-direction: row;
     justify-content: center;
-    width: calc(100% - 32px);
-    gap: 10px;
+    max-width: 90%;
+    gap: 8px;
+    z-index: 110;
+    background: rgba(15, 15, 35, 0.8);
+    padding: 8px 12px;
+    border-radius: 30px;
+    backdrop-filter: blur(10px);
   }
   
-  .action-btn-primary,
-  .action-btn-secondary {
-    padding: 12px 20px;
-    font-size: 13px;
-  }
-}
-
-@media (max-width: 480px) {
-  .top-model-switcher {
-    padding: 6px 12px;
+  /* 只显示"开始创作"按钮 */
+  .action-bar-group {
+    flex-direction: row;
     gap: 8px;
   }
   
+  /* 隐藏次要和第三级按钮 */
+  .action-btn-secondary,
+  .action-btn-tertiary {
+    display: none;
+  }
+  
+  .action-btn-primary {
+    padding: 10px 20px;
+    font-size: 12px;
+    min-width: auto;
+    flex: 1;
+    justify-content: center;
+    white-space: nowrap;
+  }
+  
+  .action-group-label,
+  .action-bar-divider {
+    display: none;
+  }
+}
+
+/* 480px - 标准手机：只保留3D作品，按钮更小 */
+@media (max-width: 480px) {
+  .top-model-switcher {
+    padding: 4px 8px;
+    gap: 4px;
+  }
+  
   .top-model-dots {
-    gap: 6px;
+    gap: 3px;
   }
   
   .top-model-dot {
-    width: 10px;
-    height: 10px;
+    width: 6px;
+    height: 6px;
   }
   
-  .bottom-action-bar {
-    bottom: 20px;
-  }
-  
-  .action-btn-primary,
-  .action-btn-secondary {
-    padding: 10px 16px;
+  .top-switch-btn {
+    width: 24px;
+    height: 24px;
     font-size: 12px;
   }
+  
+  .top-autoplay-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+  
+  /* 底部操作栏更紧凑 */
+  .bottom-action-bar {
+    bottom: 15px;
+    padding: 6px 10px;
+    gap: 6px;
+  }
+  
+  .action-btn-primary {
+    padding: 8px 16px;
+    font-size: 11px;
+  }
+}
+
+/* 375px - iPhone SE/小屏手机：极致精简 */
+@media (max-width: 375px) {
+  /* 隐藏顶部模型切换器 */
+  .top-model-switcher {
+    display: none;
+  }
+  
+  .top-autoplay-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+  
+  /* 底部只保留一个最小按钮 */
+  .bottom-action-bar {
+    bottom: 10px;
+    padding: 5px 8px;
+  }
+  
+  .action-btn-primary {
+    padding: 8px 14px;
+    font-size: 10px;
+  }
+}
+
+/* ============================================
+   官方模型作品集区域
+   ============================================ */
+.official-models-section {
+  background: linear-gradient(180deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  padding: 60px 20px;
+  min-height: 100vh;
+}
+
+.section-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.section-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 12px;
+}
+
+.section-subtitle {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 分类筛选器 */
+.category-filters {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+}
+
+.category-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: rgba(102, 126, 234, 0.1);
+  border: 2px solid rgba(102, 126, 234, 0.2);
+  border-radius: 30px;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.category-btn:hover {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: rgba(102, 126, 234, 0.5);
+  transform: translateY(-2px);
+}
+
+.category-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: transparent;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+}
+
+.category-btn .cat-icon {
+  font-size: 1.2rem;
+}
+
+.category-btn .count {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+}
+
+/* 模型网格 */
+.models-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* 模型详情弹窗 */
+.model-detail-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(10px);
+}
+
+.modal-content {
+  position: relative;
+  width: 90%;
+  max-width: 900px;
+  height: 80vh;
+  background: linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(22, 33, 62, 0.95) 100%);
+  border-radius: 24px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.3s ease;
+}
+
+.modal-close:hover {
+  background: rgba(239, 68, 68, 0.8);
+  transform: rotate(90deg);
+}
+
+.modal-3d-viewer {
+  flex: 1;
+  min-height: 0;
+}
+
+.modal-info {
+  padding: 24px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.modal-info h3 {
+  font-size: 1.5rem;
+  color: white;
+  margin-bottom: 8px;
+}
+
+.modal-info p {
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 20px;
+}
+
+.modal-action-btn {
+  padding: 12px 32px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 30px;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.modal-action-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.5);
+}
+
+/* 官方模型作品集区域响应式 */
+@media (max-width: 768px) {
+  .official-models-section {
+    padding: 40px 16px;
+  }
+  
+  .section-title {
+    font-size: 1.8rem;
+  }
+  
+  .category-filters {
+    gap: 8px;
+  }
+  
+  .category-btn {
+    padding: 8px 14px;
+    font-size: 0.85rem;
+  }
+  
+  .models-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+  }
+  
+  .modal-content {
+    width: 95%;
+    height: 90vh;
+  }
+}
+
+/* ============================================
+   3D车间嵌入模块样式
+   ============================================ */
+.workshop-embedded-section {
+  width: 100%;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #16213e 0%, #0f0f23 100%);
+  padding: 0; /* 去掉内边距，让内容填满 */
+  position: relative;
+  border-top: 2px solid rgba(102, 126, 234, 0.3);
+}
+
+.workshop-embedded-container {
+  width: 100%;
+  height: 100vh; /* 填满整个视口高度 */
+  border-radius: 0; /* 去掉圆角 */
+  overflow: hidden;
+  box-shadow: none; /* 去掉阴影 */
+  border: none; /* 去掉边框 */
+}
+
+@media (max-width: 768px) {
+  .workshop-embedded-container {
+    height: 100vh;
+  }
+}
+
+/* ============================================
+   全景图切换按钮和选择器
+   ============================================ */
+
+.panorama-switch-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 150;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.panorama-switch-btn:hover {
+  background: rgba(102, 126, 234, 0.8);
+  border-color: rgba(102, 126, 234, 1);
+  transform: translateY(-2px);
+}
+
+.panorama-selector {
+  position: absolute;
+  top: 70px;
+  right: 20px;
+  z-index: 160;
+  background: rgba(15, 15, 35, 0.95);
+  border: 1px solid rgba(102, 126, 234, 0.5);
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 320px;
+  max-height: 500px;
+  overflow-y: auto;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.panorama-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.panorama-selector-header h4 {
+  margin: 0;
+  color: #fff;
+  font-size: 16px;
+}
+
+.close-selector {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.3s ease;
+}
+
+.close-selector:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.panorama-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panorama-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.panorama-item:hover {
+  background: rgba(102, 126, 234, 0.2);
+  border-color: rgba(102, 126, 234, 0.5);
+  transform: translateX(4px);
+}
+
+.panorama-item.active {
+  background: rgba(102, 126, 234, 0.3);
+  border-color: #667eea;
+}
+
+.panorama-preview {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.panorama-icon {
+  font-size: 32px;
+}
+
+.panorama-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.panorama-name {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.panorama-desc {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  line-height: 1.4;
 }
