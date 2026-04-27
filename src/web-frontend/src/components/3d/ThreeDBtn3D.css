@@ -1,0 +1,88 @@
+/* 3D 旋转按钮样式 */
+
+.three-d-btn-container {
+  position: relative;
+  width: 180px;
+  height: 60px;
+  perspective: 800px;
+}
+
+.three-d-btn-container.small {
+  width: 120px;
+  height: 45px;
+}
+
+.three-d-btn-container.medium {
+  width: 180px;
+  height: 60px;
+}
+
+.three-d-btn-container.large {
+  width: 240px;
+  height: 75px;
+}
+
+.three-d-btn-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  border-radius: 12px;
+}
+
+.three-d-btn-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 16px;
+  font-weight: 600;
+  color: white;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.1s ease;
+  z-index: 1;
+}
+
+.three-d-btn-container.small .three-d-btn-label {
+  font-size: 13px;
+}
+
+.three-d-btn-container.medium .three-d-btn-label {
+  font-size: 16px;
+}
+
+.three-d-btn-container.large .three-d-btn-label {
+  font-size: 18px;
+}
+
+.three-d-btn-label.pressed {
+  transform: translate(-50%, -45%);
+}
+
+/* 悬停时的发光效果 */
+.three-d-btn-container::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.3), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.three-d-btn-container:hover::after {
+  opacity: 1;
+}
+
+/* 悬停时的阴影 */
+.three-d-btn-container:hover {
+  filter: drop-shadow(0 10px 30px rgba(102, 126, 234, 0.4));
+}

@@ -1,14 +1,20 @@
 /* 上传页面样式 */
 .upload-page {
   min-height: 100vh;
-  padding: 2rem;
+  display: flex;
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
 }
 
-.upload-container {
-  max-width: 800px;
-  margin: 0 auto;
+/* 左侧主内容区 */
+.upload-main {
+  flex: 1;
   padding: 2rem;
+  overflow-y: auto;
+}
+
+.upload-container {
+  max-width: 700px;
+  margin: 0 auto;
 }
 
 /* 头部 */
@@ -103,8 +109,8 @@
 
 .preview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.75rem;
 }
 
 .preview-item {
@@ -123,18 +129,21 @@
 
 .preview-remove {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: rgba(255, 0, 0, 0.8);
+  background: rgba(255, 0, 0, 0.85);
   border: none;
   color: white;
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .preview-item:hover .preview-remove {
@@ -143,9 +152,9 @@
 
 .preview-status {
   position: absolute;
-  bottom: 8px;
-  left: 8px;
-  font-size: 1.2rem;
+  bottom: 6px;
+  left: 6px;
+  font-size: 1rem;
 }
 
 /* 表单 */
@@ -154,13 +163,13 @@
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .form-group label {
   display: block;
   color: white;
-  font-size: 1rem;
+  font-size: 0.95rem;
   margin-bottom: 0.5rem;
   font-weight: 500;
 }
@@ -186,9 +195,14 @@
   background: rgba(255, 255, 255, 0.15);
 }
 
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
 .form-group textarea {
   resize: vertical;
-  min-height: 100px;
+  min-height: 80px;
 }
 
 .form-group select {
@@ -203,6 +217,12 @@
 }
 
 /* 开关 */
+.switch-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .switch {
   position: relative;
   display: inline-block;
@@ -246,6 +266,11 @@ input:checked + .slider {
 
 input:checked + .slider:before {
   transform: translateX(24px);
+}
+
+.switch-label {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
 }
 
 /* 消息 */
@@ -313,13 +338,471 @@ input:checked + .slider:before {
   to { transform: rotate(360deg); }
 }
 
+/* ============================================
+   右侧联系面板
+   ============================================ */
+.upload-sidebar {
+  width: 320px;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  background: rgba(15, 15, 35, 0.5);
+  border-left: 1px solid rgba(102, 126, 234, 0.2);
+  overflow-y: auto;
+}
+
+/* 联系我们卡片 */
+.contact-card {
+  padding: 1.5rem;
+  background: rgba(30, 30, 60, 0.6);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 16px;
+}
+
+.contact-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 1rem;
+}
+
+.contact-icon {
+  font-size: 1.3rem;
+}
+
+/* 微信区域 */
+.wechat-section {
+  text-align: center;
+}
+
+.wechat-qr-placeholder {
+  width: 140px;
+  height: 140px;
+  margin: 0 auto 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px dashed rgba(102, 126, 234, 0.4);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.wechat-icon {
+  font-size: 2.5rem;
+}
+
+.wechat-qr-placeholder p {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.wechat-number {
+  text-align: left;
+}
+
+.wechat-number label {
+  display: block;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.wechat-id-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: rgba(102, 126, 234, 0.15);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 8px;
+}
+
+.wechat-id-display span {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.copy-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  opacity: 0.7;
+  transition: opacity 0.3s;
+}
+
+.copy-btn:hover {
+  opacity: 1;
+}
+
+.contact-divider {
+  height: 1px;
+  background: rgba(102, 126, 234, 0.2);
+  margin: 1.25rem 0;
+}
+
+.contact-methods {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  transition: all 0.3s;
+}
+
+.contact-item:hover {
+  background: rgba(102, 126, 234, 0.15);
+  color: white;
+}
+
+.contact-item-icon {
+  font-size: 1.1rem;
+}
+
+/* AI客服卡片 */
+.ai-chat-card {
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.ai-chat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.25);
+}
+
+.ai-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.ai-avatar {
+  width: 40px;
+  height: 40px;
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+}
+
+.ai-info h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: white;
+}
+
+.ai-status {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: #4ade80;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  background: #4ade80;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.ai-chat-desc {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+  line-height: 1.4;
+}
+
+.ai-chat-btn {
+  width: 100%;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.ai-chat-btn:hover {
+  transform: scale(1.02);
+}
+
+.ai-chat-hint {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.75rem;
+  margin: 0.75rem 0 0;
+}
+
+/* 帮助指南卡片 */
+.help-card {
+  padding: 1.5rem;
+  background: rgba(30, 30, 60, 0.6);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 16px;
+}
+
+.help-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  margin: 0 0 1rem;
+}
+
+.help-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.help-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.help-list li:last-child {
+  border-bottom: none;
+}
+
+.help-num {
+  width: 22px;
+  height: 22px;
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #667eea;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   AI客服弹窗
+   ============================================ */
+.chat-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 2rem;
+  z-index: 1000;
+}
+
+.chat-modal {
+  width: 380px;
+  height: 520px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.chat-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: rgba(102, 126, 234, 0.15);
+  border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.chat-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: white;
+  font-weight: 600;
+}
+
+.ai-avatar-small {
+  font-size: 1.3rem;
+}
+
+.chat-modal-close {
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.chat-modal-close:hover {
+  background: rgba(255, 100, 100, 0.3);
+  color: white;
+}
+
+.chat-modal-body {
+  flex: 1;
+  padding: 1.25rem;
+  overflow-y: auto;
+}
+
+.chat-welcome {
+  text-align: center;
+  padding: 1.5rem;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.chat-welcome-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.chat-welcome p {
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.chat-suggestions h5 {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.suggestion-chip {
+  padding: 0.5rem 1rem;
+  background: rgba(102, 126, 234, 0.2);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 20px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.suggestion-chip:hover {
+  background: rgba(102, 126, 234, 0.3);
+  color: white;
+}
+
+.chat-note {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.chat-modal-footer {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: rgba(15, 15, 35, 0.5);
+  border-top: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.chat-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  color: white;
+  font-size: 0.95rem;
+}
+
+.chat-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.chat-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.chat-send-btn {
+  width: 42px;
+  height: 42px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-send-btn:hover {
+  transform: scale(1.1);
+}
+
 /* 响应式 */
+@media (max-width: 1024px) {
+  .upload-sidebar {
+    display: none;
+  }
+}
+
 @media (max-width: 640px) {
   .upload-page {
-    padding: 1rem;
+    flex-direction: column;
   }
   
-  .upload-container {
+  .upload-main {
     padding: 1rem;
   }
   

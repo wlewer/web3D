@@ -1,7 +1,7 @@
-// 画廊页面组件
-import { useState, useMemo, useRef, useEffect } from 'react';
+// 画廊页面组件 - 全屏3D卡片展示 + 左侧导航
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { Input, Spin } from 'antd';
-import { SearchOutlined, EyeOutlined, LikeOutlined, FireOutlined, StarOutlined, AppstoreOutlined, PlayCircleOutlined, PauseCircleOutlined } from '@ant-design/icons';
+import { SearchOutlined, EyeOutlined, LikeOutlined, AppstoreOutlined, PlayCircleOutlined, LeftOutlined, RightOutlined, HomeOutlined, FireOutlined, SettingOutlined, BoxPlotOutlined, CameraOutlined, RocketOutlined } from '@ant-design/icons';
 import { SparkViewer } from '../../components/3d';
 import { useTranslation } from '../../i18n';
 import { GALLERY_ITEMS, CATEGORIES, BOX_CATEGORIES } from './gallery.data';
@@ -9,10 +9,13 @@ import type { GalleryItem, GalleryFilter, BoxCategory } from './gallery.types';
 import './GalleryPage.css';
 
 const { Search } = Input;
-const ITEMS_PER_PAGE = 24;
+
+// 每页显示数量 - 2行4列
+const CARDS_PER_PAGE = 8;
 
 export function GalleryPage() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
+  const isZh = language === 'zh-CN';
   const [filter, setFilter] = useState<GalleryFilter>({
     category: undefined,
     boxType: undefined,
@@ -21,29 +24,7 @@ export function GalleryPage() {
   });
   const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
   const [loading, setLoading] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
-
-  // 翻译映射
-  const categoryLabels: Record<string, string> = {
-    all: t.gallery.categoryAll,
-    box: t.gallery.categoryBox,
-    model: t.gallery.categoryModel,
-    scene: t.gallery.categoryScene,
-    animation: t.gallery.categoryAnimation,
-  };
-
-  const sortLabels = {
-    recent: t.gallery.sortRecent,
-    popular: t.gallery.sortPopular,
-    likes: t.gallery.sortLikes,
-  };
-
-  // 精选作品（点赞最多的前4个）
-  const featuredItems = useMemo(() => {
-    return [...GALLERY_ITEMS]
-      .sort((a, b) => b.likes - a.likes)
-      .slice(0, 4);
-  }, []);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   // 统计数据
   const stats = useMemo(() => {
@@ -54,10 +35,33 @@ export function GalleryPage() {
       models: items.filter(i => i.category === 'model' && !i.boxType).length,
       scenes: items.filter(i => i.category === 'scene').length,
       animations: items.filter(i => i.category === 'animation').length,
-      totalViews: items.reduce((sum, i) => sum + i.views, 0),
-      totalLikes: items.reduce((sum, i) => sum + i.likes, 0),
     };
   }, []);
+
+  // 分类图标映射
+  const categoryIcons: Record<string, React.ReactNode> = {
+    all: <AppstoreOutlined />,
+    box: <BoxPlotOutlined />,
+    model: <CameraOutlined />,
+    scene: <HomeOutlined />,
+    animation: <RocketOutlined />,
+  };
+
+  // 分类标签
+  const categoryLabels: Record<string, string> = {
+    all: t.gallery.categoryAll,
+    box: t.gallery.categoryBox,
+    model: t.gallery.categoryModel,
+    scene: t.gallery.categoryScene,
+    animation: t.gallery.categoryAnimation,
+  };
+
+  // 排序选项
+  const sortLabels = {
+    recent: t.gallery.sortRecent,
+    popular: t.gallery.sortPopular,
+    likes: t.gallery.sortLikes,
+  };
 
   // 过滤和排序
   const filteredItems = useMemo(() => {
@@ -104,12 +108,28 @@ export function GalleryPage() {
     return items;
   }, [filter]);
 
-  // 当前显示的作品
-  const visibleItems = filteredItems.slice(0, visibleCount);
+  // 分页计算
+  const totalSlides = Math.ceil(filteredItems.length / CARDS_PER_PAGE);
+  const currentPageItems = filteredItems.slice(currentSlide * CARDS_PER_PAGE, (currentSlide + 1) * CARDS_PER_PAGE);
 
-  // 加载更多
-  const handleLoadMore = () => {
-    setVisibleCount(prev => Math.min(prev + ITEMS_PER_PAGE, filteredItems.length));
+  // 导航
+  const goPrev = () => setCurrentSlide(p => Math.max(0, p - 1));
+  const goNext = () => setCurrentSlide(p => Math.min(totalSlides - 1, p + 1));
+
+  // 分类切换
+  const handleCategoryChange = (category: string) => {
+    setFilter({
+      ...filter,
+      category: category === 'all' ? undefined : (category as any),
+      boxType: undefined,
+    });
+    setCurrentSlide(0);
+  };
+
+  // 搜索变化
+  const handleSearchChange = (value: string) => {
+    setFilter({ ...filter, search: value });
+    setCurrentSlide(0);
   };
 
   // 预览模型
@@ -134,7 +154,7 @@ export function GalleryPage() {
     return num.toString();
   };
 
-  // 获取分类标签颜色
+  // 获取分类颜色
   const getCategoryColor = (item: GalleryItem) => {
     if (item.boxType) {
       const colors: Record<string, string> = {
@@ -160,7 +180,7 @@ export function GalleryPage() {
     }
   };
 
-  // 获取分类标签文本
+  // 获取分类标签
   const getCategoryLabel = (item: GalleryItem) => {
     if (item.boxType) {
       const boxLabels: Record<string, string> = {
@@ -189,56 +209,51 @@ export function GalleryPage() {
   // 判断是否热门
   const isHot = (item: GalleryItem) => item.views > 5000 || item.likes > 400;
 
-  // 处理主分类切换
-  const handleCategoryChange = (category: string) => {
-    setFilter({
-      ...filter,
-      category: category === 'all' ? undefined : (category as any),
-      boxType: undefined,
-    });
-    setVisibleCount(ITEMS_PER_PAGE);
+  // 鼠标拖拽切换
+  const dragState = useRef({ isDragging: false, startX: 0, startSlide: 0 });
+  
+  const handleMouseDown = (e: React.MouseEvent) => {
+    dragState.current = { isDragging: true, startX: e.clientX, startSlide: currentSlide };
   };
-
-  // 处理盒子子分类切换
-  const handleBoxTypeChange = (boxType: string) => {
-    setFilter({
-      ...filter,
-      category: 'box',
-      boxType: boxType === 'all' ? undefined : (boxType as BoxCategory),
-    });
-    setVisibleCount(ITEMS_PER_PAGE);
+  
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!dragState.current.isDragging) return;
+    const deltaX = e.clientX - dragState.current.startX;
+    const threshold = 100; // 拖拽阈值
+    if (Math.abs(deltaX) > threshold) {
+      if (deltaX < 0 && currentSlide < totalSlides - 1) {
+        goNext();
+      } else if (deltaX > 0 && currentSlide > 0) {
+        goPrev();
+      }
+      dragState.current.isDragging = false;
+    }
+  };
+  
+  const handleMouseUp = () => {
+    dragState.current.isDragging = false;
   };
 
   return (
-    <div className="gallery-page">
-      {/* 紧凑头部 */}
-      <header className="gallery-header-compact">
-        <div className="gallery-header-row">
-          <div className="gallery-title-section">
-            <h1 className="gallery-title">{t.gallery.title}</h1>
-            <p className="gallery-subtitle">{t.gallery.subtitle}</p>
-          </div>
-          <Search
-            className="gallery-search-compact"
-            placeholder={t.gallery.search}
-            prefix={<SearchOutlined />}
-            value={filter.search}
-            onChange={(e) => setFilter({ ...filter, search: e.target.value })}
-            allowClear
-          />
-        </div>
-
-        {/* 分类筛选 */}
-        <div className="gallery-categories-compact">
+    <div className="gallery-page" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+      {/* 左侧导航栏 */}
+      <aside className="gallery-sidebar">
+        <div className="gallery-logo">✨</div>
+        <h1 className="gallery-sidebar-title">{isZh ? '画廊' : 'Gallery'}</h1>
+        
+        <nav className="gallery-nav">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.value}
-              className={`gallery-cat-btn ${(filter.category === cat.value || (cat.value === 'all' && !filter.category && !filter.boxType)) ? 'active' : ''}`}
+              className={`gallery-nav-btn ${(filter.category === cat.value || (cat.value === 'all' && !filter.category && !filter.boxType)) ? 'active' : ''}`}
               onClick={() => handleCategoryChange(cat.value)}
+              title={categoryLabels[cat.value] || cat.label}
             >
-              <span>{cat.icon}</span>
-              <span>{categoryLabels[cat.value] || cat.label}</span>
-              <span className="cat-count">
+              <span className="gallery-nav-icon">
+                {categoryIcons[cat.value] || <AppstoreOutlined />}
+              </span>
+              <span className="gallery-nav-label">{cat.label}</span>
+              <span className="gallery-nav-count">
                 {cat.value === 'all' ? stats.total :
                  cat.value === 'box' ? stats.boxes :
                  cat.value === 'model' ? stats.models :
@@ -246,200 +261,171 @@ export function GalleryPage() {
               </span>
             </button>
           ))}
+        </nav>
+
+        <div className="gallery-nav-bottom">
+          <button className="gallery-settings-btn" title={isZh ? '设置' : 'Settings'}>
+            <SettingOutlined />
+            <span className="gallery-nav-label">{isZh ? '设置' : 'Settings'}</span>
+          </button>
         </div>
+      </aside>
 
-        {/* 盒子子分类 */}
-        {filter.category === 'box' && (
-          <div className="gallery-box-categories-compact">
-            {BOX_CATEGORIES.map((cat) => (
-              <button
-                key={cat.value}
-                className={`gallery-box-btn-compact ${filter.boxType === cat.value || (cat.value === 'all' && !filter.boxType) ? 'active' : ''}`}
-                onClick={() => handleBoxTypeChange(cat.value)}
-              >
-                {cat.icon} {cat.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </header>
-
-      {/* 主内容区域 */}
-      <main className="gallery-main-compact">
-        {/* 工具栏 */}
-        <div className="gallery-toolbar-compact">
-          <div className="gallery-toolbar-left">
-            <AppstoreOutlined className="toolbar-icon" />
-            <span className="gallery-count">
-              {t.gallery.itemCount.replace('{{count}}', filteredItems.length.toString())}
-            </span>
-          </div>
-          <div className="gallery-sort">
+      {/* 主内容区 */}
+      <main className="gallery-main">
+        {/* 顶部搜索栏 - 精简版 */}
+        <header className="gallery-top-bar">
+          <div className="gallery-search-area">
+            <div className="gallery-search-box">
+              <Search
+                placeholder={t.gallery.search}
+                prefix={<SearchOutlined />}
+                value={filter.search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                allowClear
+              />
+            </div>
             <select
+              className="gallery-sort-select"
               value={filter.sortBy}
-              onChange={(e) => setFilter({ ...filter, sortBy: e.target.value as GalleryFilter['sortBy'] })}
+              onChange={(e) => {
+                setFilter({ ...filter, sortBy: e.target.value as GalleryFilter['sortBy'] });
+                setCurrentSlide(0);
+              }}
             >
               <option value="recent">{sortLabels.recent}</option>
               <option value="popular">{sortLabels.popular}</option>
               <option value="likes">{sortLabels.likes}</option>
             </select>
           </div>
-        </div>
+        </header>
 
-        {/* 精选作品 - 大卡片展示（GIF动图） */}
-        {!filter.search && !filter.category && !filter.boxType && (
-          <section className="gallery-featured-compact">
-            <h2 className="featured-section-title">
-              <span className="featured-badge">⭐ 精选展示</span>
-            </h2>
-            <div className="featured-grid">
-              {featuredItems.map((item, index) => (
-                <article
-                  key={item.id}
-                  className={`featured-card-3d ${item.gifPreview ? 'has-gif' : ''}`}
-                  onClick={() => handlePreview(item)}
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <div className="featured-3d-container">
-                    <div className="featured-3d-image">
-                      {/* 如果有GIF则显示GIF */}
-                      {item.gifPreview ? (
-                        <>
-                          <img 
-                            src={item.gifPreview} 
-                            alt={item.title} 
-                            className="gif-preview"
-                            autoPlay 
-                            loop 
-                            muted
-                            playsInline
+        {/* 3D卡片区域 */}
+        <section 
+          className="gallery-carousel-area"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          style={{ cursor: dragState.current.isDragging ? 'grabbing' : 'grab' }}
+        >
+          {/* 左导航按钮 */}
+          <button
+            className={`gallery-nav-arrow gallery-nav-prev ${currentSlide === 0 ? 'disabled' : ''}`}
+            onClick={goPrev}
+            disabled={currentSlide === 0}
+            title={isZh ? '上一页' : 'Previous Page'}
+          >
+            <LeftOutlined />
+          </button>
+          
+          {currentPageItems.length > 0 ? (
+            <div className="gallery-cards-viewport">
+              <div className="gallery-cards-track">
+                  {currentPageItems.map((item, index) => (
+                    <article
+                      key={item.id}
+                      className="gallery-3d-card"
+                      onClick={() => handlePreview(item)}
+                      style={{ animationDelay: `${index * 0.1}s` }}
+                    >
+                      <div className="gallery-card-image-container">
+                        {item.gifPreview ? (
+                          <>
+                            <img
+                              src={item.gifPreview}
+                              alt={item.title}
+                              className="gallery-card-gif"
+                              autoPlay loop muted playsInline
+                            />
+                            <span className="gallery-gif-badge">
+                              <PlayCircleOutlined /> GIF
+                            </span>
+                          </>
+                        ) : (
+                          <img
+                            src={item.thumbnail}
+                            alt={item.title}
+                            className="gallery-card-image"
+                            loading="lazy"
                           />
-                          <span className="gif-badge">
-                            <PlayCircleOutlined /> GIF
+                        )}
+                        
+                        {/* 分类标签 */}
+                        <span
+                          className="gallery-card-category"
+                          style={{ background: getCategoryColor(item) }}
+                        >
+                          {getCategoryLabel(item)}
+                        </span>
+                        
+                        {/* 热门标记 */}
+                        {isHot(item) && (
+                          <span className="gallery-card-hot">
+                            <FireOutlined />
                           </span>
-                        </>
-                      ) : (
-                        <img src={item.thumbnail} alt={item.title} loading="lazy" />
-                      )}
-                      <div className="featured-3d-overlay">
-                        <span className="featured-3d-preview">{t.gallery.preview}</span>
+                        )}
+                        
+                        {/* 悬停预览 */}
+                        <div className="gallery-card-overlay">
+                          <span className="gallery-card-preview-btn">
+                            {t.gallery.preview}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="featured-3d-reflection"></div>
-                  </div>
-                  <div className="featured-3d-info">
-                    <h3>{item.title}</h3>
-                    <div className="featured-3d-meta">
-                      <span><EyeOutlined /> {formatNumber(item.views)}</span>
-                      <span><LikeOutlined /> {formatNumber(item.likes)}</span>
-                    </div>
-                  </div>
-                  {isHot(item) && <span className="featured-hot-badge"><FireOutlined /></span>}
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
 
-        {/* 作品网格 - 紧凑3D卡片 */}
-        <div className="gallery-grid-compact">
-          {visibleItems.map((item, index) => (
-            <article 
-              key={item.id} 
-              className={`gallery-card-3d ${item.gifPreview ? 'has-gif' : ''}`}
-              onClick={() => handlePreview(item)}
-              style={{ animationDelay: `${(index % 12) * 0.05}s` }}
-            >
-              <div className="card-3d-container">
-                {/* 3D透视图片 */}
-                <div className="card-3d-image">
-                  {/* 如果有GIF则显示GIF */}
-                  {item.gifPreview ? (
-                    <>
-                      <img 
-                        src={item.gifPreview} 
-                        alt={item.title} 
-                        className="gif-preview"
-                        autoPlay 
-                        loop 
-                        muted
-                        playsInline
-                      />
-                      <span className="gif-badge-small">
-                        <PlayCircleOutlined /> GIF
-                      </span>
-                    </>
-                  ) : (
-                    <img src={item.thumbnail} alt={item.title} loading="lazy" />
-                  )}
-                  {/* 3D倒影 */}
-                  <div className="card-3d-reflection"></div>
-                  {/* 分类标签 */}
-                  <span
-                    className="card-3d-category"
-                    style={{ background: getCategoryColor(item) }}
-                  >
-                    {getCategoryLabel(item)}
-                  </span>
-                  {/* 热门标记 */}
-                  {isHot(item) && (
-                    <span className="card-3d-hot">
-                      <FireOutlined />
-                    </span>
-                  )}
-                  {/* 悬停预览按钮 */}
-                  <div className="card-3d-hover">
-                    <span className="card-3d-preview-btn">{t.gallery.preview}</span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* 卡片信息 */}
-              <div className="card-3d-info">
-                <h3 className="card-3d-title">{item.title}</h3>
-                <div className="card-3d-tags">
-                  {item.tags.slice(0, 2).map((tag) => (
-                    <span key={tag} className="card-3d-tag">{tag}</span>
+                      <div className="gallery-card-info">
+                        <div>
+                          <h3 className="gallery-card-title">{item.title}</h3>
+                          <div className="gallery-card-tags">
+                            {item.tags.slice(0, 2).map((tag) => (
+                              <span key={tag} className="gallery-card-tag">{tag}</span>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div className="gallery-card-footer">
+                          <div className="gallery-card-stats-full">
+                            {item.boxType && item.price && (
+                              <span className="gallery-card-price-lg">{item.price}</span>
+                            )}
+                            <span className="gallery-card-stat">
+                              <EyeOutlined /> {formatNumber(item.views)}
+                            </span>
+                            <span className="gallery-card-stat">
+                              <LikeOutlined /> {formatNumber(item.likes)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </article>
                   ))}
                 </div>
-                <div className="card-3d-footer">
-                  <span className="card-3d-author">{item.author}</span>
-                  <div className="card-3d-stats">
-                    <span><EyeOutlined /> {formatNumber(item.views)}</span>
-                    <span><LikeOutlined /> {formatNumber(item.likes)}</span>
-                  </div>
-                </div>
-                {/* 盒子额外信息 */}
-                {item.boxType && (
-                  <div className="card-3d-meta">
-                    {item.price && <span className="card-3d-price">{item.price}</span>}
-                    {item.material && <span className="card-3d-material">{item.material}</span>}
-                  </div>
-                )}
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {/* 加载更多 */}
-        {visibleCount < filteredItems.length && (
-          <div className="gallery-load-more">
-            <button onClick={handleLoadMore}>
-              {t.gallery.loadMore} ({filteredItems.length - visibleCount})
-            </button>
-          </div>
-        )}
-
-        {/* 空状态 */}
-        {filteredItems.length === 0 && (
-          <div className="gallery-empty">
-            <span className="empty-icon">🔍</span>
-            <p>{t.gallery.emptyTitle}</p>
-            <button onClick={() => setFilter({ category: undefined, search: '', sortBy: 'recent' })}>
-              {t.gallery.emptyButton}
-            </button>
-          </div>
-        )}
+            </div>
+          ) : (
+            <div className="gallery-empty-state">
+              <span className="gallery-empty-icon">🔍</span>
+              <p className="gallery-empty-text">{t.gallery.emptyTitle}</p>
+              <button
+                className="gallery-empty-btn"
+                onClick={() => {
+                  setFilter({ category: undefined, search: '', sortBy: 'recent' });
+                  setCurrentSlide(0);
+                }}
+              >
+                {t.gallery.emptyButton}
+              </button>
+            </div>
+          )}
+          
+          {/* 右导航按钮 */}
+          <button
+            className={`gallery-nav-arrow gallery-nav-next ${currentSlide >= totalSlides - 1 ? 'disabled' : ''}`}
+            onClick={goNext}
+            disabled={currentSlide >= totalSlides - 1}
+            title={isZh ? '下一页' : 'Next Page'}
+          >
+            <RightOutlined />
+          </button>
+        </section>
       </main>
 
       {/* 3D 预览模态框 */}
@@ -449,61 +435,37 @@ export function GalleryPage() {
             <button className="gallery-modal-close" onClick={() => setSelectedItem(null)}>
               ×
             </button>
-            <h2>{selectedItem.title}</h2>
+            <h2 className="gallery-modal-title">{selectedItem.title}</h2>
             <div className="gallery-modal-viewer">
               {loading ? (
-                <div className="modal-loading">
+                <div className="gallery-empty-state">
                   <Spin size="large" />
                   <p>{t.viewer.loading}</p>
                 </div>
+              ) : selectedItem.modelUrl ? (
+                <SparkViewer
+                  splatUrl={selectedItem.modelUrl}
+                  autoRotate={true}
+                  enableControls={true}
+                  showStats={true}
+                />
               ) : (
-                selectedItem.modelUrl ? (
-                  <SparkViewer
-                    splatUrl={selectedItem.modelUrl}
-                    autoRotate={true}
-                    enableControls={true}
-                    showStats={true}
-                  />
-                ) : (
-                  <div className="modal-placeholder">
-                    <span>📦</span>
-                    <p>3D模型加载中...</p>
-                  </div>
-                )
+                <div className="gallery-empty-state">
+                  <span className="gallery-empty-icon">📦</span>
+                  <p>3D模型加载中...</p>
+                </div>
               )}
             </div>
             <div className="gallery-modal-info">
               <p className="gallery-modal-desc">{selectedItem.description}</p>
               <div className="gallery-modal-meta">
-                <span><StarOutlined /> {t.gallery.author}: {selectedItem.author}</span>
                 <span><EyeOutlined /> {formatNumber(selectedItem.views)}</span>
                 <span><LikeOutlined /> {formatNumber(selectedItem.likes)}</span>
+                <span>{t.gallery.author}: {selectedItem.author}</span>
               </div>
-              {selectedItem.boxType && (
-                <div className="gallery-modal-box-info">
-                  {selectedItem.price && (
-                    <div className="box-info-item">
-                      <span className="box-info-label">{t.gallery.priceRange}:</span>
-                      <span className="box-info-value">{selectedItem.price}</span>
-                    </div>
-                  )}
-                  {selectedItem.material && (
-                    <div className="box-info-item">
-                      <span className="box-info-label">{t.gallery.material}:</span>
-                      <span className="box-info-value">{selectedItem.material}</span>
-                    </div>
-                  )}
-                  {selectedItem.industry && (
-                    <div className="box-info-item">
-                      <span className="box-info-label">{t.gallery.industry}:</span>
-                      <span className="box-info-value">{selectedItem.industry}</span>
-                    </div>
-                  )}
-                </div>
-              )}
               <div className="gallery-modal-tags">
                 {selectedItem.tags.map((tag) => (
-                  <span key={tag} className="gallery-tag">{tag}</span>
+                  <span key={tag} className="gallery-modal-tag">{tag}</span>
                 ))}
               </div>
             </div>

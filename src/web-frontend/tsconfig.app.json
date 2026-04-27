@@ -19,7 +19,17 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Path Aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/admin/*": ["src/admin/*"],
+      "@/admin/core/*": ["src/admin/core/*"],
+      "@/admin/shared/*": ["src/admin/shared/*"],
+      "@/admin/modules/*": ["src/admin/modules/*"]
+    }
   },
   "include": ["src"]
 }

@@ -27,23 +27,50 @@
 | 🔄 **自动轮播** | 模型自动切换展示 |
 | 🌐 **多语言** | 中英文切换 |
 | 📱 **响应式** | 适配所有屏幕尺寸 |
+| ⚡ **AI生成** | 图生3D模型（支持Mock/Local/Cloud三种模式） |
 
 ---
 
 ## 快速开始
 
+### 方式一：一键启动演示（推荐）
+
 ```bash
-# 进入前端目录
+# Windows
+start_demo.bat
+
+# Mac/Linux
+chmod +x start_demo.sh
+./start_demo.sh
+```
+
+这将同时启动后端和前端服务，默认使用 **Mock模式** 进行技术演示。
+
+### 方式二：手动启动
+
+#### 1. 启动后端服务
+
+```bash
+cd backend
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+#### 2. 启动前端服务
+
+```bash
 cd src/web-frontend
-
-# 安装依赖
 npm install
-
-# 启动开发服务器
 npm run dev
 ```
 
 访问 http://localhost:5173 查看效果
+
+### 手机端测试
+
+1. 确保手机和电脑在同一WiFi网络
+2. 查看电脑IP地址：`ipconfig` (Windows) 或 `ifconfig` (Mac/Linux)
+3. 在手机浏览器访问：`http://[电脑IP]:5173`
+4. 点击导航栏的 "⚡ AI生成" 进行测试
 
 ---
 

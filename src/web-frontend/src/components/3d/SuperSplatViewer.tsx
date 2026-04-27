@@ -128,7 +128,7 @@ export const SUPER_SPLAT_SCENES = [
     id: 'cat',
     name: '🐱 Cute Cat',
     description: 'Real-world object - 可爱猫咪',
-    sceneUrl: 'https://sparkjs.dev/assets/splats/cat.spz',
+    sceneUrl: '/models/cat.spz', // 使用本地文件
     color: '#f97316',
   },
   {

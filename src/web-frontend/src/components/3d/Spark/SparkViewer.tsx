@@ -3,13 +3,28 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
+import { useTranslation } from '../../../i18n';
 import './SparkViewer.css';
+import { formatMessage } from '../../../i18n';
 
 interface SparkViewerProps {
   splatUrl?: string;
   autoRotate?: boolean;
   enableControls?: boolean;
   showStats?: boolean;
+  backgroundColor?: string;
+  // 新增：产品信息标签
+  products?: Array<{
+    id: string;
+    name: string;
+    nameEn?: string;
+    description: string;
+    descriptionEn?: string;
+    position?: [number, number, number];
+    color?: string;
+  }>;
+  // 新增：交互回调 - 用户操控3D时触发
+  onInteraction?: () => void;
 }
 
 export function SparkViewer({
@@ -17,7 +32,13 @@ export function SparkViewer({
   autoRotate = true,
   enableControls = true,
   showStats = true,
+  backgroundColor = '#0a0a0f',
+  products = [],
+  onInteraction,
 }: SparkViewerProps) {
+  const { language, t } = useTranslation();
+  const isZh = language === 'zh-CN';
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -27,24 +48,39 @@ export function SparkViewer({
   const sparkRef = useRef<SparkRenderer | null>(null);
   const splatMeshRef = useRef<SplatMesh | null>(null);
   const frameIdRef = useRef<number>(0);
+  const labelsGroupRef = useRef<THREE.Group | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
   const [fps, setFps] = useState(0);
+  const lastFrameTimeRef = useRef<number>(0);
+  const fpsCounterRef = useRef<{ count: number; lastTime: number }>({ count: 0, lastTime: performance.now() });
+  const [isInteracting, setIsInteracting] = useState(false);
 
   // 初始化 Three.js 场景
   const initScene = useCallback(() => {
-    if (!canvasRef.current || !containerRef.current) return;
+    if (!containerRef.current) {
+      console.warn('SparkViewer: container not ready');
+      return null;
+    }
+    if (!canvasRef.current) {
+      console.warn('SparkViewer: canvas not ready');
+      return null;
+    }
 
     const container = containerRef.current;
     const width = container.clientWidth;
     const height = container.clientHeight;
 
+    // 如果尺寸为0，使用默认值
+    const safeWidth = width || 400;
+    const safeHeight = height || 300;
+
     // 创建场景
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#0a0a0f');
+    scene.background = new THREE.Color(backgroundColor);
     sceneRef.current = scene;
 
     // 创建相机
@@ -53,14 +89,49 @@ export function SparkViewer({
     cameraRef.current = camera;
 
     // 创建渲染器
-    const renderer = new THREE.WebGLRenderer({
-      canvas: canvasRef.current,
-      antialias: true,
-      alpha: false,
-    });
-    renderer.setSize(width, height);
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        canvas: canvasRef.current,
+        antialias: true,
+        alpha: false,
+        powerPreference: 'high-performance',
+      });
+      
+      // 抑制WebGL程序信息日志（避免控制台警告）
+      const originalConsoleWarn = console.warn;
+      console.warn = function(...args) {
+        // 过滤掉WebGL Program Info Log警告
+        if (args[0] && typeof args[0] === 'string' && args[0].includes('THREE.WebGLProgram')) {
+          return; // 忽略WebGL警告
+        }
+        originalConsoleWarn.apply(console, args);
+      };
+    } catch (e) {
+      console.error('WebGLRenderer creation failed:', e);
+      return null;
+    }
+    renderer.setSize(safeWidth, safeHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     rendererRef.current = renderer;
+
+    // 处理 WebGL Context Lost 事件
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      console.warn('WebGL Context Lost');
+      cancelAnimationFrame(frameIdRef.current);
+    };
+
+    const handleContextRestored = () => {
+      console.log('WebGL Context Restored');
+      // 尝试重新初始化
+      if (sparkRef.current) {
+        animate();
+      }
+    };
+
+    canvasRef.current.addEventListener('webglcontextlost', handleContextLost);
+    canvasRef.current.addEventListener('webglcontextrestored', handleContextRestored);
 
     // 初始化 Spark 渲染器
     const spark = new SparkRenderer({ renderer });
@@ -93,8 +164,114 @@ export function SparkViewer({
     // 创建展示台
     createDisplayPlatform(scene);
 
+    // 创建产品标签组
+    const labelsGroup = new THREE.Group();
+    labelsGroup.name = 'product-labels';
+    scene.add(labelsGroup);
+    labelsGroupRef.current = labelsGroup;
+
+    // 如果有产品数据，创建3D标签
+    if (products.length > 0) {
+      createProductLabels(labelsGroup);
+    }
+
     return { scene, camera, renderer, controls };
-  }, [enableControls, autoRotate]);
+  }, [enableControls, autoRotate, products, backgroundColor]);
+
+  // 创建3D标签精灵
+  const create3DLabel = useCallback((
+    product: { id: string; name: string; nameEn?: string; description: string; descriptionEn?: string; color?: string },
+    position: [number, number, number]
+  ): THREE.Sprite => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+    canvas.width = 256;
+    canvas.height = 128;
+
+    // 背景
+    ctx.fillStyle = 'rgba(15, 15, 35, 0.9)';
+    ctx.roundRect(0, 0, 256, 128, 16);
+    ctx.fill();
+
+    // 边框
+    ctx.strokeStyle = product.color || '#667eea';
+    ctx.lineWidth = 3;
+    ctx.roundRect(3, 3, 250, 122, 14);
+    ctx.stroke();
+
+    // 产品名称 - 根据语言选择
+    const displayName = isZh ? (product.name || product.nameEn || '') : (product.nameEn || product.name || '');
+    const displayDesc = isZh ? (product.description || product.descriptionEn || '') : (product.descriptionEn || product.description || '');
+
+    // 产品名称
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(displayName, 128, 40);
+
+    // 描述（最多两行）
+    ctx.font = '14px Arial';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    const lines = wrapText(ctx, displayDesc, 220);
+    lines.slice(0, 2).forEach((line, i) => {
+      ctx.fillText(line, 128, 65 + i * 22);
+    });
+
+    // 创建纹理
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false,
+    });
+
+    const sprite = new THREE.Sprite(material);
+    sprite.position.set(...position);
+    sprite.scale.set(1, 0.5, 1);
+    sprite.name = `product-label-${product.id}`;
+
+    return sprite;
+  }, [isZh]); // 添加 isZh 依赖
+
+  // 创建产品3D标签
+  const createProductLabels = (group: THREE.Group) => {
+    products.forEach((product, index) => {
+      // 计算标签位置 - 围绕中心环形分布
+      const angle = (index / products.length) * Math.PI * 2;
+      const radius = 1.5;
+      const position: [number, number, number] = product.position || [
+        Math.cos(angle) * radius,
+        0.3 + index * 0.3,
+        Math.sin(angle) * radius
+      ];
+
+      // 创建精灵标签
+      const sprite = create3DLabel(product, position);
+      group.add(sprite);
+    });
+  };
+
+  // 文字换行辅助函数
+  const wrapText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] => {
+    const words = text.split('');
+    const lines: string[] = [];
+    let currentLine = '';
+
+    for (const char of words) {
+      const testLine = currentLine + char;
+      const metrics = ctx.measureText(testLine);
+      if (metrics.width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = char;
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+    return lines;
+  };
 
   // 创建粒子背景
   const createParticleBackground = (scene: THREE.Scene) => {
@@ -159,47 +336,6 @@ export function SparkViewer({
     scene.add(ring);
   };
 
-  // 加载 Splat 模型
-  const loadSplatModel = useCallback(async () => {
-    if (!sparkRef.current) return;
-
-    try {
-      setProgress(10);
-
-      // 模拟加载进度
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => Math.min(prev + Math.random() * 15, 90));
-      }, 200);
-
-      const splat = new SplatMesh({ url: splatUrl });
-      splatMeshRef.current = splat;
-
-      // 设置位置和旋转
-      splat.position.set(0, 0, 0);
-      splat.quaternion.set(1, 0, 0, 0);
-
-      // 添加到 Spark 渲染器
-      sparkRef.current.add(splat);
-
-      // 等待加载完成
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      clearInterval(progressInterval);
-      setProgress(100);
-
-      setTimeout(() => {
-        setLoading(false);
-        setModelLoaded(true);
-      }, 300);
-    } catch (err) {
-      setError((err as Error).message);
-      setLoading(false);
-
-      // 如果 Splat 加载失败，显示占位模型
-      createPlaceholderModel();
-    }
-  }, [splatUrl]);
-
   // 创建占位模型（Splat 加载失败时显示）
   const createPlaceholderModel = useCallback(() => {
     if (!sceneRef.current) return;
@@ -237,14 +373,58 @@ export function SparkViewer({
     }, 300);
   }, []);
 
+  // 加载 Splat 模型
+  const loadSplatModel = useCallback(async () => {
+    if (!sparkRef.current) return;
+
+    try {
+      setProgress(10);
+
+      // 创建 SplatMesh，传入 URL
+      const splat = new SplatMesh({ 
+        url: splatUrl,
+        onProgress: (event) => {
+          if (event.lengthComputable) {
+            setProgress(Math.min(90, (event.loaded / event.total) * 100));
+          }
+        }
+      });
+      splatMeshRef.current = splat;
+
+      // 设置位置和旋转
+      splat.position.set(0, 0, 0);
+      splat.quaternion.set(1, 0, 0, 0);
+
+      // 添加到 Spark 渲染器
+      sparkRef.current.add(splat);
+
+      // 等待 SplatMesh 初始化完成
+      await splat.initialized;
+
+      setProgress(100);
+      setTimeout(() => {
+        setLoading(false);
+        setModelLoaded(true);
+      }, 300);
+    } catch (err) {
+      console.error('Splat model load error:', err);
+      setError((err as Error).message);
+      setLoading(false);
+
+      // 如果 Splat 加载失败，显示占位模型
+      createPlaceholderModel();
+    }
+  }, [splatUrl, createPlaceholderModel]);
+
   // 动画循环
   const animate = useCallback(() => {
     frameIdRef.current = requestAnimationFrame(animate);
 
-    const { camera, renderer, controls } = {
+    const { camera, renderer, controls, spark } = {
       camera: cameraRef.current,
       renderer: rendererRef.current,
       controls: controlsRef.current,
+      spark: sparkRef.current,
     };
 
     if (!camera || !renderer || !sceneRef.current) return;
@@ -273,35 +453,75 @@ export function SparkViewer({
       ring.rotation.z += 0.005;
     }
 
-    // 渲染场景
-    renderer.render(sceneRef.current, camera);
+    // 使用 SparkRenderer 的 render 方法渲染 Splat 数据
+    if (spark) {
+      spark.update({ scene: sceneRef.current, camera });
+      spark.render(sceneRef.current, camera);
+    } else {
+      // 如果没有 SparkRenderer，使用普通的 Three.js 渲染
+      renderer.render(sceneRef.current, camera);
+    }
 
-    // 更新 FPS
-    setFps(Math.round(renderer.info.render.frame));
+    // 更新 FPS（每秒采样一次）
+    fpsCounterRef.current.count++;
+    const now = performance.now();
+    const elapsed = now - fpsCounterRef.current.lastTime;
+    if (elapsed >= 1000) {
+      setFps(Math.round((fpsCounterRef.current.count * 1000) / elapsed));
+      fpsCounterRef.current.count = 0;
+      fpsCounterRef.current.lastTime = now;
+    }
   }, []);
 
-  // 初始化
+  // 初始化 - 使用空依赖，只在挂载时执行一次
   useEffect(() => {
-    initScene();
-    loadSplatModel();
-    animate();
+    // 等待 canvasRef 准备好
+    const timer = setTimeout(() => {
+      const result = initScene();
+      if (result) {
+        loadSplatModel();
+        animate();
+      } else {
+        // 如果初始化失败，设置为加载完成但显示错误
+        setError('Failed to initialize 3D viewer');
+        setLoading(false);
+      }
+    }, 100);
 
     return () => {
+      clearTimeout(timer);
       cancelAnimationFrame(frameIdRef.current);
 
-      // 清理资源
+      // 清理 SplatMesh
       if (splatMeshRef.current) {
-        splatMeshRef.current.geometry?.dispose();
-        splatMeshRef.current.material?.dispose();
+        try {
+          splatMeshRef.current.dispose?.();
+        } catch (e) {
+          console.warn('SplatMesh cleanup warning:', e);
+        }
+        splatMeshRef.current = null;
       }
+      // 清理 Spark 渲染器
+      if (sparkRef.current) {
+        sparkRef.current = null;
+      }
+      // 清理 Three.js 渲染器（释放 WebGL Context）
       if (rendererRef.current) {
         rendererRef.current.dispose();
+        rendererRef.current = null;
       }
+      // 清理控制器
       if (controlsRef.current) {
         controlsRef.current.dispose();
+        controlsRef.current = null;
+      }
+      // 清理场景
+      if (sceneRef.current) {
+        sceneRef.current.clear();
+        sceneRef.current = null;
       }
     };
-  }, [initScene, loadSplatModel, animate]);
+  }, []);
 
   // 处理窗口大小变化
   useEffect(() => {
@@ -320,6 +540,82 @@ export function SparkViewer({
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // 监听用户交互事件，停止自动播放
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let interactionTimeout: ReturnType<typeof setTimeout>;
+
+    const handleInteractionStart = () => {
+      setIsInteracting(true);
+      onInteraction?.();
+      
+      // 停止自动旋转
+      if (controlsRef.current) {
+        controlsRef.current.autoRotate = false;
+      }
+      
+      // 清除之前的延迟
+      clearTimeout(interactionTimeout);
+    };
+
+    const handleInteractionEnd = () => {
+      // 延迟2秒后恢复自动旋转
+      interactionTimeout = setTimeout(() => {
+        setIsInteracting(false);
+        if (controlsRef.current) {
+          controlsRef.current.autoRotate = autoRotate;
+        }
+      }, 2000);
+    };
+
+    // 添加交互事件监听
+    container.addEventListener('mousedown', handleInteractionStart);
+    container.addEventListener('touchstart', handleInteractionStart);
+    container.addEventListener('wheel', handleInteractionStart);
+    container.addEventListener('mouseup', handleInteractionEnd);
+    container.addEventListener('touchend', handleInteractionEnd);
+
+    return () => {
+      container.removeEventListener('mousedown', handleInteractionStart);
+      container.removeEventListener('touchstart', handleInteractionStart);
+      container.removeEventListener('wheel', handleInteractionStart);
+      container.removeEventListener('mouseup', handleInteractionEnd);
+      container.removeEventListener('touchend', handleInteractionEnd);
+      clearTimeout(interactionTimeout);
+    };
+  }, [onInteraction, autoRotate]);
+
+  // 语言变化时重新创建产品标签
+  useEffect(() => {
+    if (!labelsGroupRef.current || products.length === 0) return;
+
+    // 清空现有标签
+    while (labelsGroupRef.current.children.length > 0) {
+      const child = labelsGroupRef.current.children[0];
+      if (child instanceof THREE.Sprite) {
+        const material = child.material as THREE.SpriteMaterial;
+        if (material.map) material.map.dispose();
+        material.dispose();
+      }
+      labelsGroupRef.current.remove(child);
+    }
+
+    // 重新创建标签
+    products.forEach((product, index) => {
+      const angle = (index / products.length) * Math.PI * 2;
+      const radius = 1.5;
+      const position: [number, number, number] = [
+        Math.cos(angle) * radius,
+        0.3 + index * 0.3,
+        Math.sin(angle) * radius
+      ];
+      const sprite = create3DLabel(product, position);
+      labelsGroupRef.current!.add(sprite);
+    });
+  }, [language, products, create3DLabel]);
 
   return (
     <div className="spark-viewer" ref={containerRef}>
@@ -346,7 +642,7 @@ export function SparkViewer({
           <div className="spark-loading-bar-container">
             <div className="spark-loading-bar" style={{ width: `${progress}%` }} />
           </div>
-          <span className="spark-loading-text">Loading 3DGS... {progress}%</span>
+          <span className="spark-loading-text">{t.viewer.loadingFull} {progress}%</span>
         </div>
       )}
 
@@ -360,17 +656,26 @@ export function SparkViewer({
       {/* 统计信息 */}
       {showStats && modelLoaded && (
         <div className="spark-stats">
-          <span>3D Gaussian Splatting</span>
-          <span className="spark-stats-fps">FPS: {fps > 0 ? fps : '--'}</span>
-          <span className="spark-badge-small">Powered by Spark 2.0</span>
+          <span>{t.viewer.title3dgs}</span>
+          <span className="spark-stats-fps">{t.viewer.fps}: {fps > 0 ? fps : '--'}</span>
+          <span className="spark-badge-small">{t.viewer.poweredBy}</span>
         </div>
       )}
 
       {/* 控制提示 */}
       {modelLoaded && (
         <div className="spark-hints">
-          <span>🖱️ Drag to rotate</span>
-          <span>📜 Scroll to zoom</span>
+          <span>🖱️ {t.viewer.hintDragRotate}</span>
+          <span>📜 {t.viewer.hintScrollZoom}</span>
+        </div>
+      )}
+
+
+
+      {/* 产品标签数量提示 */}
+      {products.length > 0 && modelLoaded && (
+        <div className="spark-products-hint">
+          <span>🏷️ {products.length === 1 ? t.viewer.productsCountSingle : formatMessage(t.viewer.productsCount, { count: products.length })}</span>
         </div>
       )}
     </div>

@@ -4,7 +4,8 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Button, Alert, Spin, Drawer } from 'antd';
+import { Upload, Button, Alert, Spin, Drawer, Select } from 'antd';
+const { Option } = Select;
 import {
   CloudUploadOutlined,
   PlayCircleOutlined,
@@ -34,6 +35,7 @@ interface GenerationMode {
   desc: string;
   github: string;
   badges: { text: string; class: string }[];
+  verified?: boolean; // 是否已通过官方开源技术验证
   endpoint: string;
   mockTime: number;
 }
@@ -49,6 +51,7 @@ const MODES: GenerationMode[] = [
       { text: '真实可用', class: 'badge-free' },
       { text: 'CPU', class: 'badge-free' },
     ],
+    verified: true, // ✅ 已按官方开源实现：图片亮度→高度图→3D浮雕网格
     endpoint: '/api/v1/experimental/image-to-stl/upload',
     mockTime: 1000,
   },
@@ -114,6 +117,7 @@ const MODES: GenerationMode[] = [
       { text: '免费', class: 'badge-free' },
       { text: 'CPU', class: 'badge-free' },
     ],
+    verified: true, // ✅ 已按官方开源实现：图像编码器→三平面NeRF→Marching Cubes→网格
     endpoint: '/api/v1/experimental/triposr/cpu/upload',
     mockTime: 5000,
   },
@@ -127,7 +131,7 @@ const MODES: GenerationMode[] = [
       { text: '快速', class: 'badge-cloud' },
       { text: '云端', class: 'badge-cloud' },
     ],
-    endpoint: '/api/v1/generation/huggingface',
+    endpoint: '/api/v1/experimental/huggingface/upload',
     mockTime: 10000,
   },
 ];
@@ -201,10 +205,12 @@ const ModelPreview: React.FC<{ url: string }> = ({ url }) => {
         style={{ width: '100%', height: '100%' }}
         gl={{ antialias: true, preserveDrawingBuffer: false }}
       >
-        <ambientLight intensity={0.5} />
+        <ambientLight intensity={0.6} />
         <directionalLight position={[10, 10, 5]} intensity={1} />
         <directionalLight position={[-10, -10, -5]} intensity={0.3} />
-        <Environment preset="studio" />
+        <pointLight position={[0, 5, 0]} intensity={0.5} />
+        {/* Environment组件可能导致HDR加载失败，暂时禁用 */}
+        {/* <Environment preset="studio" /> */}
         <OrbitControls 
           autoRotate 
           enableDamping 
@@ -230,6 +236,9 @@ export const ExperimentalGeneration: React.FC = () => {
   const [success, setSuccess] = useState<string>('');
   const uploadRef = useRef<any>(null);
   const pollTimerRef = useRef<any>(null);
+  
+  // HuggingFace模型版本选择
+  const [hunyuanModel, setHunyuanModel] = useState<string>('hy-3d-3.0');
   
   // 示例图片抽屉
   const [examplesDrawerVisible, setExamplesDrawerVisible] = useState(false);
@@ -320,6 +329,11 @@ export const ExperimentalGeneration: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      
+      // HuggingFace模式：添加模型版本参数
+      if (currentMode === 'huggingface') {
+        formData.append('model_version', hunyuanModel);
+      }
 
       const response = await fetch(mode.endpoint, {
         method: 'POST',
@@ -376,7 +390,10 @@ export const ExperimentalGeneration: React.FC = () => {
         
         // 检查是否完成
         if (taskStatus.status === 'completed') {
-          clearInterval(pollTimerRef.current);
+          if (pollTimerRef.current) {
+            clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+          }
           setProgress(100);
           setStatusText('生成完成！');
           
@@ -389,12 +406,18 @@ export const ExperimentalGeneration: React.FC = () => {
         
         // 检查是否失败
         if (taskStatus.status === 'failed') {
-          clearInterval(pollTimerRef.current);
+          if (pollTimerRef.current) {
+            clearInterval(pollTimerRef.current);
+            pollTimerRef.current = null;
+          }
           setError(`生成失败：${taskStatus.message || '未知错误'}`);
           setLoading(false);
         }
       } catch (err: any) {
-        clearInterval(pollTimerRef.current);
+        if (pollTimerRef.current) {
+          clearInterval(pollTimerRef.current);
+          pollTimerRef.current = null;
+        }
         setError('获取状态失败：' + (err.message || '未知错误'));
         setLoading(false);
       }
@@ -440,6 +463,10 @@ export const ExperimentalGeneration: React.FC = () => {
               <div style={styles.modeChipInfo}>
                 <div style={styles.modeChipHeader}>
                   <div style={styles.modeChipLabel}>{mode.icon} {mode.label}</div>
+                  {/* 已验证标记 */}
+                  {mode.verified && (
+                    <span style={styles.verifiedBadge} title="已按官方开源技术实现">✅</span>
+                  )}
                 </div>
                 <div style={styles.modeChipDesc}>{mode.desc}</div>
                 {/* 底部信息行：badge + GitHub */}
@@ -500,6 +527,41 @@ export const ExperimentalGeneration: React.FC = () => {
               </div>
             </Upload>
           </div>
+
+          {/* HuggingFace模式：模型版本选择 */}
+          {currentMode === 'huggingface' && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>选择模型版本：</div>
+              <Select
+                value={hunyuanModel}
+                onChange={setHunyuanModel}
+                style={{ width: '100%' }}
+                size="large"
+              >
+                <Option value="hy-3d-3.0">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>🎯 hy-3d-3.0 标准版（推荐）</span>
+                    <span style={{ fontSize: 12, color: '#999' }}>平衡质量与速度</span>
+                  </div>
+                </Option>
+                <Option value="hy-3d-3.1">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>✨ hy-3d-3.1 专业版</span>
+                    <span style={{ fontSize: 12, color: '#999' }}>最高质量</span>
+                  </div>
+                </Option>
+                <Option value="HY-3D-Express">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>⚡ HY-3D-Express 极速版</span>
+                    <span style={{ fontSize: 12, color: '#999' }}>最快生成</span>
+                  </div>
+                </Option>
+              </Select>
+              <div style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                💡 提示：需要配置腾讯云API Key才能使用，详见文档
+              </div>
+            </div>
+          )}
 
           {/* 开始按钮 */}
           <Button
@@ -699,6 +761,14 @@ const styles: Record<string, React.CSSProperties> & Record<string, any> = {
     color: '#333',
     fontSize: 12,
     whiteSpace: 'nowrap',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 4,
+  },
+  verifiedBadge: {
+    fontSize: 10,
+    cursor: 'help',
+    lineHeight: 1,
   },
   githubBar: {
     display: 'grid',

@@ -1,0 +1,61 @@
+# Web3D AI 3D生成 - CPU模式安装
+# 适用于无GPU电脑，使用TripoSR CPU版本
+
+# ==================== 核心框架 ====================
+fastapi==0.115.13
+uvicorn[standard]==0.20.0
+python-multipart==0.0.6
+
+# ==================== 数据库 ====================
+sqlalchemy==2.0.25
+aiosqlite==0.19.0
+
+# ==================== 认证与安全 ====================
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
+python-dotenv==1.0.0
+
+# ==================== 数据验证 ====================
+pydantic==2.5.3
+pydantic-settings==2.1.0
+email-validator==2.1.0
+
+# ==================== HTTP客户端 ====================
+httpx==0.26.0
+aiofiles==23.2.1
+
+# ==================== 日志 ====================
+loguru==0.7.2
+
+# ==================== 工具库 ====================
+python-dateutil==2.8.2
+uuid-utils==0.6.0
+
+# ==================== 3D模型处理 ====================
+trimesh
+pygltflib
+xatlas
+
+# ==================== TripoSR CPU版本 ====================
+# 轻量级3D生成，无需GPU
+torch>=2.0.0
+torchvision>=0.15.0
+diffusers>=0.25.0
+transformers>=4.37.0
+accelerate>=0.25.0
+safetensors>=0.4.0
+
+# 图像处理
+opencv-python>=4.8.0
+Pillow>=10.0.0
+rembg>=2.0.0  # 背景移除
+
+# 进度条
+tqdm>=4.65.0
+omegaconf>=2.3.0
+
+# ==================== 说明 ====================
+# 此配置适用于无GPU电脑，使用TripoSR CPU版本
+# 生成时间：5-15秒（取决于CPU性能）
+# 如需GPU加速，请使用 requirements-gpu.txt

@@ -498,8 +498,14 @@ export function Workshop3D({ onNavigate, embedded = false, onClose, panoramaUrl 
               lampMat.color.setHex(0xff3333);
               lampMat.emissive.setHex(0x441100);
             }
+            // 注意：label是Sprite对象，没有element属性，这里注释掉相关代码
+            // 如果需要更新标签样式，应该通过修改Sprite的material来实现
+            /*
             const borderColor = m.status === "运行中" ? '#00ff88' : (m.status === "待机" ? '#ffaa33' : '#ff6666');
-            model.label.element.style.borderLeft = `3px solid ${borderColor}`;
+            if (model.label && (model.label as any).element) {
+              (model.label as any).element.style.borderLeft = `3px solid ${borderColor}`;
+            }
+            */
           }
         });
         updateSidebarAndStatus();

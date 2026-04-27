@@ -1,0 +1,80 @@
+name: web3d
+
+services:
+  # Web3D Backend API
+  web3d-backend:
+    build: .
+    container_name: web3d-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://web3d_user:web3d_password_2025@web3d-postgres:5432/web3d
+      - REDIS_URL=redis://:redis_password_2025@web3d-redis:6379/0
+      - SECRET_KEY=web3d-secret-key-change-in-production-min-32-chars
+      - DEBUG=false
+      - ENVIRONMENT=production
+    depends_on:
+      - web3d-postgres
+      - web3d-redis
+    networks:
+      - web3d-network
+    restart: unless-stopped
+
+  # PostgreSQL 数据库（Web3D专用）
+  web3d-postgres:
+    image: postgres:16-alpine
+    container_name: web3d-postgres
+    environment:
+      POSTGRES_DB: web3d
+      POSTGRES_USER: web3d_user
+      POSTGRES_PASSWORD: web3d_password_2025
+    ports:
+      - "5432:5432"
+    volumes:
+      - web3d_postgres_data:/var/lib/postgresql/data
+    networks:
+      - web3d-network
+    restart: unless-stopped
+
+  # Redis 缓存（Web3D专用）
+  web3d-redis:
+    image: redis:7-alpine
+    container_name: web3d-redis
+    command: redis-server --requirepass redis_password_2025 --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - web3d_redis_data:/data
+    networks:
+      - web3d-network
+    restart: unless-stopped
+
+  # MinIO 对象存储（Web3D专用）
+  web3d-minio:
+    image: minio/minio:latest
+    container_name: web3d-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minio_password_2025
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - web3d_minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - web3d-network
+    restart: unless-stopped
+
+volumes:
+  web3d_postgres_data:
+    driver: local
+  web3d_redis_data:
+    driver: local
+  web3d_minio_data:
+    driver: local
+
+networks:
+  web3d-network:
+    driver: bridge
+    name: web3d-network

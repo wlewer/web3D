@@ -1,0 +1,78 @@
+# Web3D AI 3D生成 - GPU模式安装
+# 适用于有GPU的服务器，支持完整AI模型
+
+# ==================== 核心框架 ====================
+fastapi==0.115.13
+uvicorn[standard]==0.20.0
+python-multipart==0.0.6
+
+# ==================== 数据库 ====================
+sqlalchemy==2.0.25
+aiosqlite==0.19.0
+
+# ==================== 认证与安全 ====================
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
+python-dotenv==1.0.0
+
+# ==================== 数据验证 ====================
+pydantic==2.5.3
+pydantic-settings==2.1.0
+email-validator==2.1.0
+
+# ==================== HTTP客户端 ====================
+httpx==0.26.0
+aiofiles==23.2.1
+
+# ==================== 日志 ====================
+loguru==0.7.2
+
+# ==================== 工具库 ====================
+python-dateutil==2.8.2
+uuid-utils==0.6.0
+
+# ==================== 3D模型处理 ====================
+trimesh
+pygltflib
+xatlas
+pymeshlab
+
+# ==================== GPU加速AI引擎 ====================
+# PyTorch with CUDA 11.8
+# 需要先安装：pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+torch>=2.0.0+cu118
+torchvision>=0.15.0+cu118
+diffusers>=0.25.0
+transformers>=4.37.0
+accelerate>=0.25.0
+safetensors>=0.4.0
+einops>=0.7.0
+
+# 图像处理
+opencv-python>=4.8.0
+Pillow>=10.0.0
+rembg>=2.0.0
+
+# 进度条
+tqdm>=4.65.0
+omegaconf>=2.3.0
+
+# ==================== AI 3D生成模型 ====================
+# Hunyuan3D-2 (腾讯混元)
+hunyuan3d @ git+https://github.com/Tencent/Hunyuan3D-2.git
+
+# TripoSR (VAST-AI)
+triposr @ git+https://github.com/VAST-AI-Research/TripoSR.git
+
+# InstantMesh (腾讯ARC)
+instantmesh @ git+https://github.com/TencentARC/InstantMesh.git
+
+# SF3D (Stability AI)
+# sf3d @ git+https://github.com/Stability-AI/sf3d.git  # 需要等待官方发布
+
+# ==================== 说明 ====================
+# 此配置适用于GPU服务器（建议16GB+显存）
+# 生成时间：0.5-15秒（取决于模型和GPU性能）
+# 本地CPU模式请使用 requirements-cpu.txt

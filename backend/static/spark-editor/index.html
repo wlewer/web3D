@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Spark 3D 编辑器</title>
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; background: #1a1a2e; }
+        
+        .editor-container { display: flex; flex-direction: column; height: 100vh; }
+        
+        /* 顶部工具栏 */
+        .toolbar {
+            display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+            background: #2a2a40; border-bottom: 1px solid #3a3a50;
+        }
+        .toolbar-btn {
+            padding: 6px 12px; border: 1px solid #4a4a60; border-radius: 4px;
+            background: #3a3a50; color: #e0e0e0; cursor: pointer; font-size: 13px;
+        }
+        .toolbar-btn:hover { background: #4a4a60; }
+        .toolbar-btn.primary { background: #667eea; border-color: #667eea; }
+        .toolbar-btn.primary:hover { background: #5a6ed6; }
+        .toolbar-btn.danger { background: #e74c3c; border-color: #e74c3c; }
+        .toolbar-btn.danger:hover { background: #c0392b; }
+        .toolbar-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .toolbar-divider { width: 1px; height: 24px; background: #4a4a60; margin: 0 4px; }
+        
+        /* 主内容区域 */
+        .main-content { display: flex; flex: 1; overflow: hidden; }
+        
+        /* 3D视口 */
+        .viewport { flex: 1; position: relative; background: #0f0f1a; }
+        .viewport canvas { width: 100%; height: 100%; }
+        
+        /* 加载遮罩 */
+        .loading-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(15, 15, 26, 0.9); z-index: 10;
+        }
+        .loading-spinner {
+            width: 40px; height: 40px; border: 3px solid #3a3a50;
+            border-top-color: #667eea; border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { margin-top: 16px; color: #e0e0e0; font-size: 14px; }
+        
+        /* 右侧属性面板 */
+        .properties {
+            width: 280px; background: #2a2a40; border-left: 1px solid #3a3a50;
+            padding: 16px; overflow-y: auto;
+        }
+        .property-section { margin-bottom: 20px; }
+        .property-section h4 {
+            font-size: 13px; color: #667eea; margin-bottom: 12px;
+            padding-bottom: 8px; border-bottom: 1px solid #3a3a50;
+        }
+        .property-item {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 10px; font-size: 13px; color: #e0e0e0;
+        }
+        .property-item strong { color: #667eea; }
+        .property-item input[type="range"] { width: 120px; }
+        .property-item .toggle {
+            width: 40px; height: 20px; border-radius: 10px; background: #3a3a50;
+            cursor: pointer; position: relative; transition: background 0.3s;
+        }
+        .property-item .toggle.active { background: #667eea; }
+        .property-item .toggle::after {
+            content: ''; position: absolute; width: 16px; height: 16px;
+            border-radius: 50%; background: white; top: 2px; left: 2px;
+            transition: transform 0.3s;
+        }
+        .property-item .toggle.active::after { transform: translateX(20px); }
+        
+        /* 快捷键列表 */
+        .shortcut-list div {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+            font-size: 12px; color: #aaa;
+        }
+        kbd {
+            padding: 2px 6px; background: #3a3a50; border-radius: 3px;
+            font-family: monospace; font-size: 11px; color: #e0e0e0;
+        }
+        
+        /* 空状态提示 */
+        .empty-state {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; height: 100%; color: #888;
+        }
+        .empty-state-icon { font-size: 64px; margin-bottom: 16px; }
+        .empty-state-text { font-size: 16px; }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <!-- 工具栏 -->
+        <div class="toolbar">
+            <button class="toolbar-btn" onclick="undo()" title="Ctrl+Z">撤销</button>
+            <button class="toolbar-btn" onclick="redo()" title="Ctrl+Y">重做</button>
+            <button class="toolbar-btn danger" onclick="deleteSelected()" id="btnDelete" disabled title="Delete">
+                删除 (<span id="selectedCount">0</span>)
+            </button>
+            <div class="toolbar-divider"></div>
+            <button class="toolbar-btn" onclick="resetView()" title="R">重置视角</button>
+            <div class="toolbar-divider"></div>
+            <button class="toolbar-btn primary" onclick="saveScene()">保存场景</button>
+            <button class="toolbar-btn" onclick="exportGLB()">导出GLB</button>
+        </div>
+        
+        <!-- 主内容 -->
+        <div class="main-content">
+            <!-- 3D视口 -->
+            <div class="viewport" id="viewport">
+                <div class="loading-overlay" id="loading">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">初始化3D编辑器...</div>
+                </div>
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-state-icon">🌌</div>
+                    <div class="empty-state-text">拖拽GLB/SPLAT文件到此处加载模型</div>
+                </div>
+                <canvas id="canvas"></canvas>
+            </div>
+            
+            <!-- 属性面板 -->
+            <div class="properties">
+                <div class="property-section">
+                    <h4>📊 场景信息</h4>
+                    <div class="property-item">
+                        <span>总点数:</span>
+                        <strong id="totalPoints">0</strong>
+                    </div>
+                    <div class="property-item">
+                        <span>选中点数:</span>
+                        <strong id="selectedPoints">0</strong>
+                    </div>
+                </div>
+                
+                <div class="property-section">
+                    <h4>🎨 显示设置</h4>
+                    <div class="property-item">
+                        <span>点大小</span>
+                        <input type="range" min="0.5" max="5" step="0.1" value="2" id="pointSize">
+                    </div>
+                    <div class="property-item">
+                        <span>显示网格</span>
+                        <div class="toggle active" id="toggleGrid" onclick="toggleGrid()"></div>
+                    </div>
+                </div>
+                
+                <div class="property-section">
+                    <h4>🔄 动画控制</h4>
+                    <div class="property-item">
+                        <span>自动旋转</span>
+                        <div class="toggle" id="toggleRotate" onclick="toggleRotate()"></div>
+                    </div>
+                    <div class="property-item">
+                        <span>旋转速度</span>
+                        <input type="range" min="0" max="5" step="0.1" value="1" id="rotationSpeed">
+                    </div>
+                </div>
+                
+                <div class="property-section">
+                    <h4>⌨️ 快捷键</h4>
+                    <div class="shortcut-list">
+                        <div><kbd>Ctrl+Z</kbd> 撤销</div>
+                        <div><kbd>Ctrl+Y</kbd> 重做</div>
+                        <div><kbd>Delete</kbd> 删除</div>
+                        <div><kbd>R</kbd> 重置视角</div>
+                        <div><kbd>F</kbd> 聚焦选中</div>
+                        <div><kbd>Space</kbd> 暂停旋转</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Spark编辑器状态
+        let spark = null;
+        let sceneLoaded = false;
+        
+        // 初始化Spark
+        async function initSpark() {
+            try {
+                // 尝试动态导入Spark (如果安装了@sparkjsdev/spark)
+                // 注意：需要在package.json中安装依赖
+                const SparkModule = await import('https://esm.sh/@sparkjsdev/spark@2.0.0');
+                const { Spark } = SparkModule;
+                
+                const canvas = document.getElementById('canvas');
+                spark = new Spark({
+                    container: document.getElementById('viewport'),
+                    canvas: canvas,
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: '#0f0f1a'
+                });
+                
+                sceneLoaded = true;
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('emptyState').style.display = 'none';
+                
+                // 设置事件监听
+                spark.on('selectionChanged', (count) => {
+                    document.getElementById('selectedPoints').textContent = count;
+                    document.getElementById('selectedCount').textContent = count;
+                    document.getElementById('btnDelete').disabled = count === 0;
+                });
+                
+                console.log('Spark编辑器初始化成功');
+            } catch (error) {
+                console.warn('Spark库加载失败，使用模拟模式:', error);
+                document.getElementById('loading').style.display = 'none';
+                // 保留空状态，允许拖拽上传
+            }
+        }
+        
+        // 工具函数
+        function undo() {
+            if (spark) spark.undo();
+            else alert('编辑器未初始化');
+        }
+        
+        function redo() {
+            if (spark) spark.redo();
+            else alert('编辑器未初始化');
+        }
+        
+        function deleteSelected() {
+            if (spark && document.getElementById('selectedPoints').textContent !== '0') {
+                spark.deleteSelected();
+            }
+        }
+        
+        function resetView() {
+            if (spark) spark.resetCamera();
+        }
+        
+        function saveScene() {
+            if (spark) spark.exportScene();
+            else alert('编辑器未初始化');
+        }
+        
+        function exportGLB() {
+            if (spark) spark.exportGLB();
+            else alert('编辑器未初始化');
+        }
+        
+        function toggleGrid() {
+            const toggle = document.getElementById('toggleGrid');
+            toggle.classList.toggle('active');
+            if (spark) spark.showGrid(toggle.classList.contains('active'));
+        }
+        
+        function toggleRotate() {
+            const toggle = document.getElementById('toggleRotate');
+            toggle.classList.toggle('active');
+            if (spark) spark.setAutoRotate(toggle.classList.contains('active'));
+        }
+        
+        // 拖拽上传模型
+        const viewport = document.getElementById('viewport');
+        viewport.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            viewport.style.outline = '2px dashed #667eea';
+        });
+        
+        viewport.addEventListener('dragleave', () => {
+            viewport.style.outline = 'none';
+        });
+        
+        viewport.addEventListener('drop', (e) => {
+            e.preventDefault();
+            viewport.style.outline = 'none';
+            
+            const file = e.dataTransfer.files[0];
+            if (file && (file.name.endsWith('.glb') || file.name.endsWith('.splat'))) {
+                loadModel(file);
+            }
+        });
+        
+        async function loadModel(file) {
+            document.getElementById('loading').style.display = 'flex';
+            document.getElementById('emptyState').style.display = 'none';
+            
+            try {
+                const url = URL.createObjectURL(file);
+                if (spark) {
+                    await spark.loadModel(url);
+                    document.getElementById('loading').style.display = 'none';
+                    console.log('模型加载成功:', file.name);
+                } else {
+                    console.log('模型文件已接收:', file.name);
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('totalPoints').textContent = '模拟模式';
+                }
+            } catch (error) {
+                console.error('模型加载失败:', error);
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        // 初始化
+        initSpark();
+    </script>
+</body>
+</html>

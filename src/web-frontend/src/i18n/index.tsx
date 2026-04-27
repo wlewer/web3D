@@ -37,12 +37,15 @@ interface I18nProviderProps {
 // Provider 组件
 export function I18nProvider({ children, defaultLanguage = 'zh-CN' }: I18nProviderProps) {
   const [language, setLanguageState] = useState<Language>(() => {
-    // 从 localStorage 读取保存的语言
+    // 强制默认中文，除非用户明确选择了其他语言
+    // 如果保存的语言是无效的或者从未设置过，使用默认中文
     const saved = localStorage.getItem('language');
     if (saved && saved in LANGUAGES) {
       return saved as Language;
     }
-    return defaultLanguage;
+    // 强制设置为中文
+    localStorage.setItem('language', 'zh-CN');
+    return 'zh-CN';
   });
 
   // 设置语言

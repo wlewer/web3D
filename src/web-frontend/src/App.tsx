@@ -1,8 +1,16 @@
 // 应用入口
 import { useState, useEffect } from 'react';
-import { HomePage, GalleryPage, AuthPage, UploadPage, SuperSplatPage, EnhancedSuperSplatEditor } from './pages';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HomePage, GalleryPage, AuthPage, UploadPage, SparkShowcase, BookViewerPage, BookGalleryPage, GenerationPage } from './pages';
+import { SF3DGenerationPage } from './pages/Generation/SF3DGenerationPage';
+import { TripoSRGenerationPage } from './pages/Generation/TripoSRGenerationPage';
+import { InstantMeshGenerationPage } from './pages/Generation/InstantMeshGenerationPage';
+import { OfficialSuperSplatEditor } from './pages/Editor/OfficialSuperSplatEditor';
+import { SparkEditor } from './pages/Editor/SparkEditor';
+import { Workshop3D } from './pages/Workshop3D';
 import { I18nProvider, useLanguage, useTranslation } from './i18n';
 import { getCurrentUser, logout, type User } from './pages/Auth';
+import { AdminEntry } from './admin';
 import './App.css';
 
 // 语言切换组件
@@ -39,9 +47,11 @@ function UserAvatar({ user, onLogout }: { user: User; onLogout: () => void }) {
 }
 
 // 导航栏组件
-function NavBar({ currentPage, setCurrentPage, user, onLogout }: {
+function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorkshopInHome, user, onLogout }: {
   currentPage: string;
-  setCurrentPage: (page: 'home' | 'gallery' | 'auth' | 'upload' | 'supersplat' | 'editor') => void;
+  setCurrentPage: (page: 'home' | 'gallery' | 'auth' | 'upload' | 'official-editor' | 'spark-editor' | 'showcase' | 'book' | 'book-gallery' | 'generation' | 'sf3d-generation' | 'triposr-generation' | 'instantmesh-generation') => void;
+  showWorkshopInHome?: boolean;
+  setShowWorkshopInHome?: (show: boolean) => void;
   user: User | null;
   onLogout: () => void;
 }) {
@@ -56,22 +66,20 @@ function NavBar({ currentPage, setCurrentPage, user, onLogout }: {
       </div>
       <div className="app-nav-links">
         <button
-          className={`app-nav-link ${currentPage === 'home' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('home')}
+          className={`app-nav-link ${currentPage === 'home' && !showWorkshopInHome ? 'active' : ''}`}
+          onClick={() => {
+            // 点击首页按钮：隐藏3D车间，回到正常首页
+            setCurrentPage('home');
+            setShowWorkshopInHome(false);
+          }}
         >
           {t.nav.home}
         </button>
         <button
-          className={`app-nav-link ${currentPage === 'supersplat' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('supersplat')}
+          className={`app-nav-link ${currentPage === 'official-editor' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('official-editor')}
         >
-          🎯 {language === 'zh' ? '官方展示' : 'Official'}
-        </button>
-        <button
-          className={`app-nav-link ${currentPage === 'editor' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('editor')}
-        >
-          ✏️ {language === 'zh' ? '编辑器' : 'Editor'}
+          🔧 {language === 'zh-CN' ? '3D编辑器' : '3D Editor'}
         </button>
         <button
           className={`app-nav-link ${currentPage === 'gallery' ? 'active' : ''}`}
@@ -80,10 +88,52 @@ function NavBar({ currentPage, setCurrentPage, user, onLogout }: {
           {t.nav.gallery}
         </button>
         <button
+          className={`app-nav-link ${currentPage === 'showcase' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('showcase')}
+        >
+          🎨 {language === 'zh-CN' ? '示例' : 'Showcase'}
+        </button>
+        <button
           className={`app-nav-link ${currentPage === 'upload' ? 'active' : ''}`}
           onClick={() => setCurrentPage('upload')}
         >
           {t.nav.upload}
+        </button>
+        <button
+          className={`app-nav-link ${currentPage === 'generation' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('generation')}
+        >
+          ⚡ {language === 'zh-CN' ? 'AI生成' : 'AI Generate'}
+        </button>
+        <button
+          className={`app-nav-link ${currentPage === 'sf3d-generation' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('sf3d-generation')}
+        >
+          🚀 SF3D
+        </button>
+        <button
+          className={`app-nav-link ${currentPage === 'triposr-generation' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('triposr-generation')}
+        >
+          ⚡ TripoSR
+        </button>
+        <button
+          className={`app-nav-link ${currentPage === 'instantmesh-generation' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('instantmesh-generation')}
+        >
+          🔷 InstantMesh
+        </button>
+        <button
+          className={`app-nav-link ${currentPage === 'home' && showWorkshopInHome ? 'active' : ''}`}
+          onClick={() => {
+            // 如果已经在首页，只触发滚动；如果不在首页，先跳转到首页
+            if (currentPage !== 'home') {
+              setCurrentPage('home');
+            }
+            setShowWorkshopInHome(true);
+          }}
+        >
+          🏭 {language === 'zh-CN' ? '3D车间' : '3D Workshop'}
         </button>
         {!user ? (
           <button
@@ -103,7 +153,8 @@ function NavBar({ currentPage, setCurrentPage, user, onLogout }: {
 
 // 主应用组件
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'gallery' | 'auth' | 'upload' | 'supersplat' | 'editor'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'gallery' | 'auth' | 'upload' | 'official-editor' | 'spark-editor' | 'showcase' | 'book' | 'book-gallery' | 'generation' | 'sf3d-generation' | 'triposr-generation' | 'instantmesh-generation'>('home');
+  const [showWorkshopInHome, setShowWorkshopInHome] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
   // 初始化检查登录状态
@@ -121,33 +172,35 @@ function AppContent() {
     setCurrentPage('home');
   };
 
-  // 登录成功回调
-  const handleLoginSuccess = (userData: User) => {
-    setUser(userData);
-    setCurrentPage('home');
-  };
-
   return (
     <div className="app">
       <NavBar
         currentPage={currentPage}
         setCurrentPage={setCurrentPage}
+        showWorkshopInHome={showWorkshopInHome}
+        setShowWorkshopInHome={setShowWorkshopInHome}
         user={user}
         onLogout={handleLogout}
       />
       
       <main className="app-main">
-        {currentPage === 'home' && <HomePage onNavigate={setCurrentPage} />}
-        {currentPage === 'supersplat' && <SuperSplatPage />}
-        {currentPage === 'editor' && <EnhancedSuperSplatEditor />}
-        {currentPage === 'gallery' && <GalleryPage user={user} />}
+        {currentPage === 'home' && <HomePage onNavigate={setCurrentPage} showWorkshop3D={showWorkshopInHome} onWorkshopClose={() => setShowWorkshopInHome(false)} />}
+        {currentPage === 'official-editor' && <OfficialSuperSplatEditor />}
+        {currentPage === 'spark-editor' && <SparkEditor />}
+        {currentPage === 'gallery' && <GalleryPage />}
         {currentPage === 'auth' && (
           <AuthPage 
-            onLoginSuccess={handleLoginSuccess}
-            onSwitchToLogin={() => setCurrentPage('home')}
+            onSuccess={() => setCurrentPage('home')}
           />
         )}
         {currentPage === 'upload' && <UploadPage />}
+        {currentPage === 'showcase' && <SparkShowcase />}
+        {currentPage === 'book' && <BookViewerPage onNavigate={setCurrentPage} />}
+        {currentPage === 'book-gallery' && <BookGalleryPage onNavigate={setCurrentPage} />}
+        {currentPage === 'generation' && <GenerationPage />}
+        {currentPage === 'sf3d-generation' && <SF3DGenerationPage />}
+        {currentPage === 'triposr-generation' && <TripoSRGenerationPage />}
+        {currentPage === 'instantmesh-generation' && <InstantMeshGenerationPage />}
       </main>
     </div>
   );
@@ -157,7 +210,17 @@ function AppContent() {
 export default function App() {
   return (
     <I18nProvider>
-      <AppContent />
+      <BrowserRouter>
+        <Routes>
+          {/* Admin 后台管理系统 */}
+          <Route path="/admin/*" element={<AdminEntry />} />
+          {/* 处理/admin 根路径 */}
+          <Route path="/admin" element={<AdminEntry />} />
+          
+          {/* 前台应用 */}
+          <Route path="/*" element={<AppContent />} />
+        </Routes>
+      </BrowserRouter>
     </I18nProvider>
   );
 }

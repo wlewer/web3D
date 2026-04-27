@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>SuperSplat</title>
+        <meta charset="utf-8" />
+        <base href="">
+        <link rel="manifest" href="./manifest.json">
+        <link rel="stylesheet" href="./index.css">
+        <link rel="shortcut icon" href="#">
+        <meta name="description" content="SuperSplat is an advanced browser-based editor for manipulating and optimizing 3D Gaussian Splats. It is open source and engine agnostic." />
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+
+        <!-- Service worker -->
+        <script>
+            const sw = navigator.serviceWorker;
+            if (sw) {
+                sw.register('./sw.js')
+                    .then(reg => console.log('service worker registered', reg))
+                    .catch(err => console.log('failed to register service worker', err));
+            }
+        </script>
+        
+        <!-- 自动展开左侧工具面板 -->
+        <script>
+            window.addEventListener('load', function() {
+                setTimeout(() => {
+                    try {
+                        // 方法1: 查找左上角区域的第一个可点击按钮
+                        const bodyRect = document.body.getBoundingClientRect();
+                        const allButtons = document.querySelectorAll('button, div[role="button"], [class*="btn"], [class*="button"]');
+                        
+                        for (const btn of allButtons) {
+                            const rect = btn.getBoundingClientRect();
+                            // 检查是否在左上角50x50区域内
+                            if (rect.left < 50 && rect.top < 50 && rect.width > 0 && rect.height > 0) {
+                                // 检查按钮是否可见
+                                const style = window.getComputedStyle(btn);
+                                if (style.display !== 'none' && style.visibility !== 'hidden') {
+                                    btn.click();
+                                    console.log('SuperSplat: 自动展开工具面板成功');
+                                    return;
+                                }
+                            }
+                        }
+                        
+                        // 方法2: 查找包含">"或"<"文本的按钮
+                        for (const btn of allButtons) {
+                            const text = btn.textContent.trim();
+                            if ((text === '>' || text === '<' || text === '›' || text === '‹') && btn.offsetParent !== null) {
+                                btn.click();
+                                console.log('SuperSplat: 自动展开工具面板 (箭头按钮)');
+                                return;
+                            }
+                        }
+                        
+                        console.log('SuperSplat: 未找到展开按钮，请手动点击左上角箭头');
+                    } catch (error) {
+                        console.error('SuperSplat: 自动展开失败', error);
+                    }
+                }, 1500);
+            });
+        </script>
+    </head>
+
+    <body>
+        <script type="module" src="./index.js"></script>
+    </body>
+</html>

@@ -1,5 +1,5 @@
 // 3D模型查看器组件
-import { useRef, useState } from 'react';
+import { useRef, useState, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
@@ -13,6 +13,17 @@ interface ModelViewerProps {
   onError?: (error: Error) => void;
 }
 
+// GLB模型加载组件
+function GLBModel({ modelUrl, meshRef }: { modelUrl: string; meshRef: React.RefObject<THREE.Group> }) {
+  const { scene } = useGLTF(modelUrl);
+  
+  return (
+    <group ref={meshRef}>
+      <primitive object={scene} />
+    </group>
+  );
+}
+
 export function ModelViewer({ modelUrl, config, onLoad, onError }: ModelViewerProps) {
   const mergedConfig = { ...DEFAULT_VIEWER_CONFIG, ...config };
   const meshRef = useRef<THREE.Group>(null);
@@ -24,34 +35,22 @@ export function ModelViewer({ modelUrl, config, onLoad, onError }: ModelViewerPr
     }
   });
 
-  // 加载GLTF/GLB模型
-  try {
-    const { scene } = useGLTF(modelUrl);
-    
-    useFrame(() => {
-      if (loading) {
-        setLoading(false);
-        onLoad?.();
-      }
-    });
-
-    return (
-      <>
-        <OrbitControls
-          enableDamping={mergedConfig.enableDamping}
-          dampingFactor={mergedConfig.dampingFactor}
-          minDistance={mergedConfig.minDistance}
-          maxDistance={mergedConfig.maxDistance}
-          enableZoom={mergedConfig.enableZoom}
-          enablePan={mergedConfig.enablePan}
+  return (
+    <>
+      <OrbitControls
+        enableDamping={mergedConfig.enableDamping}
+        dampingFactor={mergedConfig.dampingFactor}
+        minDistance={mergedConfig.minDistance}
+        maxDistance={mergedConfig.maxDistance}
+        enableZoom={mergedConfig.enableZoom}
+        enablePan={mergedConfig.enablePan}
+      />
+      <Suspense fallback={null}>
+        <GLBModel 
+          modelUrl={modelUrl} 
+          meshRef={meshRef}
         />
-        <group ref={meshRef}>
-          <primitive object={scene} />
-        </group>
-      </>
-    );
-  } catch (error) {
-    onError?.(error as Error);
-    return null;
-  }
+      </Suspense>
+    </>
+  );
 }

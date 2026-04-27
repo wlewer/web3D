@@ -1,0 +1,170 @@
+# Web3D Backend - Python依赖管理（统一版）
+# 版本: v2.0
+# 更新日期: 2025-04-18
+#
+# 依赖管理策略：
+# 1. ✅ 所有依赖统一管理在此文件
+# 2. ✅ 按功能模块分组，便于按需安装
+# 3. ✅ 所有版本必须锁定
+# 4. ✅ 禁止在子目录维护独立的requirements.txt
+# 5. ✅ 子目录的requirements.txt仅作参考，不用于安装
+
+# ==================== 核心框架 ====================
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+python-dotenv==1.0.0
+
+# ==================== 数据库 ====================
+sqlalchemy==2.0.25
+alembic==1.13.1
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+aiosqlite==0.19.0
+
+# ==================== 认证与安全 ====================
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.1.2  # 锁定版本，避免与passlib不兼容
+email-validator==2.1.0
+
+# ==================== 数据验证 ====================
+pydantic==2.5.3
+pydantic-settings==2.1.0
+
+# ==================== 工具库 ====================
+httpx==0.26.0
+aiofiles==23.2.1
+loguru==0.7.2
+python-dateutil==2.8.2
+uuid-utils==0.6.0
+
+# ==================== 模块1：通用3D处理依赖（所有模块共享） ====================
+# 状态：✅ 已安装 | Python 3.8+ | CPU/GPU通用
+trimesh[easy]==4.11.5          # 3D模型处理（统一版本）
+numpy>=1.26.0,<2.0.0           # 数值计算（Python 3.12兼容）
+Pillow==10.1.0                  # 图像处理
+opencv-python==4.9.0.80        # 计算机视觉
+rembg[gpu]>=2.0.55             # 背景移除（Python 3.12兼容）
+scikit-image>=0.22.0            # 图像处理算法（Python 3.12兼容）
+pygltflib==1.16.0               # GLTF/GLB处理
+pymeshlab==2023.12.post1        # MeshLab Python接口
+
+# ==================== 模块2：ImageToSTL 图像浮雕（当前真实可用 ✅） ====================
+# 状态：✅ 100%可用 | Python 3.8+ | CPU Only | 无需GPU
+# 官方GitHub: https://gitcode.com/gh_mirrors/im/ImageToSTL
+# 技术原理：图片亮度 -> 高度图 -> 3D浮雕网格
+# 生成效果：真实的3D浮雕模型（从左侧打光可以看到原始图片）
+numpy-stl==3.0.0                # STL文件处理
+# PySimpleGUI==4.60.4          # GUI界面（仅用于独立工具，API集成不需要）
+
+# ==================== 模块3：TripoSR CPU版本（降级可用 ⚠️） ====================
+# 状态：⚠️ 30%可用 | Python 3.12 | CPU Only | 使用增强版程序化生成器
+# 官方GitHub: https://github.com/VAST-AI-Research/TripoSR
+# 代码位置: backend/triposr_lib/ （已克隆官方代码）
+#
+# 当前实现：增强版程序化生成器（不是AI生成）
+# - 根据图片特征生成球体/圆柱体/扁圆柱体/复杂组合体
+# - 提取图片主色调应用到3D模型
+# - 文件大小：80-120KB
+#
+# 真实AI生成需要：
+# - Python 3.9-3.11 （Python 3.12暂不支持torchmcubes）
+# - torchmcubes （Marching Cubes算法，需要Python 3.9-3.11编译）
+# - omegaconf==2.3.0 （配置管理）
+# - einops==0.7.0 （张量操作）
+# - transformers==4.35.0 （HuggingFace Transformers）
+# - huggingface-hub==0.20.3 （模型下载）
+# 
+# ⚠️ 重要说明：
+# - torchmcubes 0.0.13 仅支持 Python 3.9-3.11
+# - Python 3.12 需等待 torchmcubes 新版本发布
+# - 当前使用程序化生成器作为fallback，功能完整可用
+# torchmcubes==0.0.13             # Marching Cubes算法（Python 3.12暂不支持，TripoSR CPU降级使用程序化生成器）
+
+# ==================== 模块4：Hunyuan3D-2（需要GPU 🚧） ====================
+# 状态：🚧 Mock模式 | 真实模式需要GPU 8GB+
+# 官方GitHub: https://github.com/Tencent-Hunyuan/Hunyuan3D-2
+# 技术架构：DINOv1 + Diffusion + Marching Cubes
+# 生成效果：高质量带纹理的3D模型
+#
+# 需要环境：
+# - Python 3.9+
+# - CUDA 11.8+
+# - 显存 8GB+
+# 依赖包（需要时取消注释）：
+# diffusers==0.26.3
+# transformers==4.37.2
+# accelerate==0.27.2
+# einops==0.7.0
+# omegaconf==2.3.0
+
+# ==================== 模块5：SF3D - Stability AI（需要GPU 🚧） ====================
+# 状态：🚧 Mock模式 | 真实模式需要GPU 9GB+
+# 官方GitHub: https://github.com/Stability-AI/generative-models
+# 速度：~0.5秒 | 质量：Chamfer Distance 0.098
+#
+# 需要环境：
+# - Python 3.9+
+# - CUDA 11.8+
+# - 显存 9GB+
+# 依赖包（需要时取消注释）：
+# diffusers==0.26.3
+# transformers==4.37.2
+
+# ==================== 模块6：InstantMesh - 腾讯ARC（需要GPU 🚧） ====================
+# 状态：🚧 未实现 | 真实模式需要GPU 8GB+
+# 官方GitHub: https://github.com/TencentARC/InstantMesh
+# 特点：精细网格生成
+#
+# 需要环境：
+# - Python 3.9+
+# - CUDA 11.8+
+# - 显存 8GB+
+# 依赖包（需要时取消注释）：
+# diffusers==0.26.3
+# transformers==4.37.2
+
+# ==================== 模块7：TripoSR 官方GPU版（需要Python 3.9+ 🚧） ====================
+# 状态：🚧 代码已克隆 | 真实模式需要Python 3.9+ | GPU 4-6GB
+# 官方GitHub: https://github.com/VAST-AI-Research/TripoSR
+# 代码位置: backend/triposr_lib/ （已克隆）
+#
+# 需要环境：
+# - Python 3.9+ （当前3.8.5不兼容）
+# - CUDA 11.8+
+# - 显存 4-6GB
+#
+# 依赖包（需要时取消注释）：
+# git+https://github.com/VAST-AI-Research/TripoSR.git  # 官方库（Python 3.8不兼容）
+# omegaconf==2.3.0
+# einops==0.7.0
+# transformers==4.35.0
+# huggingface-hub==0.20.3
+# imageio[ffmpeg]==2.33.1
+# xatlas==0.0.9
+# moderngl==5.10.0
+
+# ==================== 模块8：腾讯混元3D云端API（✅ 真实可用） ====================
+# 状态：✅ 100%可用 | Python 3.8+ | CPU Only | 云端GPU推理
+# 官方文档：https://cloud.tencent.com/document/product/1804/120696
+# 技术架构：腾讯云官方SDK + TC3-HMAC-SHA256签名
+# 支持模型：
+#   - rapid（标准版/hy-3d-3.0）：30-60秒，消耗10积分
+#   - pro（专业版/hy-3d-3.1）：60-120秒，消耗20积分
+#   - express（极速版/HY-3D-Express）：10-20秒，消耗5积分（暂不可用）
+tencentcloud-sdk-python>=3.1.83  # 腾讯云官方SDK（自动处理签名，需要v3.1.83+支持AI3D）
+
+# ==================== 依赖管理说明 ====================
+#
+# 安装方法：
+# 1. 基础安装（模块1-3）：
+#    pip install -r requirements.txt
+#
+# 2. GPU模块（模块4-7）：
+#    需要时取消注释对应模块的依赖，然后：
+#    pip install -r requirements.txt
+#
+# 3. 子目录依赖文件：
+#    backend/triposr_lib/requirements.txt 仅作参考，不要直接安装！
+#    所有依赖已统一管理在此文件中。
