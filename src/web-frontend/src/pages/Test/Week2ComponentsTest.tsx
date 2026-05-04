@@ -58,15 +58,14 @@ export function Week2ComponentsTest() {
   };
 
   return (
-    <div className="week2-test">
-      <header className="test-header">
-        <h1>🧪 Week 2 重构组件验证</h1>
-        <p>Base3DViewer | UniversalGaussianCardV3 | Simple3DViewer | GalleryCard</p>
+    <div className="week2-test compact">
+      {/* 紧凑头部 */}
+      <header className="test-header compact">
+        <h1> Week 2 组件验证</h1>
       </header>
 
-      {/* 模型选择器 */}
-      <div className="model-selector">
-        <h3>选择测试模型：</h3>
+      {/* 紧凑模型选择器 */}
+      <div className="model-selector compact">
         <div className="model-buttons">
           {TEST_MODELS.map(model => (
             <button
@@ -80,8 +79,8 @@ export function Week2ComponentsTest() {
         </div>
       </div>
 
-      {/* 测试标签页 */}
-      <nav className="test-tabs">
+      {/* 紧凑标签页 */}
+      <nav className="test-tabs compact">
         <button 
           className={activeTab === 'base' ? 'active' : ''}
           onClick={() => setActiveTab('base')}
@@ -92,13 +91,13 @@ export function Week2ComponentsTest() {
           className={activeTab === 'v3' ? 'active' : ''}
           onClick={() => setActiveTab('v3')}
         >
-          UniversalGaussianCardV3
+          V3卡片
         </button>
         <button 
           className={activeTab === 'simple' ? 'active' : ''}
           onClick={() => setActiveTab('simple')}
         >
-          Simple3DViewer
+          SimpleViewer
         </button>
         <button 
           className={activeTab === 'gallery' ? 'active' : ''}
@@ -109,17 +108,11 @@ export function Week2ComponentsTest() {
       </nav>
 
       {/* 测试区域 */}
-      <main className="test-main">
+      <main className="test-main compact">
         {/* Base3DViewer 测试 */}
         {activeTab === 'base' && (
-          <section className="test-section">
-            <h2>✅ Base3DViewer 测试</h2>
-            <div className="test-info">
-              <p><strong>功能：</strong>纯3D渲染核心，无装饰功能</p>
-              <p><strong>特性：</strong>智能居中、相机控制、截图、配置保存</p>
-            </div>
-            
-            <div className="viewer-container large">
+          <section className="test-section compact">
+            <div className="viewer-container fullscreen">
               <Base3DViewer
                 ref={baseViewerRef}
                 modelUrl={selectedModel.url}
@@ -130,34 +123,21 @@ export function Week2ComponentsTest() {
               />
             </div>
 
-            <div className="action-buttons">
-              <button onClick={() => baseViewerRef.current?.screenshot()}>
-                📸 截图
-              </button>
-              <button onClick={() => baseViewerRef.current?.toggleAutoRotate()}>
-                🔄 切换旋转
-              </button>
+            <div className="action-buttons compact">
+              <button onClick={() => baseViewerRef.current?.screenshot()}></button>
+              <button onClick={() => baseViewerRef.current?.toggleAutoRotate()}>🔄</button>
               <button onClick={() => {
                 const config = baseViewerRef.current?.saveCameraConfig();
                 console.log('相机配置:', config);
-                alert('配置已保存到控制台');
-              }}>
-                💾 保存配置
-              </button>
+              }}>💾</button>
             </div>
           </section>
         )}
 
         {/* UniversalGaussianCardV3 测试 */}
         {activeTab === 'v3' && (
-          <section className="test-section">
-            <h2>✅ UniversalGaussianCardV3 测试</h2>
-            <div className="test-info">
-              <p><strong>功能：</strong>带展示台装饰的产品卡片</p>
-              <p><strong>特性：</strong>展示台、产品标签、加载状态UI</p>
-            </div>
-            
-            <div className="viewer-container medium">
+          <section className="test-section compact">
+            <div className="viewer-container fullscreen">
               <UniversalGaussianCardV3
                 modelUrl={selectedModel.url}
                 showPlatform={true}
@@ -178,14 +158,8 @@ export function Week2ComponentsTest() {
 
         {/* Simple3DViewer 测试 */}
         {activeTab === 'simple' && (
-          <section className="test-section">
-            <h2>✅ Simple3DViewer 测试</h2>
-            <div className="test-info">
-              <p><strong>功能：</strong>轻量级查看器，最小化设计</p>
-              <p><strong>特性：</strong>自动旋转、点击交互、无控制器</p>
-            </div>
-            
-            <div className="viewer-container small">
+          <section className="test-section compact">
+            <div className="viewer-container fullscreen">
               <Simple3DViewer
                 modelUrl={selectedModel.url}
                 enableControls={false}
@@ -199,13 +173,7 @@ export function Week2ComponentsTest() {
 
         {/* GalleryCard 测试 */}
         {activeTab === 'gallery' && (
-          <section className="test-section">
-            <h2>✅ GalleryCard 测试</h2>
-            <div className="test-info">
-              <p><strong>功能：</strong>画廊卡片组件</p>
-              <p><strong>特性：</strong>网格布局、悬停效果、标签显示</p>
-            </div>
-            
+          <section className="test-section compact">
             <div className="gallery-grid">
               {TEST_MODELS.map(model => (
                 <GalleryCard
