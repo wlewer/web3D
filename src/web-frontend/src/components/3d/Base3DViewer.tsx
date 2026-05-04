@@ -95,6 +95,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
+  
+  // ✅ 新增：追踪当前加载的modelUrl，防止重复加载
+  const [currentModelUrl, setCurrentModelUrl] = useState<string>('');
 
   // FPS计数器
   const fpsCounterRef = useRef<{ count: number; lastTime: number }>({
@@ -460,8 +463,17 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       console.warn('⚠️ modelUrl为空，跳过加载');
       return;
     }
+    
+    // ✅ 关键修复：检查modelUrl是否真的变化，防止重复加载
+    if (modelUrl === currentModelUrl && modelLoaded) {
+      console.log('⏭️ modelUrl未变化，跳过重复加载:', modelUrl);
+      return;
+    }
 
     console.log('🔄 modelUrl变化，准备加载新模型:', modelUrl);
+    
+    // ✅ 更新当前加载的URL
+    setCurrentModelUrl(modelUrl);
 
     // ✅ 关键修复：模型切换时立即禁用控制器，防止干扰新模型加载（对齐V2）
     if (controlsRef.current) {
@@ -491,7 +503,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
 
     // 加载新模型
     loadModel();
-  }, [modelUrl, sceneInitialized, loadModel]);
+  }, [modelUrl, sceneInitialized]);  // ✅ 移除loadModel依赖，防止无限循环
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
