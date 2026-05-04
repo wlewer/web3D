@@ -479,16 +479,21 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       return;
     }
   
-    // ★ 关键修复：使用stateMachine.currentModelUrl而不是stateMachine.state作为依赖
-    // 这样可以避免state变化导致useEffect重复触发
-    if (modelUrl === stateMachine.currentModelUrl && modelLoaded) {
+    // ★ 关键修复：先检查LOADING状态，防止重复加载
+    if (stateMachine.state === 'LOADING') {
+      console.log('⏸️ 正在加载中，跳过重复加载请求');
+      return;
+    }
+  
+    // ★ 关键修复：如果已加载且URL相同，跳过
+    if (stateMachine.state === 'LOADED' && modelUrl === stateMachine.currentModelUrl) {
       console.log('✅ 模型已加载且URL未变化，跳过重新加载');
       return;
     }
   
-    // ★ 状态机守卫：只在READY或LOADED状态下才处理modelUrl变化
+    // ★ 状态机守卫：只允许在READY/LOADED/IDLE状态下加载
     if (stateMachine.state !== 'READY' && stateMachine.state !== 'LOADED' && stateMachine.state !== 'IDLE') {
-      console.log('️ 当前状态不允许加载模型:', stateMachine.state);
+      console.log('⚠️ 当前状态不允许加载模型:', stateMachine.state);
       return;
     }
   
@@ -525,7 +530,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   
     // 加载新模型
     loadModel();
-  }, [modelUrl, loadModel, modelLoaded, stateMachine.currentModelUrl]);  // ✅ 修复：移除stateMachine.state依赖，防止循环
+  }, [modelUrl, loadModel, stateMachine.state, stateMachine.currentModelUrl]);  // ✅ 恢复stateMachine.state依赖，但前面有LOADING守卫防止循环
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
