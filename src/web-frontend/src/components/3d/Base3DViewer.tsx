@@ -96,8 +96,14 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   const [error, setError] = useState<string | null>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
   
-  // ✅ 新增：追踪当前加载的modelUrl，防止重复加载
-  const [currentModelUrl, setCurrentModelUrl] = useState<string>('');
+  // ✅ 对齐V2：使用状态机管理加载生命周期（防止重复加载和并发问题）
+  const [stateMachine, setStateMachine] = useState<{
+    state: 'IDLE' | 'INITIALIZING' | 'READY' | 'LOADING' | 'LOADED' | 'ERROR';
+    currentModelUrl: string;
+  }>({ 
+    state: 'IDLE',
+    currentModelUrl: '' 
+  });
 
   // FPS计数器
   const fpsCounterRef = useRef<{ count: number; lastTime: number }>({
@@ -316,15 +322,19 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         controlsRef.current.enabled = true;
         console.log('🎯 控制器已启用');
       }
-      
+            
       // ✅ 新增：显示产品标签（如果启用了）
       if (decorationRef.current && decorations?.labels?.enabled) {
         decorationRef.current.showLabels();
       }
-
+            
       setLoading(false);
       setModelLoaded(true);
       setProgress(100);
+            
+      // ★ 状态机转换：进入LOADED状态（对齐V2）
+      setStateMachine({ state: 'LOADED', currentModelUrl: modelUrl });
+            
       onLoadComplete?.();
 
       console.log('✅ 模型加载和居中对齐完成');
@@ -332,6 +342,10 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       console.error('❌ 模型加载失败:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
       setLoading(false);
+      
+      // ★ 状态机转换：进入ERROR状态（对齐V2）
+      setStateMachine({ state: 'ERROR', currentModelUrl: modelUrl });
+      
       onError?.(err instanceof Error ? err : new Error(String(err)));
     }
   }, [modelUrl, autoCenter, margin, onProgress, onLoadComplete, onError]);
@@ -399,8 +413,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     rendererRef.current.setSize(width, height);
   }, []);
 
-  // 场景初始化状态
-  const [sceneInitialized, setSceneInitialized] = useState(false);
+  // ✅ 移除sceneInitialized，改用状态机管理
+  // const [sceneInitialized, setSceneInitialized] = useState(false);
 
   // 初始化场景
   useEffect(() => {
@@ -410,7 +424,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     
     animate();
 
-    setSceneInitialized(true);
+    // ✅ 对齐V2：场景初始化完成后，进入READY状态
+    setStateMachine({ state: 'READY', currentModelUrl: '' });
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -452,9 +467,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     };
   }, [initScene, handleResize, animate]);
 
-  // ✅ 修复4：模型切换逻辑（监听modelUrl变化）
+  // ✅ 修复4：模型切换逻辑（完全对齐V2：使用状态机守卫）
   useEffect(() => {
-    if (!sceneInitialized) {
+    if (!sceneRef.current || !sparkRef.current) {
       console.log('⏳ 等待场景初始化...');
       return;
     }
@@ -463,25 +478,36 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       console.warn('⚠️ modelUrl为空，跳过加载');
       return;
     }
-    
-    // ✅ 关键修复：检查modelUrl是否真的变化，防止重复加载
-    if (modelUrl === currentModelUrl && modelLoaded) {
-      console.log('⏭️ modelUrl未变化，跳过重复加载:', modelUrl);
+
+    // ★ 状态机守卫：输出调试信息（对齐V2第1537-1542行）
+    console.log('🔄 modelUrl变化:', {
+      newUrl: modelUrl,
+      currentState: stateMachine.state,
+      currentModelUrl: stateMachine.currentModelUrl,
+      modelLoaded
+    });
+
+    // ★ 状态机守卫：只在READY或LOADED状态下才处理modelUrl变化（对齐V2第1545-1548行）
+    if (stateMachine.state !== 'READY' && stateMachine.state !== 'LOADED') {
+      console.log('⚠️ 当前状态不允许加载模型:', stateMachine.state);
       return;
     }
 
-    console.log('🔄 modelUrl变化，准备加载新模型:', modelUrl);
-    
-    // ✅ 更新当前加载的URL
-    setCurrentModelUrl(modelUrl);
+    // ★ 状态机守卫：如果URL未变化且已加载，跳过（对齐V2第1551-1554行）
+    if (modelUrl === stateMachine.currentModelUrl && modelLoaded) {
+      console.log('✅ 模型已加载且URL未变化，跳过重新加载');
+      return;
+    }
 
-    // ✅ 关键修复：模型切换时立即禁用控制器，防止干扰新模型加载（对齐V2）
+    console.log('📥 开始加载新模型:', modelUrl);
+
+    // ✅ 关键修复：模型切换时立即禁用控制器，防止干扰新模型加载（对齐V2第1565-1568行）
     if (controlsRef.current) {
       controlsRef.current.enabled = false;
       console.log('🔒 模型切换：禁用控制器');
     }
 
-    // 清理旧模型
+    // 清理旧模型（对齐V2第1570-1577行）
     if (modelRef.current) {
       console.log('🧹 清理旧模型...');
       if (modelRef.current instanceof SplatMesh) {
@@ -496,6 +522,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       modelRef.current = null;
     }
 
+    // ★ 状态机转换：进入LOADING状态（对齐V2第1580行）
+    setStateMachine({ state: 'LOADING', currentModelUrl: modelUrl });
+    
     // 重置状态
     setModelLoaded(false);
     setLoading(true);
@@ -503,7 +532,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
 
     // 加载新模型
     loadModel();
-  }, [modelUrl, sceneInitialized]);  // ✅ 移除loadModel依赖，防止无限循环
+  }, [modelUrl, loadModel, stateMachine.state, stateMachine.currentModelUrl, modelLoaded]);  // ✅ 完全对齐V2第1583行
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
