@@ -128,10 +128,10 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   
   // ✅ 对齐V2：使用状态机管理加载生命周期（防止重复加载和并发问题）
   const [stateMachine, setStateMachine] = useState<{
-    state: 'IDLE' | 'INITIALIZING' | 'READY' | 'LOADING' | 'LOADED' | 'ERROR';
+    state: 'UNINITIALIZED' | 'INITIALIZING' | 'READY' | 'LOADING' | 'LOADED' | 'ERROR';
     currentModelUrl: string;
   }>({ 
-    state: 'IDLE',
+    state: 'UNINITIALIZED',  // ✅ 对齐V2：使用UNINITIALIZED而不是IDLE
     currentModelUrl: '' 
   });
 
@@ -148,9 +148,6 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   // ✅ 对齐V2：相机配置管理引用（第1586-1587行）
   const prevConfigRef = useRef<CameraConfig | null>(null);
   const currentTweenRef = useRef<Tween | null>(null);  // 保存当前Tween动画引用
-  
-  // ✅ 修复循环依赖：使用ref保存loadModel引用
-  const loadModelRef = useRef<(() => Promise<void>) | null>(null);
 
   // Spark渲染状态管理
   const sparkReadyRef = useRef(false);
@@ -160,8 +157,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   /**
    * 初始化Three.js场景（完全对齐V2实现）
    */
-  const initScene = useCallback(() => {
-    if (!containerRef.current || !canvasRef.current) return;
+  const initScene = useCallback((): boolean => {
+    if (!containerRef.current || !canvasRef.current) return false;  // ✅ 对齐V2：返回false表示失败
 
     const container = containerRef.current;
     const width = container.clientWidth || 400;
@@ -270,18 +267,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     }
     
     console.log('🎨 Base3DViewer场景初始化完成');
-    
-    // ✅ 对齐V2：更新状态机为READY（第1484行）
-    setStateMachine(prev => ({ ...prev, state: 'READY' }));
-    console.log('✅ 场景初始化成功，进入READY状态');
-    
-    // ✅ 对齐V2：初始化成功后立即加载模型（第1487-1490行）
-    if (modelUrl) {
-      console.log(' 检测到modelUrl，触发首次加载');
-      // 直接使用loadModel引用，不添加到依赖项
-      loadModelRef.current?.();
-    }
-  }, [backgroundColor, enableControls, autoRotate, decorations, modelUrl]);  // ✅ 移除loadModel避免循环依赖
+    return true;  // ✅ 对齐V2：返回true表示成功
+  }, [backgroundColor, enableControls, autoRotate, decorations]);
 
   /**
    * 加载模型（完全对齐V2：添加控制器管理）
@@ -419,9 +406,6 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       onError?.(err instanceof Error ? err : new Error(String(err)));
     }
   }, [modelUrl, autoCenter, margin, onProgress, onLoadComplete, onError]);
-  
-  // ✅ 修复循环依赖：将loadModel赋值给ref
-  loadModelRef.current = loadModel;
 
   /**
    * 动画循环（集成SparkRenderer渲染）
@@ -742,6 +726,68 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     applyCameraConfig(customCameraConfig);
   }, [modelLoaded, cameraReady, customCameraConfig, applyCameraConfig]);
 
+  // ✅ 对齐V2：独立初始化useEffect（第1470-1529行）
+  useEffect(() => {
+    // ★ 状态机守卫：只在UNINITIALIZED状态下执行初始化
+    if (stateMachine.state !== 'UNINITIALIZED') {
+      console.log('✅ 场景已初始化，跳过重复初始化', stateMachine.state);
+      return;
+    }
+
+    console.log('🚀 开始初始化场景...');
+    setStateMachine({ state: 'INITIALIZING', currentModelUrl: '' });
+
+    const timer = setTimeout(() => {
+      const result = initScene();
+      if (result) {
+        console.log('✅ 场景初始化成功，进入READY状态');
+        setStateMachine(prev => ({ ...prev, state: 'READY' }));
+        
+        // 关键修复：初始化成功后立即加载模型（如果modelUrl存在）
+        if (modelUrl) {
+          console.log('📥 检测到modelUrl，触发首次加载');
+          loadModel();
+        }
+        
+        animate();
+      } else {
+        console.error('❌ 场景初始化失败');
+        setError('Failed to initialize 3D viewer');
+        setLoading(false);
+        setStateMachine(prev => ({ ...prev, state: 'ERROR' }));
+      }
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+      cancelAnimationFrame(frameIdRef.current);
+
+      if (modelRef.current) {
+        try {
+          (modelRef.current as any).dispose?.();
+        } catch (e) {
+          console.warn('模型清理警告:', e);
+        }
+        modelRef.current = null;
+      }
+      if (sparkRef.current) {
+        sparkRef.current = null;
+      }
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+        rendererRef.current = null;
+      }
+      if (controlsRef.current) {
+        controlsRef.current.dispose();
+        controlsRef.current = null;
+      }
+      if (sceneRef.current) {
+        sceneRef.current.clear();
+        sceneRef.current = null;
+      }
+    };
+  }, []);  // 空依赖，只执行一次
+
   // ✅ 修复4：模型切换逻辑（完全对齐V2第1533-1583行）
   useEffect(() => {
     if (!sparkRef.current || !sceneRef.current) {
@@ -797,7 +843,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     setStateMachine({ state: 'LOADING', currentModelUrl: modelUrl });
       
     loadModel();
-  }, [modelUrl, loadModel, modelLoaded]);  // ✅ 修复循环加载：移除stateMachine依赖项
+  }, [modelUrl, loadModel, stateMachine.state, stateMachine.currentModelUrl, modelLoaded]);  // ✅ 完全对齐V2：不删除任何依赖项
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
