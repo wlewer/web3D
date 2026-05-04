@@ -467,49 +467,42 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     };
   }, [initScene, handleResize, animate]);
 
-  // ✅ 修复4：模型切换逻辑（完全对齐V2：使用状态机守卫）
+  // ✅ 修复4：模型切换逻辑（修复循环加载问题）
   useEffect(() => {
     if (!sceneRef.current || !sparkRef.current) {
-      console.log('⏳ 等待场景初始化...');
+      console.log(' 等待场景初始化...');
       return;
     }
-
+  
     if (!modelUrl) {
       console.warn('⚠️ modelUrl为空，跳过加载');
       return;
     }
-
-    // ★ 状态机守卫：输出调试信息（对齐V2第1537-1542行）
-    console.log('🔄 modelUrl变化:', {
-      newUrl: modelUrl,
-      currentState: stateMachine.state,
-      currentModelUrl: stateMachine.currentModelUrl,
-      modelLoaded
-    });
-
-    // ★ 状态机守卫：只在READY或LOADED状态下才处理modelUrl变化（对齐V2第1545-1548行）
-    if (stateMachine.state !== 'READY' && stateMachine.state !== 'LOADED') {
-      console.log('⚠️ 当前状态不允许加载模型:', stateMachine.state);
-      return;
-    }
-
-    // ★ 状态机守卫：如果URL未变化且已加载，跳过（对齐V2第1551-1554行）
+  
+    // ★ 关键修复：使用stateMachine.currentModelUrl而不是stateMachine.state作为依赖
+    // 这样可以避免state变化导致useEffect重复触发
     if (modelUrl === stateMachine.currentModelUrl && modelLoaded) {
       console.log('✅ 模型已加载且URL未变化，跳过重新加载');
       return;
     }
-
+  
+    // ★ 状态机守卫：只在READY或LOADED状态下才处理modelUrl变化
+    if (stateMachine.state !== 'READY' && stateMachine.state !== 'LOADED' && stateMachine.state !== 'IDLE') {
+      console.log('️ 当前状态不允许加载模型:', stateMachine.state);
+      return;
+    }
+  
     console.log('📥 开始加载新模型:', modelUrl);
-
+  
     // ✅ 关键修复：模型切换时立即禁用控制器，防止干扰新模型加载（对齐V2第1565-1568行）
     if (controlsRef.current) {
       controlsRef.current.enabled = false;
       console.log('🔒 模型切换：禁用控制器');
     }
-
+  
     // 清理旧模型（对齐V2第1570-1577行）
     if (modelRef.current) {
-      console.log('🧹 清理旧模型...');
+      console.log(' 清理旧模型...');
       if (modelRef.current instanceof SplatMesh) {
         try {
           (modelRef.current as any).dispose?.();
@@ -521,18 +514,18 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       }
       modelRef.current = null;
     }
-
+  
     // ★ 状态机转换：进入LOADING状态（对齐V2第1580行）
     setStateMachine({ state: 'LOADING', currentModelUrl: modelUrl });
-    
+      
     // 重置状态
     setModelLoaded(false);
     setLoading(true);
     setProgress(0);
-
+  
     // 加载新模型
     loadModel();
-  }, [modelUrl, loadModel, stateMachine.state, stateMachine.currentModelUrl, modelLoaded]);  // ✅ 完全对齐V2第1583行
+  }, [modelUrl, loadModel, modelLoaded, stateMachine.currentModelUrl]);  // ✅ 修复：移除stateMachine.state依赖，防止循环
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
