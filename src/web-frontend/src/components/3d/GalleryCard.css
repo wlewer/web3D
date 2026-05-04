@@ -1,0 +1,131 @@
+/**
+ * GalleryCard 样式
+ * 
+ * 画廊卡片组件样式
+ */
+
+.gallery-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.gallery-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* 预览区域 */
+.gallery-card-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #000;
+  overflow: hidden;
+}
+
+/* 悬停遮罩 */
+.gallery-card-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+
+.gallery-card:hover .gallery-card-overlay {
+  opacity: 1;
+}
+
+.gallery-card-overlay-text {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 12px 24px;
+  border: 2px solid #ffffff;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* 卡片信息 */
+.gallery-card-info {
+  padding: 16px;
+}
+
+.gallery-card-title {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.4;
+}
+
+.gallery-card-description {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 标签 */
+.gallery-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gallery-card-tag {
+  padding: 4px 12px;
+  background: #f0f0f0;
+  color: #666;
+  font-size: 12px;
+  border-radius: 16px;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.gallery-card-tag:hover {
+  background: #22c55e;
+  color: #ffffff;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .gallery-card {
+    border-radius: 8px;
+  }
+  
+  .gallery-card-preview {
+    aspect-ratio: 16 / 9;
+  }
+  
+  .gallery-card-info {
+    padding: 12px;
+  }
+  
+  .gallery-card-title {
+    font-size: 16px;
+  }
+  
+  .gallery-card-description {
+    font-size: 12px;
+  }
+  
+  .gallery-card-overlay-text {
+    font-size: 14px;
+    padding: 10px 20px;
+  }
+}
