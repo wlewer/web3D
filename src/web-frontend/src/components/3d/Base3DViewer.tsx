@@ -262,12 +262,21 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       cancelAnimationFrame(frameIdRef.current);
       
       // 清理资源
+      if (modelRef.current && sceneRef.current) {
+        sceneRef.current.remove(modelRef.current);
+        modelRef.current = null;
+      }
       if (rendererRef.current) {
         rendererRef.current.dispose();
       }
       if (controlsRef.current) {
         controlsRef.current.dispose();
       }
+      if (sceneRef.current) {
+        sceneRef.current.clear();
+      }
+      
+      console.log('🗑️ Base3DViewer资源已清理');
     };
   }, [initScene, handleResize, animate]);
 

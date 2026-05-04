@@ -21,8 +21,9 @@ export interface FitConfig {
 
 export interface FitResult {
   cameraPosition: THREE.Vector3;  // 相机位置
-  targetPosition: THREE.Vector3;  // 观察点位置
+  targetPosition: THREE.Vector3;  // 观察点位置（模型中心）
   fov: number;                    // 视野角度
+  modelCenter: THREE.Vector3;     // 模型中心点（用于lookAt）
 }
 
 /**
@@ -57,10 +58,8 @@ export class SmartCenteringEngine {
     const center = new THREE.Vector3();
     trimmedBox.getCenter(center);
     
-    // Step 4: 自动居中
-    if (config.autoCenter) {
-      object.position.sub(center);
-    }
+    // ★ 重要：不修改模型position，只计算相机位置
+    // 让相机围绕模型中心观察，而不是移动模型
     
     // Step 5: 计算模型尺寸
     const size = new THREE.Vector3();
@@ -82,8 +81,9 @@ export class SmartCenteringEngine {
     
     return {
       cameraPosition,
-      targetPosition,
-      fov
+      targetPosition: center,  // 观察点为模型中心
+      fov,
+      modelCenter: center  // 返回模型中心供外部使用
     };
   }
 
@@ -112,31 +112,23 @@ export class SmartCenteringEngine {
 
   /**
    * SplatMesh专用包围盒计算
-   * 使用动态计算 + margin系数
+   * 使用动态计算真实包围盒（与UniversalGaussianCardV2保持一致）
    */
   private static calculateSplatBoundingBox(splat: SplatMesh): THREE.Box3 {
-    // 尝试获取splat的边界信息
-    const splatAny = splat as any;
+    // ★ 关键修复：使用Three.js标准方法动态计算真实包围盒
+    // 这与UniversalGaussianCardV2的实现保持一致
+    const box = new THREE.Box3().setFromObject(splat);
     
-    if (splatAny.boundingBox) {
-      // 如果已有boundingBox，直接使用
-      return splatAny.boundingBox.clone();
+    // 如果包围盒无效，返回默认值
+    if (box.isEmpty()) {
+      console.warn('⚠️ SplatMesh包围盒为空，使用默认值');
+      return new THREE.Box3(
+        new THREE.Vector3(-3, -3, -3),
+        new THREE.Vector3(3, 3, 3)
+      );
     }
     
-    if (splatAny.geometry && splatAny.geometry.boundingBox) {
-      // 如果有geometry boundingBox，使用它
-      return splatAny.geometry.boundingBox.clone();
-    }
-    
-    // 否则使用固定包围盒 + margin
-    // 这是SplatMesh的特殊处理方式
-    const margin = 2.5; // 默认margin
-    const defaultSize = 2; // 默认尺寸
-    
-    return new THREE.Box3(
-      new THREE.Vector3(-defaultSize * margin, -defaultSize * margin, -defaultSize * margin),
-      new THREE.Vector3(defaultSize * margin, defaultSize * margin, defaultSize * margin)
-    );
+    return box;
   }
 
   /**
