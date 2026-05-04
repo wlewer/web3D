@@ -1,8 +1,8 @@
 // 首页组件 - 全屏3D展示 + 官方模型作品集 + 3D车间嵌入
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { SparkViewer } from '../../components/3d';
-import { ModelViewer } from '../../components/3d/Viewer';
+import { GaussianCard } from '../../components/GaussianCard';
+import { UniversalGaussianCardV2 } from '../../components/3d/UniversalGaussianCardV2';
+import type { UniversalGaussianCardRef, CameraConfig } from '../../components/3d/UniversalGaussianCardV2';
 import { Model3DCard } from '../../components/Model3DCard';
 import { Workshop3D } from '../Workshop3D';
 import { useTranslation } from '../../i18n';
@@ -67,7 +67,8 @@ const MODELS_3D = [
     category: '美食料理',
     desc: '精致汉堡3DGS数字化，完美呈现食材纹理和光泽质感',
     color: '#eab308',
-    splatUrl: 'https://sparkjs.dev/assets/splats/food/burger-from-amboy.spz',
+    splatUrl: '/models/burger-from-amboy.spz',
+    //splatUrl: 'https://sparkjs.dev/assets/splats/food/burger-from-amboy.spz',
     products: [
       { id: 'p1', name: '🍔 餐饮展示', nameEn: '🍔 Food Display', description: '餐厅菜品3D展示', descriptionEn: 'Restaurant 3D food display', color: '#eab308' },
       { id: 'p2', name: '📱 菜单设计', nameEn: '📱 Menu Design', description: '数字菜单应用', descriptionEn: 'Digital menu application', color: '#f97316' },
@@ -80,7 +81,8 @@ const MODELS_3D = [
     category: '科技产品',
     desc: '未来科技机器人3DGS重建，精细到每个金属零件和电路纹理',
     color: '#06b6d4',
-    splatUrl: 'https://sparkjs.dev/assets/splats/robot-head.spz',
+    splatUrl: '/models/robot-head.spz',
+   // splatUrl: 'https://sparkjs.dev/assets/splats/robot-head.spz',
     products: [
       { id: 'p1', name: '🤖 机械工程', nameEn: '🤖 Mechanical Engineering', description: '机器人设计参考', descriptionEn: 'Robot design reference', color: '#06b6d4' },
       { id: 'p2', name: '🎮 游戏角色', nameEn: '🎮 Game Character', description: '科幻游戏角色建模', descriptionEn: 'Sci-fi game character modeling', color: '#8b5cf6' },
@@ -93,7 +95,8 @@ const MODELS_3D = [
     category: '极地动物',
     desc: '南极企鹅3DGS数字化，完美还原羽毛质感和呆萌姿态',
     color: '#1e293b',
-    splatUrl: 'https://sparkjs.dev/assets/splats/penguin.spz',
+    splatUrl: '/models/penguin.spz',
+    //splatUrl: 'https://sparkjs.dev/assets/splats/penguin.spz',
     products: [
       { id: 'p1', name: '🐧 极地研究', nameEn: '🐧 Polar Research', description: '企鹅生态研究辅助', descriptionEn: 'Penguin ecology research', color: '#06b6d4' },
       { id: 'p2', name: '🏛️ 博物馆展品', nameEn: '🏛️ Museum Exhibit', description: '数字化展览展示', descriptionEn: 'Digital exhibition display', color: '#22c55e' },
@@ -105,7 +108,8 @@ const MODELS_3D = [
     category: '甜品糕点',
     desc: '精致甜点3DGS重建，奶油层次和糖霜细节纤毫毕现',
     color: '#ec4899',
-    splatUrl: 'https://sparkjs.dev/assets/splats/dessert.spz',
+    splatUrl: '/models/dessert.spz',
+    //splatUrl: 'https://sparkjs.dev/assets/splats/dessert.spz',
     products: [
       { id: 'p1', name: '🍰 烘焙教学', nameEn: '🍰 Baking Tutorial', description: '甜点制作教学参考', descriptionEn: 'Dessert making tutorial', color: '#ec4899' },
       { id: 'p2', name: '🎂 定制设计', nameEn: '🎂 Custom Design', description: '蛋糕定制设计服务', descriptionEn: 'Custom cake design service', color: '#f472b6' },
@@ -119,7 +123,7 @@ const MODELS_3D = [
     category: 'AI生成',
     desc: '混元3D云端（专业版）真实生成3D模型',
     color: '#10b981',
-    modelUrl: '/uploads/generation/hunyuan_6c6b3457/model_hunyuan_cloud_6c6b3457.glb',
+    modelUrl: '/models/1.glb',  // 使用本地模型文件
     format: 'glb',
     isRealGenerated: true,
     generationInfo: {
@@ -175,9 +179,8 @@ export function HomePage({ onNavigate, showWorkshop3D, onWorkshopClose }: HomePa
   const [showWorkshop, setShowWorkshop] = useState(showWorkshop3D || false);
   const workshopRef = useRef<HTMLDivElement>(null);
   
-  // 全景图状态
-  const [currentPanorama, setCurrentPanorama] = useState<PanoramaConfig>(PANORAMAS[0]);
-  const [showPanoramaSelector, setShowPanoramaSelector] = useState(false);
+  // ★ 追踪首页 3D 模型加载状态（避免加载中切换）
+  const [isHeroLoading, setIsHeroLoading] = useState(true);
   
   const isZh = language === 'zh-CN';
   
@@ -191,24 +194,52 @@ export function HomePage({ onNavigate, showWorkshop3D, onWorkshopClose }: HomePa
     ? allModels.filter(m => m.category === selectedCategory)
     : allModels;
   
-  // 自动轮播
+  // 分页：每页6个，keep-alive 翻回不重建
+  const CARDS_PER_PAGE = 6;
+  const [currentPage, setCurrentPage] = useState(0);
+  const [, setAlivePages] = useState<Set<number>>(() => new Set([0]));
+  const totalPages = Math.ceil(filteredModels.length / CARDS_PER_PAGE);
+  const currentPageModels = filteredModels.slice(currentPage * CARDS_PER_PAGE, (currentPage + 1) * CARDS_PER_PAGE);
+
+  const goToPage = useCallback((page: number) => {
+    if (page < 0 || page >= totalPages || page === currentPage) return;
+    setCurrentPage(page);
+    setAlivePages(() => {
+      const next = new Set<number>();
+      next.add(page);
+      if (page > 0) next.add(page - 1);
+      if (page + 1 < totalPages) next.add(page + 1);
+      return next;
+    });
+  }, [totalPages, currentPage]);
+  
+  // ★ 自动轮播：模型加载中不切换，加载完成后 8 秒切换
   useEffect(() => {
-    if (!autoPlay) return;
+    if (!autoPlay) return;  // ★ 只检查autoPlay，不检查isHeroLoading
     
     const interval = setInterval(() => {
+      // 在轮播触发时检查是否正在加载
+      if (isHeroLoading) {
+        console.log('⏸️ 轮播暂停：模型正在加载中');
+        return;  // 跳过本次轮播
+      }
+      
+      console.log('🔄 自动轮播：切换到下一个模型');
       setIsTransitioning(true);
+      setIsHeroLoading(true);  // 切换前重置加载状态
       setTimeout(() => {
         setCurrentIndex((prev) => (prev + 1) % MODELS_3D.length);
         setIsTransitioning(false);
       }, 500);
-    }, 5000);
+    }, 8000);  // 改为8秒，给用户更多时间欣赏
     
     return () => clearInterval(interval);
-  }, [autoPlay]);
+  }, [autoPlay, isHeroLoading]);  // 保留isHeroLoading作为依赖，确保每次加载完成后重新评估
   
   const switchToModel = useCallback((index: number) => {
     if (index === currentIndex || isTransitioning) return;
     setIsTransitioning(true);
+    setIsHeroLoading(true);  // ★ 关键修复：切换模型时重置加载状态
     setAutoPlay(false);
     setTimeout(() => {
       setCurrentIndex(index);
@@ -218,11 +249,13 @@ export function HomePage({ onNavigate, showWorkshop3D, onWorkshopClose }: HomePa
   
   const prevModel = useCallback(() => {
     const newIndex = currentIndex === 0 ? MODELS_3D.length - 1 : currentIndex - 1;
+    setIsHeroLoading(true);  // ★ 关键修复：切换模型时重置加载状态
     switchToModel(newIndex);
   }, [currentIndex, switchToModel]);
   
   const nextModel = useCallback(() => {
     const newIndex = (currentIndex + 1) % MODELS_3D.length;
+    setIsHeroLoading(true);  // ★ 关键修复：切换模型时重置加载状态
     switchToModel(newIndex);
   }, [currentIndex, switchToModel]);
 
@@ -240,36 +273,150 @@ export function HomePage({ onNavigate, showWorkshop3D, onWorkshopClose }: HomePa
       }, 100);
     }
   }, [showWorkshop3D]);
+  
+  // ★ 相机配置管理
+  const cardRef = useRef<UniversalGaussianCardRef>(null);
+  const [cameraConfigs, setCameraConfigs] = useState<Record<string, CameraConfig>>({});
+  const [configsLoaded, setConfigsLoaded] = useState(false);  // ★ 新增：配置加载状态
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+  
+  // 从localStorage加载所有配置
+  useEffect(() => {
+    const saved = localStorage.getItem('homepage-camera-configs');
+    
+    if (saved) {
+      try {
+        const configs = JSON.parse(saved);
+        setCameraConfigs(configs);
+      } catch (e) {
+        console.error(' 加载相机配置失败:', e);
+      } finally {
+        setConfigsLoaded(true);  // ★ 标记配置已加载
+      }
+    } else {
+      setConfigsLoaded(true);  // ★ 没有配置也标记为已加载
+    }
+  }, []);
+  
+  // 显示Toast提示
+  const showToast = useCallback((text: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), 2500);
+  }, []);
+  
+  // 保存当前相机配置
+  const handleSaveCamera = useCallback(() => {
+    if (!cardRef.current) {
+      showToast('❌ 组件未初始化', 'error');
+      return;
+    }
+    
+    try {
+      // 等待一帧确保控制器状态稳定
+      requestAnimationFrame(() => {
+        const config = cardRef.current!.saveCameraConfig();
+        const modelId = currentModel.id;
+        
+        // 使用函数式更新确保获取最新状态
+        setCameraConfigs(prevConfigs => {
+          const newConfigs = {
+            ...prevConfigs,
+            [modelId]: config
+          };
+          
+          localStorage.setItem('homepage-camera-configs', JSON.stringify(newConfigs));
+          showToast(' 镜头已保存！', 'success');
+          
+          return newConfigs;
+        });
+      });
+    } catch (error) {
+      console.error(' 保存相机配置失败:', error);
+      showToast('❌ 保存失败', 'error');
+    }
+  }, [currentModel.id, showToast]);
+  
+  // 重置相机到默认位置
+  const handleResetCamera = useCallback(() => {
+    if (!cardRef.current) {
+      showToast('❌ 组件未初始化', 'error');
+      return;
+    }
+    
+    try {
+      cardRef.current.resetCamera();
+      
+      const modelId = currentModel.id;
+      const newConfigs = { ...cameraConfigs };
+      delete newConfigs[modelId];
+      
+      setCameraConfigs(newConfigs);
+      localStorage.setItem('homepage-camera-configs', JSON.stringify(newConfigs));
+      
+      console.log('🔄 相机配置已重置:', modelId);
+      showToast('🔄 已重置为默认视角', 'info');
+    } catch (error) {
+      console.error('❌ 重置相机失败:', error);
+      showToast('❌ 重置失败', 'error');
+    }
+  }, [currentModel.id, cameraConfigs, showToast]);
+  
+  // 全景图状态
+  const [currentPanorama, setCurrentPanorama] = useState<PanoramaConfig>(PANORAMAS[0]);
+  const [showPanoramaSelector, setShowPanoramaSelector] = useState(false);
 
   return (
     <div className="home-page-fullscreen">
       {/* 全屏3D展示区域 */}
       <div className="fullscreen-3d-container">
         <div className={`fullscreen-3d-viewer ${isTransitioning ? 'transitioning' : ''}`}>
-          {/* 根据模型类型选择不同的查看器 */}
+          {/* GLB模型使用UniversalGaussianCardV2（自动居中） */}
           {currentModel.format === 'glb' || currentModel.modelUrl ? (
-            // GLB模型使用ModelViewer
-            <Canvas
-              camera={{ position: [0, 0, 5], fov: 50 }}
-              style={{ width: '100%', height: '100%' }}
-            >
-              <ambientLight intensity={0.5} />
-              <directionalLight position={[10, 10, 5]} intensity={1} />
-              <ModelViewer 
-                modelUrl={currentModel.modelUrl!}
-                config={{ autoRotate: true, enableDamping: true }}
-              />
-            </Canvas>
-          ) : (
-            // SPZ格式使用SparkViewer
-            <SparkViewer 
-              key={currentModel.id}
-              splatUrl={currentModel.splatUrl}
+            <UniversalGaussianCardV2
+              key={`glb-${currentModel.id}-${configsLoaded}`}  // ★ 关键修复：加入configsLoaded确保配置加载后重建
+              ref={cardRef}  // ★ 获取ref用于相机配置管理
+              modelUrl={currentModel.modelUrl!}
+              layout="featured"
               autoRotate={true}
-              enableControls={true}
-              showStats={true}
+              showParticles={true}
+              showPlatform={true}
+              autoCenter={true}
+              margin={3.0}
               products={currentModel.products || []}
+              customCameraConfig={(() => {
+                const config = cameraConfigs[currentModel.id] || null;
+                console.log('📤 [传递相机配置-GLB] modelId:', currentModel.id, 'config:', config);
+                return config;
+              })()}  // ★ 应用保存的相机配置
               onInteraction={handle3DInteraction}
+              onLoadComplete={() => {
+                setIsHeroLoading(false);  // ★ 关键修复：每次加载完成都重置状态
+                console.log('✅ 模型加载完成:', currentModel.name);
+              }}
+            />
+          ) : (
+            // SPZ格式使用 UniversalGaussianCardV2（自动居中）
+            <UniversalGaussianCardV2
+              key={`splat-${currentModel.id}-${configsLoaded}`}  // ★ 关键修复：加入configsLoaded确保配置加载后重建
+              ref={cardRef}  // ★ 获取ref用于相机配置管理
+              modelUrl={currentModel.splatUrl!}
+              layout="featured"
+              autoRotate={true}
+              showParticles={true}
+              showPlatform={true}
+              autoCenter={true}
+              margin={2.8}
+              products={currentModel.products || []}
+              customCameraConfig={(() => {
+                const config = cameraConfigs[currentModel.id] || null;
+                console.log('📤 [传递相机配置-GLB] modelId:', currentModel.id, 'config:', config);
+                return config;
+              })()}  // ★ 应用保存的相机配置
+              onInteraction={handle3DInteraction}
+              onLoadComplete={() => {
+                setIsHeroLoading(false);  // ★ 关键修复：每次加载完成都重置状态
+                console.log('✅ 模型加载完成:', currentModel.name);
+              }}
             />
           )}
         </div>
@@ -356,6 +503,26 @@ export function HomePage({ onNavigate, showWorkshop3D, onWorkshopClose }: HomePa
               <span className="tech-tag-glass products-tag">
                 🏷️ {currentModel.products.length === 1 ? t.viewer.productsCountSingle : formatMessage(t.viewer.productsCount, { count: currentModel.products.length })}
               </span>
+            )}
+          </div>
+          
+          {/* ★ 相机配置控制按钮 */}
+          <div className="camera-controls">
+            <button 
+              className="camera-btn save-btn"
+              onClick={handleSaveCamera}
+              title={isZh ? '保存当前镜头角度' : 'Save current camera angle'}
+            >
+              💾 {isZh ? '保存镜头' : 'Save View'}
+            </button>
+            {cameraConfigs[currentModel.id] && (
+              <button 
+                className="camera-btn reset-btn"
+                onClick={handleResetCamera}
+                title={isZh ? '重置为默认视角' : 'Reset to default view'}
+              >
+                🔄 {isZh ? '重置镜头' : 'Reset View'}
+              </button>
             )}
           </div>
         </div>
@@ -449,9 +616,9 @@ export function HomePage({ onNavigate, showWorkshop3D, onWorkshopClose }: HomePa
           ))}
         </div>
 
-        {/* 模型网格 */}
+        {/* 模型网格 - 分页显示，每页6个 */}
         <div className="models-grid">
-          {filteredModels.map((model) => (
+          {currentPageModels.map((model) => (
             <Model3DCard
               key={model.id}
               modelUrl={model.url}
@@ -466,17 +633,45 @@ export function HomePage({ onNavigate, showWorkshop3D, onWorkshopClose }: HomePa
           ))}
         </div>
 
+        {/* 分页翻页导航 */}
+        {totalPages > 1 && (
+          <div className="model-grid-pagination">
+            <button
+              className={`pagination-arrow ${currentPage === 0 ? 'disabled' : ''}`}
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 0}
+            >
+              ‹
+            </button>
+            <div className="pagination-dots">
+              {Array.from({ length: totalPages }).map((_, idx) => (
+                <button
+                  key={idx}
+                  className={`pagination-dot ${idx === currentPage ? 'active' : ''}`}
+                  onClick={() => goToPage(idx)}
+                />
+              ))}
+            </div>
+            <button
+              className={`pagination-arrow ${currentPage >= totalPages - 1 ? 'disabled' : ''}`}
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage >= totalPages - 1}
+            >
+              ›
+            </button>
+          </div>
+        )}
+
         {/* 模型详情弹窗 */}
         {selectedModel && (
           <div className="model-detail-modal" onClick={() => setSelectedModel(null)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
               <button className="modal-close" onClick={() => setSelectedModel(null)}>×</button>
               <div className="modal-3d-viewer">
-                <SparkViewer
-                  key={selectedModel}
-                  splatUrl={OFFICIAL_MODELS[selectedModel as keyof typeof OFFICIAL_MODELS]?.url || ''}
+                <GaussianCard
+                  modelUrl={OFFICIAL_MODELS[selectedModel as keyof typeof OFFICIAL_MODELS]?.url || ''}
+                  mode="preview"
                   autoRotate={true}
-                  enableControls={true}
                   showStats={true}
                 />
               </div>
@@ -554,6 +749,13 @@ export function HomePage({ onNavigate, showWorkshop3D, onWorkshopClose }: HomePa
           )}
         </div>
       </div>
+      
+      {/* Toast提示 */}
+      {toastMessage && (
+        <div className={`toast-notification ${toastMessage.type}`}>
+          {toastMessage.text}
+        </div>
+      )}
     </div>
   );
 }
