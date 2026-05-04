@@ -184,7 +184,7 @@ export class SceneDecoration implements SceneDecorationAPI {
     });
 
     this.particles = new THREE.Points(geometry, material);
-    this.particles.name = 'scene-decoration-particles';
+    this.particles.name = 'particles';  // ✅ 对齐V2
     this.scene.add(this.particles);
 
     console.log(`✨ 粒子背景已创建 (${count}个粒子)`);
@@ -218,9 +218,7 @@ export class SceneDecoration implements SceneDecorationAPI {
       platformY = -1
     } = config;
 
-    this.platformGroup = new THREE.Group();
-    this.platformGroup.name = 'scene-decoration-platform';
-
+    // ✅ 对齐V2：平台和环作为独立对象添加到scene
     // 平台主体（圆柱体）
     const platformGeometry = new THREE.CylinderGeometry(0.8, 1, 0.3, 32);
     const platformMaterial = new THREE.MeshStandardMaterial({
@@ -230,8 +228,8 @@ export class SceneDecoration implements SceneDecorationAPI {
     });
     const platform = new THREE.Mesh(platformGeometry, platformMaterial);
     platform.position.y = platformY;
-    platform.name = 'platform-base';
-    this.platformGroup.add(platform);
+    platform.name = 'platform';  // ✅ 对齐V2
+    this.scene.add(platform);
 
     // 装饰环
     const ringGeometry = new THREE.RingGeometry(0.9, 0.95, 64);
@@ -243,11 +241,15 @@ export class SceneDecoration implements SceneDecorationAPI {
     });
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
     ring.rotation.x = Math.PI / 2;
-    ring.position.y = platformY + 0.15;
-    ring.name = 'platform-ring';
+    ring.position.y = platformY + 0.15;  // ✅ 对齐V2：-1 + 0.15 = -0.85
+    ring.name = 'ring';  // ✅ 对齐V2
+    this.scene.add(ring);
+    
+    // 保存引用以便清理
+    this.platformGroup = new THREE.Group();
+    this.platformGroup.add(platform);
     this.platformGroup.add(ring);
-
-    this.scene.add(this.platformGroup);
+    this.platformGroup.name = 'scene-decoration-platform';
     console.log('🏛️ 展示台已创建');
   }
 
@@ -256,11 +258,10 @@ export class SceneDecoration implements SceneDecorationAPI {
    */
   private removePlatform(): void {
     if (this.platformGroup) {
-      this.scene.remove(this.platformGroup);
-      
-      // 清理几何体和材质
+      // ✅ 对齐V2：平台和环是独立添加到scene的，需要分别移除
       this.platformGroup.traverse((child) => {
         if (child instanceof THREE.Mesh) {
+          this.scene.remove(child);
           child.geometry.dispose();
           if (Array.isArray(child.material)) {
             child.material.forEach(m => m.dispose());
