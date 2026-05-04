@@ -467,70 +467,59 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     };
   }, [initScene, handleResize, animate]);
 
-  // ✅ 修复4：模型切换逻辑（修复循环加载问题）
+  // ✅ 修复4：模型切换逻辑（完全对齐V2第1533-1583行）
   useEffect(() => {
-    if (!sceneRef.current || !sparkRef.current) {
+    if (!sparkRef.current || !sceneRef.current) {
       console.log(' 等待场景初始化...');
       return;
     }
   
-    if (!modelUrl) {
-      console.warn('⚠️ modelUrl为空，跳过加载');
-      return;
-    }
+    // ★ 状态机守卫：输出调试信息（对齐V2第1537-1542行）
+    console.log('🔄 modelUrl变化:', {
+      newUrl: modelUrl,
+      currentState: stateMachine.state,
+      currentModelUrl: stateMachine.currentModelUrl,
+      modelLoaded
+    });
   
-    // ★ 关键修复：先检查LOADING状态，防止重复加载
-    if (stateMachine.state === 'LOADING') {
-      console.log('⏸️ 正在加载中，跳过重复加载请求');
-      return;
-    }
-  
-    // ★ 关键修复：如果已加载且URL相同，跳过
-    if (stateMachine.state === 'LOADED' && modelUrl === stateMachine.currentModelUrl) {
-      console.log('✅ 模型已加载且URL未变化，跳过重新加载');
-      return;
-    }
-  
-    // ★ 状态机守卫：只允许在READY/LOADED/IDLE状态下加载
-    if (stateMachine.state !== 'READY' && stateMachine.state !== 'LOADED' && stateMachine.state !== 'IDLE') {
+    // ★ 状态机守卫：只在READY或LOADED状态下才处理modelUrl变化（对齐V2第1544-1548行）
+    if (stateMachine.state !== 'READY' && stateMachine.state !== 'LOADED') {
       console.log('⚠️ 当前状态不允许加载模型:', stateMachine.state);
+      return;
+    }
+  
+    // ★ 状态机守卫：如果URL未变化且已加载，跳过（对齐V2第1550-1554行）
+    if (modelUrl === stateMachine.currentModelUrl && modelLoaded) {
+      console.log('✅ 模型已加载且URL未变化，跳过重新加载');
       return;
     }
   
     console.log('📥 开始加载新模型:', modelUrl);
   
-    // ✅ 关键修复：模型切换时立即禁用控制器，防止干扰新模型加载（对齐V2第1565-1568行）
+    // 关键修复：模型切换时立即隐藏旧标签，防止闪烁（对齐V2第1558-1562行）
+    // TODO: Base3DViewer没有标签功能，这里可以忽略或添加装饰物隐藏逻辑
+  
+    // ✅ 关键修复：模型切换时禁用控制器，防止干扰新模型加载（对齐V2第1564-1568行）
     if (controlsRef.current) {
       controlsRef.current.enabled = false;
-      console.log('🔒 模型切换：禁用控制器');
+      console.log(' 模型切换：禁用控制器');
     }
   
     // 清理旧模型（对齐V2第1570-1577行）
     if (modelRef.current) {
-      console.log(' 清理旧模型...');
-      if (modelRef.current instanceof SplatMesh) {
-        try {
-          (modelRef.current as any).dispose?.();
-        } catch (e) {
-          console.warn('SplatMesh清理警告:', e);
-        }
-      } else if (sceneRef.current) {
-        sceneRef.current.remove(modelRef.current);
+      try {
+        (modelRef.current as any).dispose?.();
+      } catch (e) {
+        console.warn('模型清理警告:', e);
       }
       modelRef.current = null;
     }
   
-    // ★ 状态机转换：进入LOADING状态（对齐V2第1580行）
+    // ★ 状态机转换：进入LOADING状态（对齐V2第1579-1580行）
     setStateMachine({ state: 'LOADING', currentModelUrl: modelUrl });
       
-    // 重置状态
-    setModelLoaded(false);
-    setLoading(true);
-    setProgress(0);
-  
-    // 加载新模型
     loadModel();
-  }, [modelUrl, loadModel, stateMachine.state, stateMachine.currentModelUrl]);  // ✅ 恢复stateMachine.state依赖，但前面有LOADING守卫防止循环
+  }, [modelUrl, loadModel, stateMachine.state, stateMachine.currentModelUrl, modelLoaded]);  // ✅ 完全对齐V2第1583行
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
