@@ -1,10 +1,11 @@
 /**
- * Base3DViewer - 基础3D查看器
+ * Base3DViewer - 基础3D查看器（完全重构版）
  * 
  * 功能：纯3D渲染核心，无装饰功能
  * 特点：
- * - 使用新引擎层（SmartCenteringEngine、ModelLoader、CameraManager）
- * - 最小功能集
+ * - 集成SparkRenderer（支持SplatMesh高斯泼溅模型）
+ * - 完整灯光系统（环境光、方向光、补光等）
+ * - 支持SPZ/GLB/PLY多种格式
  * - forwardRef支持
  * - 完整的TypeScript类型
  * 
@@ -12,12 +13,18 @@
  * - 后台管理系统
  * - 简单预览
  * - 需要自定义装饰的场景
+ * 
+ * @version 2.0.0
+ * @author Lingma AI Assistant
+ * @date 2026-04-18
  */
 
 import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
 import { SmartCenteringEngine, type FitConfig } from './engines/SmartCenteringEngine';
-import { ModelLoader, type LoadProgress } from './engines/ModelLoader';
+import { ModelLoader, type LoadProgress, type LoadResult } from './engines/ModelLoader';
 import { CameraManager, type CameraConfig } from './engines/CameraManager';
 
 export interface Base3DViewerProps {
@@ -42,7 +49,7 @@ export interface Base3DViewerProps {
 }
 
 export interface Base3DViewerRef {
-  getModel: () => THREE.Object3D | null;
+  getModel: () => THREE.Object3D | SplatMesh | null;
   reload: () => void;
   toggleAutoRotate: () => void;
   screenshot: () => string;
@@ -73,8 +80,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const controlsRef = useRef<any>(null);
-  const modelRef = useRef<THREE.Object3D | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
+  const sparkRef = useRef<SparkRenderer | null>(null);  // ★ 新增：SparkRenderer
+  const modelRef = useRef<THREE.Object3D | SplatMesh | null>(null);
   const frameIdRef = useRef<number>(0);
 
   // State
@@ -90,11 +98,20 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   });
   const [fps, setFps] = useState(0);
 
+  // ★ 新增：Spark渲染状态管理
+  const sparkReadyRef = useRef(false);
+  const sparkFailedRef = useRef(false);
+  const renderingLockRef = useRef(false);
+
   /**
-   * 初始化Three.js场景
+   * 初始化Three.js场景（完全重构：添加SparkRenderer和灯光系统）
    */
   const initScene = useCallback(() => {
     if (!containerRef.current || !canvasRef.current) return;
+
+    const container = containerRef.current;
+    const width = container.clientWidth || 400;
+    const height = container.clientHeight || 400;
 
     // 清理旧场景
     if (rendererRef.current) {
@@ -108,7 +125,34 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    // 创建相机和控制器（使用CameraManager）
+    // ★ 关键修复：添加完整的灯光系统（参考UniversalGaussianCardV2）
+    // 环境光 - 基础照明
+    const ambientLight = new THREE.AmbientLight('#ffffff', 0.6);
+    scene.add(ambientLight);
+
+    // 主方向光 - 从右上方照射，产生立体感
+    const mainLight = new THREE.DirectionalLight('#ffffff', 1.2);
+    mainLight.position.set(5, 8, 5);
+    mainLight.castShadow = false;
+    scene.add(mainLight);
+
+    // 补光 - 从左下方照射，减少阴影
+    const fillLight = new THREE.DirectionalLight('#aabbff', 0.4);
+    fillLight.position.set(-3, -2, -3);
+    scene.add(fillLight);
+
+    // 顶部光 - 增强立体感
+    const topLight = new THREE.DirectionalLight('#ffffff', 0.3);
+    topLight.position.set(0, 10, 0);
+    scene.add(topLight);
+
+    // 半球光 - 模拟天空和地面的反射
+    const hemisphereLight = new THREE.HemisphereLight('#667eea', '#1a1a2e', 0.3);
+    scene.add(hemisphereLight);
+
+    console.log(' 灯光系统已初始化');
+
+    // 创建相机（使用CameraManager）
     const { camera, controls } = CameraManager.createCamera(canvasRef.current, {
       fov: 60,
       near: 0.1,
@@ -123,17 +167,24 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     const renderer = new THREE.WebGLRenderer({
       canvas: canvasRef.current,
       antialias: true,
-      alpha: true
+      alpha: false,
+      powerPreference: 'high-performance'
     });
-    renderer.setSize(canvasRef.current.clientWidth, canvasRef.current.clientHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     rendererRef.current = renderer;
 
+    // ★ 关键修复：创建SparkRenderer并添加到场景
+    const spark = new SparkRenderer({ renderer });
+    sparkRef.current = spark;
+    scene.add(spark);
+
+    console.log('✨ SparkRenderer已创建并添加到场景');
     console.log('🎨 Base3DViewer场景初始化完成');
   }, [enableControls, autoRotate]);
 
   /**
-   * 加载模型
+   * 加载模型（完全重构：区分SplatMesh和Object3D处理）
    */
   const loadModel = useCallback(async () => {
     if (!sceneRef.current || !cameraRef.current || !canvasRef.current) {
@@ -149,20 +200,42 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       console.log(`📦 开始加载模型: ${modelUrl}`);
 
       // 使用ModelLoader加载模型
-      const result = await ModelLoader.load(modelUrl, (progressData: LoadProgress) => {
+      const result: LoadResult = await ModelLoader.load(modelUrl, (progressData: LoadProgress) => {
         setProgress(progressData.progress);
         onProgress?.(progressData.progress);
       });
 
       // 清除旧模型
       if (modelRef.current) {
-        sceneRef.current.remove(modelRef.current);
+        if (modelRef.current instanceof SplatMesh) {
+          // SplatMesh清理
+          try {
+            (modelRef.current as any).dispose?.();
+          } catch (e) {
+            console.warn('SplatMesh清理警告:', e);
+          }
+        } else {
+          sceneRef.current.remove(modelRef.current);
+        }
         modelRef.current = null;
       }
 
-      // 添加新模型到场景
-      modelRef.current = result.model as THREE.Object3D;
-      sceneRef.current.add(modelRef.current);
+      // ★ 关键修复：根据模型类型不同处理
+      if (result.model instanceof SplatMesh) {
+        // SPZ模型：添加到SparkRenderer
+        console.log(' SplatMesh模型：添加到SparkRenderer');
+        modelRef.current = result.model;
+        sparkRef.current?.add(result.model);
+        
+        // ★ 关键修复：SplatMesh默认可能是倒立的，需要翻转
+        result.model.rotation.x = Math.PI;
+        console.log('🔄 SplatMesh已翻转（绕X轴180度）');
+      } else {
+        // GLB/PLY模型：添加到Scene
+        console.log('📦 普通模型：添加到Scene');
+        modelRef.current = result.model as THREE.Object3D;
+        sceneRef.current.add(modelRef.current);
+      }
 
       console.log('✅ 模型加载成功，开始智能居中');
 
@@ -176,7 +249,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         };
 
         const fitResult = SmartCenteringEngine.calculateFit(
-          result.model as THREE.Object3D,
+          result.model,
           canvasRef.current,
           fitConfig
         );
@@ -209,19 +282,43 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   }, [modelUrl, autoCenter, margin, onProgress, onLoadComplete, onError]);
 
   /**
-   * 动画循环
+   * 动画循环（完全重构：集成SparkRenderer渲染）
    */
   const animate = useCallback(() => {
     frameIdRef.current = requestAnimationFrame(animate);
 
+    const { camera, renderer, controls, spark } = {
+      camera: cameraRef.current,
+      renderer: rendererRef.current,
+      controls: controlsRef.current,
+      spark: sparkRef.current,
+    };
+
+    if (!camera || !renderer || !sceneRef.current) return;
+
     // 更新控制器
-    if (controlsRef.current) {
-      controlsRef.current.update();
+    if (controls) {
+      controls.update();
     }
 
-    // 渲染场景
-    if (rendererRef.current && sceneRef.current && cameraRef.current) {
-      rendererRef.current.render(sceneRef.current, cameraRef.current);
+    // ★ 关键修复：使用SparkRenderer渲染SplatMesh，降级到普通Three.js渲染GLB
+    if (spark && !sparkFailedRef.current && modelRef.current && !renderingLockRef.current) {
+      // 使用SparkRenderer渲染（支持SplatMesh）
+      renderingLockRef.current = true;
+      spark.update({ scene: sceneRef.current, camera })
+        .then(() => {
+          spark.render(sceneRef.current, camera);
+          renderingLockRef.current = false;
+        })
+        .catch(() => {
+          renderingLockRef.current = false;
+          sparkFailedRef.current = true;
+          console.warn('⚠️ SparkRenderer渲染失败，降级到普通渲染');
+        });
+      sparkReadyRef.current = true;
+    } else if (sceneRef.current && camera && renderer) {
+      // 降级到普通Three.js渲染（GLB模型）
+      renderer.render(sceneRef.current, camera);
     }
 
     // FPS计数
@@ -269,9 +366,21 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       cancelAnimationFrame(frameIdRef.current);
       
       // 清理资源
-      if (modelRef.current && sceneRef.current) {
-        sceneRef.current.remove(modelRef.current);
+      if (modelRef.current) {
+        if (modelRef.current instanceof SplatMesh) {
+          // SplatMesh清理
+          try {
+            (modelRef.current as any).dispose?.();
+          } catch (e) {
+            console.warn('SplatMesh清理警告:', e);
+          }
+        } else if (sceneRef.current) {
+          sceneRef.current.remove(modelRef.current);
+        }
         modelRef.current = null;
+      }
+      if (sparkRef.current) {
+        sparkRef.current = null;
       }
       if (rendererRef.current) {
         rendererRef.current.dispose();
@@ -301,8 +410,17 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     getModel: () => modelRef.current,
     
     reload: () => {
-      if (modelRef.current && sceneRef.current) {
-        sceneRef.current.remove(modelRef.current);
+      if (modelRef.current) {
+        if (modelRef.current instanceof SplatMesh) {
+          // SplatMesh清理
+          try {
+            (modelRef.current as any).dispose?.();
+          } catch (e) {
+            console.warn('SplatMesh清理警告:', e);
+          }
+        } else if (sceneRef.current) {
+          sceneRef.current.remove(modelRef.current);
+        }
         modelRef.current = null;
       }
       loadModel();

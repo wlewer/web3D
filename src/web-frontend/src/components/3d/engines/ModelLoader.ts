@@ -116,6 +116,11 @@ export class ModelLoader {
         splat.initialized.then(() => {
           onProgress?.({ progress: 100, stage: 'rendering' });
           
+          // ★ 关键修复：SplatMesh默认可能是倒立的，需要翻转
+          // 绕X轴旋转180度（π弧度）使其正向显示
+          splat.rotation.x = Math.PI;
+          console.log('🔄 SplatMesh已翻转（绕X轴180度）');
+          
           console.log(`✅ SPZ模型加载成功`);
           
           resolve({
