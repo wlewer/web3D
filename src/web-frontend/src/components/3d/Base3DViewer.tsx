@@ -51,9 +51,17 @@ export interface Base3DViewerProps {
 
 export interface Base3DViewerRef {
   getModel: () => THREE.Object3D | SplatMesh | null;
+  getStats: () => {
+    pointCount: number;
+    loaded: boolean;
+    loading: boolean;
+    progress: number;
+    fps: number;
+  };
   reload: () => void;
   toggleAutoRotate: () => void;
   screenshot: () => string;
+  dispose: () => void;  // ✅ 对齐V2：释放资源方法
   saveCameraConfig: () => CameraConfig;
   loadCameraConfig: (config: CameraConfig) => void;
   resetCamera: () => void;
@@ -95,6 +103,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);  // ✅ 对齐V2：相机就绪状态
   
   // ✅ 对齐V2：使用状态机管理加载生命周期（防止重复加载和并发问题）
   const [stateMachine, setStateMachine] = useState<{
@@ -111,6 +120,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     lastTime: performance.now()
   });
   const [fps, setFps] = useState(0);
+  
+  // ✅ 对齐V2：用户交互状态
+  const isInteractingRef = useRef(false);
 
   // Spark渲染状态管理
   const sparkReadyRef = useRef(false);
@@ -207,6 +219,10 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       controlsRef.current = controls;
       console.log('🎮 OrbitControls已配置完成');
     }
+
+    // ✅ 对齐V2：标记相机和控制器已就绪
+    setCameraReady(true);
+    console.log(' 相机和控制器已初始化完成');
 
     // 创建SparkRenderer并添加到场景
     const spark = new SparkRenderer({ renderer });
@@ -467,6 +483,48 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     };
   }, [initScene, handleResize, animate]);
 
+  // ✅ 对齐V2：用户交互检测（第1407-1447行）
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let interactionTimeout: ReturnType<typeof setTimeout>;
+
+    const handleInteractionStart = () => {
+      isInteractingRef.current = true;
+      
+      if (controlsRef.current) {
+        controlsRef.current.autoRotate = false;
+      }
+      
+      clearTimeout(interactionTimeout);
+    };
+
+    const handleInteractionEnd = () => {
+      interactionTimeout = setTimeout(() => {
+        isInteractingRef.current = false;
+        if (controlsRef.current) {
+          controlsRef.current.autoRotate = autoRotate;
+        }
+      }, 2000);
+    };
+
+    container.addEventListener('mousedown', handleInteractionStart);
+    container.addEventListener('touchstart', handleInteractionStart);
+    container.addEventListener('wheel', handleInteractionStart);
+    container.addEventListener('mouseup', handleInteractionEnd);
+    container.addEventListener('touchend', handleInteractionEnd);
+
+    return () => {
+      container.removeEventListener('mousedown', handleInteractionStart);
+      container.removeEventListener('touchstart', handleInteractionStart);
+      container.removeEventListener('wheel', handleInteractionStart);
+      container.removeEventListener('mouseup', handleInteractionEnd);
+      container.removeEventListener('touchend', handleInteractionEnd);
+      clearTimeout(interactionTimeout);
+    };
+  }, [autoRotate]);
+
   // ✅ 修复4：模型切换逻辑（完全对齐V2第1533-1583行）
   useEffect(() => {
     if (!sparkRef.current || !sceneRef.current) {
@@ -496,8 +554,11 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   
     console.log('📥 开始加载新模型:', modelUrl);
   
-    // 关键修复：模型切换时立即隐藏旧标签，防止闪烁（对齐V2第1558-1562行）
-    // TODO: Base3DViewer没有标签功能，这里可以忽略或添加装饰物隐藏逻辑
+    // ✅ 对齐V2：模型切换时立即隐藏旧标签，防止闪烁（第1558-1562行）
+    if (decorationRef.current) {
+      decorationRef.current.hideLabels();
+      console.log(' 模型切换：隐藏旧标签');
+    }
   
     // ✅ 关键修复：模型切换时禁用控制器，防止干扰新模型加载（对齐V2第1564-1568行）
     if (controlsRef.current) {
@@ -524,6 +585,46 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
     getModel: () => modelRef.current,
+    
+    // ✅ 对齐V2：getStats方法（第189-195行）
+    getStats: () => ({
+      pointCount: 0,  // TODO: 从SplatMesh获取真实点数
+      loaded: modelLoaded,
+      loading,
+      progress,
+      fps,
+    }),
+    
+    // ✅ 对齐V2：dispose方法（第219-246行）
+    dispose: () => {
+      cancelAnimationFrame(frameIdRef.current);
+      if (modelRef.current) {
+        try {
+          (modelRef.current as any).dispose?.();
+        } catch (e) {
+          console.warn('模型清理警告:', e);
+        }
+      }
+      if (sparkRef.current) {
+        sparkRef.current = null;
+      }
+      if (controlsRef.current) {
+        controlsRef.current.dispose();
+        controlsRef.current = null;
+      }
+      if (rendererRef.current) {
+        rendererRef.current.dispose();
+      }
+      if (sceneRef.current) {
+        sceneRef.current.clear();
+        sceneRef.current = null;
+      }
+      if (decorationRef.current) {
+        decorationRef.current.dispose();
+        decorationRef.current = null;
+      }
+      console.log('🗑️ Base3DViewer资源已释放');
+    },
     
     reload: () => {
       if (modelRef.current) {
