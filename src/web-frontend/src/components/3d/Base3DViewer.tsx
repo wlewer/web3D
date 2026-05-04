@@ -154,6 +154,174 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   const sparkFailedRef = useRef(false);
   const renderingLockRef = useRef(false);
 
+  // ========== 智能居中算法（核心） ==========
+
+  // 百分位数裁剪（仅GLB模型）
+  const trimEmptySpace = useCallback(
+    (object: THREE.Object3D, originalBox: THREE.Box3, threshold: number): THREE.Vector3 => {
+      const originalSize = originalBox.getSize(new THREE.Vector3());
+      
+      const vertices: THREE.Vector3[] = [];
+      object.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.geometry) {
+          const positions = child.geometry.attributes.position;
+          if (positions) {
+            const maxVertices = 10000;
+            const step = positions.count > maxVertices ? Math.ceil(positions.count / maxVertices) : 1;
+            
+            for (let i = 0; i < positions.count; i += step) {
+              const vertex = new THREE.Vector3();
+              vertex.fromBufferAttribute(positions, i);
+              child.localToWorld(vertex);
+              vertices.push(vertex);
+            }
+          }
+        }
+      });
+
+      if (vertices.length === 0) return originalSize;
+
+      const xs = vertices.map(v => v.x).sort((a, b) => a - b);
+      const ys = vertices.map(v => v.y).sort((a, b) => a - b);
+      const zs = vertices.map(v => v.z).sort((a, b) => a - b);
+
+      const trimIndex = Math.floor(vertices.length * threshold);
+      
+      const trimmedBox = new THREE.Box3(
+        new THREE.Vector3(xs[trimIndex], ys[trimIndex], zs[trimIndex]),
+        new THREE.Vector3(
+          xs[xs.length - 1 - trimIndex],
+          ys[ys.length - 1 - trimIndex],
+          zs[zs.length - 1 - trimIndex]
+        )
+      );
+
+      return trimmedBox.getSize(new THREE.Vector3());
+    },
+    []
+  );
+
+  // 智能自适应居中算法
+  const smartFitCameraToObject = useCallback(
+    (object: THREE.Object3D | SplatMesh, camera: THREE.PerspectiveCamera, canvas: HTMLCanvasElement, config: FitConfig) => {
+      console.log(' 开始智能居中算法...');
+      
+      let boundingBox: THREE.Box3;
+      let size = new THREE.Vector3(1, 1, 1);
+      let center = new THREE.Vector3(0, 0, 0);
+      
+      try {
+        if (object instanceof SplatMesh) {
+          console.log(' SplatMesh：计算真实包围盒');
+          boundingBox = new THREE.Box3().setFromObject(object);
+          
+          const newSize = boundingBox.getSize(new THREE.Vector3());
+          const newCenter = boundingBox.getCenter(new THREE.Vector3());
+          
+          if (newSize.length() > 0 && !isNaN(newSize.length())) {
+            size = newSize;
+            center = newCenter;
+            console.log(' SplatMesh包围盒尺寸:', size.toArray());
+          } else {
+            console.log(' 包围盒无效，使用扩展固定包围盒');
+            boundingBox = new THREE.Box3(
+              new THREE.Vector3(-3, -3, -3),
+              new THREE.Vector3(3, 3, 3)
+            );
+            size = boundingBox.getSize(new THREE.Vector3());
+            center = boundingBox.getCenter(new THREE.Vector3());
+          }
+        } else {
+          console.log(' GLB模型：使用标准包围盒计算');
+          boundingBox = new THREE.Box3().setFromObject(object);
+          size = boundingBox.getSize(new THREE.Vector3());
+          center = boundingBox.getCenter(new THREE.Vector3());
+        }
+        
+        console.log(' 模型包围盒:', { size: size.toArray(), center: center.toArray() });
+
+        if (size.x === 0 && size.y === 0 && size.z === 0) {
+          console.log('️ 包围盒无效，使用默认尺寸');
+          size.set(1, 1, 1);
+          center.set(0, 0, 0);
+        }
+      } catch (error) {
+        console.error(' 计算包围盒失败:', error);
+        size.set(1, 1, 1);
+        center.set(0, 0, 0);
+      }
+
+      let trimmedSize: THREE.Vector3;
+      if (object instanceof SplatMesh) {
+        console.log('️ SplatMesh：跳过裁剪');
+        trimmedSize = size;
+      } else {
+        console.log(' GLB模型：执行百分位裁剪');
+        trimmedSize = trimEmptySpace(object, boundingBox, config.trimThreshold);
+        console.log(' 裁剪后尺寸:', trimmedSize.toArray());
+      }
+
+      const canvasWidth = canvas.clientWidth;
+      const canvasHeight = canvas.clientHeight;
+      const aspect = canvasWidth / canvasHeight;
+      const fovRad = camera.fov * Math.PI / 180;
+      
+      console.log(' 画布尺寸:', { canvasWidth, canvasHeight, aspect, fov: camera.fov });
+      
+      const dominantSize = Math.max(trimmedSize.x, trimmedSize.y, trimmedSize.z);
+      
+      let distance;
+      if (object instanceof SplatMesh) {
+        distance = Math.max(2.0, dominantSize * config.margin * 0.7);
+        console.log(' SplatMesh目标距离:', distance.toFixed(2));
+      } else {
+        distance = (dominantSize / 2 / Math.tan(fovRad / 2)) * config.margin * 0.8;
+        console.log(' GLB模型目标距离:', distance.toFixed(2));
+      }
+
+      const cameraOffset = new THREE.Vector3(0, distance * 0.15, distance);
+      console.log(' 相机从正面偏上观察（避免倒立）');
+      console.log(' 相机偏移:', cameraOffset.toArray());
+
+      camera.up.set(0, 1, 0);
+      
+      const targetPosition = new THREE.Vector3(
+        center.x,
+        center.y + distance * 0.15,
+        center.z + distance
+      );
+      
+      camera.position.copy(targetPosition);
+      console.log(' 相机位置已设置:', targetPosition.toArray());
+      
+      camera.lookAt(center);
+      camera.updateProjectionMatrix();
+      
+      console.log(' 相机位置:', camera.position.toArray());
+      console.log(' 观察目标:', center.toArray());
+      console.log(' 相机已设置，up向量: (0, 1, 0)');
+
+      if (!(object instanceof SplatMesh)) {
+        console.log(' GLB模型保持原始姿态:', {
+          rotation: object.rotation.toArray(),
+          quaternion: object.quaternion.toArray()
+        });
+      } else {
+        console.log(' SplatMesh模型保持原始姿态');
+      }
+
+      if (controlsRef.current) {
+        controlsRef.current.target.copy(center);
+        controlsRef.current.update();
+        console.log(' 控制器target已同步到模型中心:', center.toArray());
+      }
+
+      console.log('✅ 居中算法完成');
+      return { center, distance, trimmedSize };
+    },
+    [trimEmptySpace]
+  );
+
   /**
    * 初始化Three.js场景（完全对齐V2实现）
    */
@@ -271,140 +439,233 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   }, [backgroundColor, enableControls, autoRotate, decorations]);
 
   /**
-   * 加载模型（完全对齐V2：添加控制器管理）
+   * 加载SPZ模型（高斯泼溅）- 完全对齐V2第857-1006行
    */
-  const loadModel = useCallback(async () => {
-    if (!sceneRef.current || !cameraRef.current || !canvasRef.current) {
-      console.warn('⚠️ 场景未初始化，跳过模型加载');
-      return;
-    }
+  const loadSplatModel = useCallback(async () => {
+    if (!sparkRef.current) return;
+
+    let loadingTimedOut = false;
+    let progressReceived = false;
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
     try {
-      setLoading(true);
       setError(null);
+      setLoading(true);
       setModelLoaded(false);
-      setLoadingStage('initializing');  // ✅ 对齐V2：设置加载阶段
-
-      console.log(`📦 开始加载模型: ${modelUrl}`);
-
-      // ✅ 关键修复：加载开始时立即禁用控制器，防止相机位置被修改（对齐V2）
+      setProgress(10);
+      setLoadingStage('initializing');  // 阶段1: 初始化
+      
+      // 关键修复：加载开始时立即禁用控制器，防止相机位置被修改
       if (controlsRef.current) {
         controlsRef.current.enabled = false;
         console.log('🔒 加载开始：禁用控制器');
       }
 
-      setLoadingStage('loading');  // ✅ 对齐V2：进入加载阶段
+      // 心跳进度（Vite dev server兼容）
+      const heartbeatStart = Date.now();
+      heartbeatTimer = setInterval(() => {
+        if (loadingTimedOut) return;
+        if (progressReceived) return;
+        const elapsed = (Date.now() - heartbeatStart) / 1000;
+        const simulated = 10 + (1 - Math.exp(-elapsed / 5)) * 65;
+        setProgress(Math.min(75, Math.round(simulated)));
+      }, 300);
 
-      // 使用ModelLoader加载模型
-      const result: LoadResult = await ModelLoader.load(modelUrl, (progressData: LoadProgress) => {
-        setProgress(progressData.progress);
-        onProgress?.(progressData.progress);
-      });
-
-      // 清除旧模型
-      if (modelRef.current) {
-        if (modelRef.current instanceof SplatMesh) {
-          try {
-            (modelRef.current as any).dispose?.();
-          } catch (e) {
-            console.warn('SplatMesh清理警告:', e);
+      // 创建SplatMesh
+      setLoadingStage('loading');  // 阶段2: 加载中
+      const splat = new SplatMesh({
+        url: modelUrl,
+        onProgress: (event) => {
+          if (loadingTimedOut) return;
+          if (event.lengthComputable) {
+            progressReceived = true;
+            setProgress(10 + Math.round((event.loaded / event.total) * 80));
           }
-        } else {
-          sceneRef.current.remove(modelRef.current);
         }
-        modelRef.current = null;
-      }
+      });
+      modelRef.current = splat;
 
-      // 根据模型类型不同处理
-      if (result.model instanceof SplatMesh) {
-        // SPZ模型：添加到SparkRenderer
-        console.log('🌟 SplatMesh模型：添加到SparkRenderer');
-        modelRef.current = result.model;
-        sparkRef.current?.add(result.model);
-        
-        // SplatMesh翻转
-        result.model.rotation.x = Math.PI;
-        console.log('🔄 SplatMesh已翻转（绕X轴180度）');
-      } else {
-        // GLB/PLY模型：添加到Scene
-        console.log('📦 普通模型：添加到Scene');
-        modelRef.current = result.model as THREE.Object3D;
-        sceneRef.current.add(modelRef.current);
-      }
+      // 超时保护：25秒
+      const timeoutGuard = setTimeout(() => {
+        if (!loadingTimedOut) {
+          loadingTimedOut = true;
+          console.warn(`⚠️ Splat模型加载超时: ${modelUrl}`);
+          setError('模型加载超时，请检查网络连接');
+          setLoading(false);
+          setModelLoaded(false);
+        }
+      }, 25000);
 
-      console.log('✅ 模型加载成功，开始智能居中');
+      // 关键优化：先等待初始化完成，再添加到场景和翻转
+      await splat.initialized;
+      clearTimeout(timeoutGuard);
 
-      setLoadingStage('processing');  // ✅ 对齐V2：进入处理阶段
+      if (loadingTimedOut) return;
 
-      // ✅ 对齐V2：如果存在自定义相机配置，跳过智能居中（第935/1038/1252行）
-      if (autoCenter && !customCameraConfig) {
-        const fitConfig: FitConfig = {
-          margin,
+      // 清除心跳
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+
+      setLoadingStage('processing');  // 阶段3: 处理中
+
+      // 添加到SparkRenderer（在初始化完成后）
+      sparkRef.current.add(splat);
+      
+      // 关键修复：SplatMesh默认可能是倒立的，需要翻转
+      // 绕X轴旋转180度（π弧度）使其正向显示
+      splat.rotation.x = Math.PI;
+      console.log('🔄 SplatMesh已翻转（绕X轴180度）');
+
+      // 关键优化：移除所有await等待，立即执行智能居中
+      // 不再等待多帧渲染，直接计算包围盒和相机位置
+
+      // ★ 关键修复：如果有自定义相机配置，跳过智能居中
+      if (autoCenter && cameraRef.current && canvasRef.current && !customCameraConfig) {
+        console.log('🎯 开始执行智能居中...');
+        smartFitCameraToObject(splat, cameraRef.current, canvasRef.current, {
+          margin: margin,
           trimThreshold: 0.05,
           preferAxis: 'auto',
           autoCenter: true
-        };
-
-        const fitResult = SmartCenteringEngine.calculateFit(
-          result.model,
-          canvasRef.current,
-          fitConfig
-        );
-
-        // 应用相机位置
-        if (cameraRef.current && controlsRef.current) {
-          cameraRef.current.position.copy(fitResult.cameraPosition);
-          controlsRef.current.target.copy(fitResult.targetPosition);
-          controlsRef.current.update();
-          
-          console.log('📷 智能居中完成', {
-            position: fitResult.cameraPosition,
-            target: fitResult.targetPosition
-          });
-        }
+        });
+        console.log('✅ 智能居中完成');
       } else if (customCameraConfig) {
         console.log('⏭️ 跳过智能居中：存在自定义相机配置');
       }
 
-      // 模型加载完成后启用控制器
+      setLoadingStage('rendering');  // 阶段4: 渲染中
+
+      // 关键优化：模型加载完成后启用控制器交互
       if (controlsRef.current) {
+        // 关键修复：智能居中算法已经同步了target，这里只需启用控制器
         controlsRef.current.enabled = true;
         console.log('🎯 控制器已启用');
       }
-            
-      setLoadingStage('rendering');  // ✅ 对齐V2：进入渲染阶段
-            
-      // ✅ 新增：显示产品标签（如果启用了）
-      if (decorationRef.current && decorations?.labels?.enabled) {
-        decorationRef.current.showLabels();
-      }
-            
-      setLoading(false);
-      setModelLoaded(true);
+
       setProgress(100);
-      
-      // ✅ 对齐V2：先显示淡出动画，再隐藏加载界面（第988-995行）
+      // 关键优化：先显示淡出动画，再隐藏加载界面
       setIsFadingOut(true);
       setTimeout(() => {
         setLoading(false);
         setModelLoaded(true);
         setIsFadingOut(false);  // 重置淡出状态
-        setStateMachine(prev => ({ ...prev, state: 'LOADED' }));  // ✅ 对齐V2：使用prev
+        setStateMachine(prev => ({ ...prev, state: 'LOADED' }));  // ★ 状态机转换：进入LOADED状态
         onLoadComplete?.();
       }, 500);  // 淡出动画持续时间
-
-      console.log('✅ 模型加载和居中对齐完成');
     } catch (err) {
-      console.error('❌ 模型加载失败:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      setLoading(false);
-      
-      // ★ 状态机转换：进入ERROR状态（对齐V2：使用prev）
-      setStateMachine(prev => ({ ...prev, state: 'ERROR' }));
-      
-      onError?.(err instanceof Error ? err : new Error(String(err)));
+      console.error('❌ Splat model load error:', err);
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      setStateMachine(prev => ({ ...prev, state: 'ERROR' }));  // ★ 状态机转换：进入ERROR状态
+      if (!loadingTimedOut) {
+        setError((err as Error).message);
+        setLoading(false);
+        onError?.(err as Error);
+      }
     }
-  }, [modelUrl, autoCenter, margin, onProgress, onLoadComplete, onError]);
+  }, [modelUrl, autoCenter, margin, smartFitCameraToObject, customCameraConfig, onLoadComplete, onError]);
+
+  /**
+   * 加载GLB模型 - 完全对齐V2第1009-1113行
+   */
+  const loadGLBModel = useCallback(async () => {
+    if (!sceneRef.current || !rendererRef.current) return;
+
+    try {
+      setError(null);
+      setLoading(true);
+      setModelLoaded(false);
+      setProgress(50);
+      setLoadingStage('loading');  // 阶段1: 加载中
+      
+      // 关键修复：加载开始时立即禁用控制器，防止相机位置被修改
+      if (controlsRef.current) {
+        controlsRef.current.enabled = false;
+        console.log('🔒 加载开始：禁用控制器');
+      }
+
+      // 使用Three.js的GLTFLoader加载
+      const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+      const loader = new GLTFLoader();
+
+      loader.load(
+        modelUrl,
+        (gltf) => {
+          setLoadingStage('processing');  // 阶段2: 处理中
+          const model = gltf.scene;
+          modelRef.current = model;
+          sceneRef.current?.add(model);
+
+          // ★ 关键修复：如果有自定义相机配置，跳过智能居中
+          if (autoCenter && cameraRef.current && canvasRef.current && !customCameraConfig) {
+            smartFitCameraToObject(model, cameraRef.current, canvasRef.current, {
+              margin: margin,
+              trimThreshold: 0.05,
+              preferAxis: 'auto',
+              autoCenter: true
+            });
+          } else if (customCameraConfig) {
+            console.log('⏭️ 跳过智能居中：存在自定义相机配置');
+          }
+
+          setLoadingStage('rendering');  // 阶段3: 渲染中
+
+          // 关键优化：模型加载完成后启用控制器交互
+          if (controlsRef.current) {
+            // 关键修复：智能居中算法已经同步了target，这里只需启用控制器
+            controlsRef.current.enabled = true;
+            console.log('🎯 控制器已启用');
+          }
+
+          setProgress(100);
+          // 关键优化：先显示淡出动画，再隐藏加载界面
+          setIsFadingOut(true);
+          setTimeout(() => {
+            setLoading(false);
+            setModelLoaded(true);
+            setIsFadingOut(false);  // 重置淡出状态
+            setStateMachine(prev => ({ ...prev, state: 'LOADED' }));  // ★ 状态机转换：进入LOADED状态
+            onLoadComplete?.();
+          }, 500);  // 淡出动画持续时间
+        },
+        (progress) => {
+          if (progress.total > 0) {
+            setProgress(Math.round((progress.loaded / progress.total) * 100));
+          }
+        },
+        (error) => {
+          throw error;
+        }
+      );
+    } catch (err) {
+      console.error('❌ GLB model load error:', err);
+      setStateMachine(prev => ({ ...prev, state: 'ERROR' }));  // ★ 状态机转换：进入ERROR状态
+      setError((err as Error).message);
+      setLoading(false);
+      onError?.(err as Error);
+    }
+  }, [modelUrl, autoCenter, margin, smartFitCameraToObject, customCameraConfig, onLoadComplete, onError]);
+
+  /**
+   * 加载模型（根据URL后缀判断类型）- 完全对齐V2第1323-1343行
+   */
+  const loadModel = useCallback(() => {
+    const isSplat = modelUrl.endsWith('.spz') || modelUrl.endsWith('.splat');
+    const isGaussianSplatPLY = modelUrl.endsWith('.ply') && (
+      modelUrl.includes('dragon') || 
+      modelUrl.includes('scene') ||
+      modelUrl.includes('butterfly')
+    );
+    
+    if (isSplat) {
+      loadSplatModel();
+    } else if (isGaussianSplatPLY) {
+      // ★ 关键修复：3D高斯泼溅格式的PLY文件使用SparkRenderer渲染
+      console.log('🌟 检测到3D高斯泼溅PLY文件，使用SparkRenderer渲染');
+      loadSplatModel();
+    } else {
+      // 默认使用GLB加载
+      loadGLBModel();
+    }
+  }, [modelUrl, loadSplatModel, loadGLBModel]);
 
   /**
    * 动画循环（集成SparkRenderer渲染）
