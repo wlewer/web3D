@@ -15,7 +15,6 @@
  * @date 2026-04-18
  */
 
-import React from 'react';
 import { Simple3DViewer } from './Simple3DViewer';
 import './GalleryCard.css';
 
@@ -26,7 +25,7 @@ export interface GalleryCardProps {
   title: string;
   description?: string;
   modelUrl: string;
-  thumbnail?: string;
+  thumbnail?: string;  // 预留字段，未来可能用于静态缩略图
   tags?: string[];
   onClick?: (id: string) => void;
   className?: string;
@@ -47,11 +46,12 @@ export function GalleryCard({
   title,
   description,
   modelUrl,
-  thumbnail,
   tags = [],
   onClick,
   className = ''
 }: GalleryCardProps) {
+  // 忽略未使用的thumbnail参数
+  const _thumbnail = undefined;
   const handleClick = () => {
     onClick?.(id);
   };

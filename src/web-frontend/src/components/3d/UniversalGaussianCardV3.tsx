@@ -14,7 +14,7 @@
  * @date 2026-04-18
  */
 
-import React, { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import * as THREE from 'three';
 import { Base3DViewer } from './Base3DViewer';
 import type { Base3DViewerRef } from './Base3DViewer';
