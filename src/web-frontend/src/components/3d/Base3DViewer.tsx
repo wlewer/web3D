@@ -446,11 +446,12 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       renderer.render(sceneRef.current, camera);
     }
 
-    // FPS计数
+    // FPS计数（对齐V2：使用精确的elapsed时间）
     fpsCounterRef.current.count++;
     const now = performance.now();
-    if (now - fpsCounterRef.current.lastTime >= 1000) {
-      setFps(fpsCounterRef.current.count);
+    const elapsed = now - fpsCounterRef.current.lastTime;
+    if (elapsed >= 1000) {
+      setFps(Math.round((fpsCounterRef.current.count * 1000) / elapsed));
       fpsCounterRef.current.count = 0;
       fpsCounterRef.current.lastTime = now;
     }
@@ -522,7 +523,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       
       console.log('🗑️ Base3DViewer资源已清理');
     };
-  }, [initScene, handleResize, animate]);
+  }, []);  // ✅ 完全对齐V2：空依赖，只执行一次
 
   // ✅ 对齐V2：用户交互检测（第1407-1447行）
   useEffect(() => {
