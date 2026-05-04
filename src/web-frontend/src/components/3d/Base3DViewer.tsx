@@ -430,16 +430,23 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     // 使用SparkRenderer渲染SplatMesh，降级到普通Three.js渲染GLB
     if (spark && !sparkFailedRef.current && modelRef.current && !renderingLockRef.current) {
       renderingLockRef.current = true;
-      spark.update({ scene: sceneRef.current, camera })
-        .then(() => {
-          spark.render(sceneRef.current, camera);
-          renderingLockRef.current = false;
-        })
-        .catch(() => {
-          renderingLockRef.current = false;
-          sparkFailedRef.current = true;
-          console.warn('⚠️ SparkRenderer渲染失败，降级到普通渲染');
-        });
+      const currentScene = sceneRef.current;  // ✅ 保存引用，防止异步回调时变成null
+      if (currentScene) {
+        spark.update({ scene: currentScene, camera })
+          .then(() => {
+            if (sceneRef.current) {  // ✅ 再次检查
+              spark.render(sceneRef.current, camera);
+            }
+            renderingLockRef.current = false;
+          })
+          .catch(() => {
+            renderingLockRef.current = false;
+            sparkFailedRef.current = true;
+            console.warn('⚠️ SparkRenderer渲染失败，降级到普通渲染');
+          });
+      } else {
+        renderingLockRef.current = false;
+      }
       sparkReadyRef.current = true;
     } else if (sceneRef.current && camera && renderer) {
       // 降级到普通Three.js渲染（GLB模型）
