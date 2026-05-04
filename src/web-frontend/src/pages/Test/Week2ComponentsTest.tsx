@@ -59,11 +59,6 @@ export function Week2ComponentsTest() {
 
   return (
     <div className="week2-test compact">
-      {/* 紧凑头部 */}
-      <header className="test-header compact">
-        <h1> Week 2 组件验证</h1>
-      </header>
-
       {/* 紧凑模型选择器 */}
       <div className="model-selector compact">
         <div className="model-buttons">
@@ -120,18 +115,15 @@ export function Week2ComponentsTest() {
                 modelUrl={selectedModel.url}
                 autoCenter={true}
                 enableControls={true}
-                onLoadComplete={() => markSuccess('Base3DViewer')}
-                onError={() => markFailure('Base3DViewer')}
+                onLoadComplete={() => {
+                  console.log('✅ Base3DViewer 加载成功');
+                  markSuccess('Base3DViewer');
+                }}
+                onError={(err) => {
+                  console.error('❌ Base3DViewer 加载失败:', err);
+                  markFailure('Base3DViewer');
+                }}
               />
-            </div>
-
-            <div className="action-buttons compact">
-              <button onClick={() => baseViewerRef.current?.screenshot()}></button>
-              <button onClick={() => baseViewerRef.current?.toggleAutoRotate()}>🔄</button>
-              <button onClick={() => {
-                const config = baseViewerRef.current?.saveCameraConfig();
-                console.log('相机配置:', config);
-              }}>💾</button>
             </div>
           </section>
         )}

@@ -248,6 +248,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     rendererRef.current.setSize(width, height);
   }, []);
 
+  // 场景初始化状态
+  const [sceneInitialized, setSceneInitialized] = useState(false);
+
   // 初始化场景
   useEffect(() => {
     initScene();
@@ -257,6 +260,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     
     // 启动动画循环
     animate();
+
+    // 标记场景已初始化，触发模型加载
+    setSceneInitialized(true);
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -281,13 +287,14 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     };
   }, [initScene, handleResize, animate]);
 
-  // 加载模型（只在场景初始化后加载一次）
+  // 加载模型（在场景初始化后加载）
   useEffect(() => {
-    if (sceneRef.current && cameraRef.current && modelUrl && !modelLoaded) {
+    if (sceneInitialized && modelUrl && !modelLoaded) {
+      console.log('🎯 场景已初始化，开始加载模型:', modelUrl);
       loadModel();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sceneRef.current, cameraRef.current, modelUrl]);
+  }, [sceneInitialized, modelUrl]);
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({

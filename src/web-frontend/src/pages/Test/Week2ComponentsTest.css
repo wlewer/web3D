@@ -14,15 +14,21 @@
   padding: 5px;
 }
 
-/* 头部 */
+/* 隐藏滚动条 */
+.week2-test.compact * {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+
+.week2-test.compact *::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+  background: transparent;
+}
+
+/* 头部 - 已移除，隐藏样式 */
 .test-header {
-  text-align: center;
-  margin-bottom: 15px;
-  padding: 15px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 8px;
-  color: white;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+  display: none;
 }
 
 .test-header.compact {
@@ -142,7 +148,7 @@
 .test-layout {
   display: flex;
   gap: 10px;
-  height: calc(100vh - 250px);
+  height: calc(100vh - 120px); /* 减去模型选择器和标签页的高度 */
   min-height: 500px;
 }
 
