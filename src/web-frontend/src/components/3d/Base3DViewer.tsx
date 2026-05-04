@@ -196,9 +196,10 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
 
       setLoading(false);
       setModelLoaded(true);
+      setProgress(100); // 确保进度显示100%
       onLoadComplete?.();
 
-      console.log('✅ 模型加载和居中对齐完成');
+      console.log('✅ 模型加载和居中对齐完成', { loading: false, modelLoaded: true });
     } catch (err) {
       console.error('❌ 模型加载失败:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -280,12 +281,13 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     };
   }, [initScene, handleResize, animate]);
 
-  // 加载模型
+  // 加载模型（只在场景初始化后加载一次）
   useEffect(() => {
-    if (sceneRef.current && cameraRef.current) {
+    if (sceneRef.current && cameraRef.current && modelUrl && !modelLoaded) {
       loadModel();
     }
-  }, [loadModel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sceneRef.current, cameraRef.current, modelUrl]);
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
