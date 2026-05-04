@@ -138,6 +138,39 @@
   font-size: 12px;
 }
 
+/* 左右分栏布局 */
+.test-layout {
+  display: flex;
+  gap: 10px;
+  height: calc(100vh - 250px);
+  min-height: 500px;
+}
+
+.test-main-area {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+/* 右侧栏 */
+.test-sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+}
+
+.test-sidebar h3 {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+  color: #1a1a1a;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 10px;
+}
+
 .test-tabs button:hover {
   background: #667eea;
   color: white;

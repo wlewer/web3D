@@ -107,8 +107,10 @@ export function Week2ComponentsTest() {
         </button>
       </nav>
 
-      {/* 测试区域 */}
-      <main className="test-main compact">
+      {/* 左右分栏布局 */}
+      <div className="test-layout">
+        {/* 左侧：测试区域 */}
+        <div className="test-main-area compact">
         {/* Base3DViewer 测试 */}
         {activeTab === 'base' && (
           <section className="test-section compact">
@@ -192,12 +194,12 @@ export function Week2ComponentsTest() {
             </div>
           </section>
         )}
-      </main>
+        </div>
 
-      {/* 测试结果统计 */}
-      <footer className="test-results">
-        <h3>📊 测试结果</h3>
-        <div className="results-grid">
+        {/* 右侧：测试结果 */}
+        <aside className="test-sidebar">
+          <h3>📊 测试结果</h3>
+          <div className="results-grid">
           {['Base3DViewer', 'UniversalGaussianCardV3', 'Simple3DViewer', 'GalleryCard'].map(name => (
             <div 
               key={name} 
@@ -222,7 +224,8 @@ export function Week2ComponentsTest() {
             待测试: {4 - Object.keys(testResults).length}
           </p>
         </div>
-      </footer>
+        </aside>
+      </div>
     </div>
   );
 }
