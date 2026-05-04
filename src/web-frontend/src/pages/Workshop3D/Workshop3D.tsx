@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import * as THREE from 'three';
 import './Workshop3D.css';
 
 interface Workshop3DProps {

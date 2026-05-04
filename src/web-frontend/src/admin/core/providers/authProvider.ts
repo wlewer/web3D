@@ -6,14 +6,7 @@
 
 import { type AuthProvider } from '@refinedev/core';
 import axiosInstance from './axios';
-import type { IUser, UserRole } from '../types';
-
-// 登录响应
-interface LoginResponse {
-  access_token: string;
-  refresh_token?: string;
-  user: IUser;
-}
+import type { IUser } from '../types';
 
 /**
  * 认证提供者

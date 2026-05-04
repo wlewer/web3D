@@ -9,14 +9,12 @@ import { ConfigProvider, App as AntdApp } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Refine } from '@refinedev/core';
-import dataProvider from '@refinedev/simple-rest';
 import { AdminApp } from './App';
 import LoginPage from './modules/auth/LoginPage';
 import { authProvider } from './core/providers/authProvider';
+import { dataProvider } from './core/providers/dataProvider';
 import { i18nProvider } from './core/providers/i18nProvider';
 import { getCurrentTheme } from './core/config/theme';
-
-const API_URL = 'http://localhost:8000/api/v1';
 
 // 创建 React Query 客户端
 const queryClient = new QueryClient({
@@ -58,7 +56,7 @@ export const AdminEntry: React.FC = () => {
         >
           <AntdApp>
             <Refine
-              dataProvider={dataProvider(API_URL)}
+              dataProvider={dataProvider}
               authProvider={authProvider}
               i18nProvider={i18nProvider}
               options={{
@@ -84,7 +82,7 @@ export const AdminEntry: React.FC = () => {
       >
         <AntdApp>
           <Refine
-            dataProvider={dataProvider(API_URL)}
+            dataProvider={dataProvider}
             authProvider={authProvider}
             i18nProvider={i18nProvider}
             options={{

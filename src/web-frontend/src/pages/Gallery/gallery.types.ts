@@ -33,9 +33,9 @@ export interface GalleryItem {
 }
 
 export interface GalleryFilter {
-  category?: GalleryItem['category'];
+  category?: 'all' | 'box' | GalleryItem['category'];
   subCategory?: string;
-  boxType?: BoxCategory;
+  boxType?: 'all' | BoxCategory;
   search?: string;
   sortBy?: 'recent' | 'popular' | 'likes';
 }

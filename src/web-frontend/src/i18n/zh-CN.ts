@@ -11,7 +11,7 @@ export const zhCN = {
     home: '首页',
     gallery: '画廊',
     showcase: '示例',
-    upload: '上传',
+    upload: '模型作品',
     generation: 'AI生成',
     profile: '个人中心',
     login: '登录',

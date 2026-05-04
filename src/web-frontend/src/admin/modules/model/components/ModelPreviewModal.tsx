@@ -7,7 +7,6 @@ import React from 'react';
 import { Modal, Tag } from 'antd';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment } from '@react-three/drei';
-import * as THREE from 'three';
 
 interface GLBModelProps {
   modelUrl: string;

@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Button, Alert, Spin, Drawer, Select, Badge, Progress, Tag, Popover, Tooltip, message } from 'antd';
+import { Upload, Button, Alert, Spin, Drawer, Select, Progress, Tag, Popover, message } from 'antd';
 const { Option } = Select;
 import {
   CloudUploadOutlined,
@@ -17,7 +17,6 @@ import {
   PictureOutlined,
   DownloadOutlined,
   LockOutlined,
-  UnlockOutlined,
   ThunderboltOutlined,
   SafetyCertificateOutlined,
   InfoCircleOutlined,
@@ -310,7 +309,7 @@ export const ProfessionalGenerationPage: React.FC = () => {
   const [totalQuota, setTotalQuota] = useState<number>(200); // 默认200积分
   const [usedQuota, setUsedQuota] = useState<number>(0);
   const remainingQuota = totalQuota - usedQuota;
-  const [quotaLoading, setQuotaLoading] = useState<boolean>(false);
+  // quotaLoading 状态暂未在UI中使用，保留setQuotaLoading调用以便将来扩展
   
   // 示例图片抽屉
   const [examplesDrawerVisible, setExamplesDrawerVisible] = useState(false);
@@ -328,7 +327,7 @@ export const ProfessionalGenerationPage: React.FC = () => {
 
   // 从后端获取额度信息
   const fetchQuotaBalance = async () => {
-    setQuotaLoading(true);
+    // setQuotaLoading(true);  // 暂未在UI中使用加载状态
     try {
       const token = localStorage.getItem('access_token');
       
@@ -385,7 +384,7 @@ export const ProfessionalGenerationPage: React.FC = () => {
       setTotalQuota(200);
       setUsedQuota(0);
     } finally {
-      setQuotaLoading(false);
+      // setQuotaLoading(false);  // 暂未在UI中使用加载状态
     }
   };
 

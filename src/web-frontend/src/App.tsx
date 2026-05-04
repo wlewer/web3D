@@ -2,12 +2,14 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HomePage, GalleryPage, AuthPage, UploadPage, SparkShowcase, BookViewerPage, BookGalleryPage, GenerationPage } from './pages';
+import { GalleryPageTest } from './pages/Gallery/GalleryPageTest';
+import { CameraConfigTest } from './pages/Test/CameraConfigTest';
+import { NewArchitectureTest } from './pages/Test/NewArchitectureTest';
 import { SF3DGenerationPage } from './pages/Generation/SF3DGenerationPage';
 import { TripoSRGenerationPage } from './pages/Generation/TripoSRGenerationPage';
 import { InstantMeshGenerationPage } from './pages/Generation/InstantMeshGenerationPage';
 import { OfficialSuperSplatEditor } from './pages/Editor/OfficialSuperSplatEditor';
 import { SparkEditor } from './pages/Editor/SparkEditor';
-import { Workshop3D } from './pages/Workshop3D';
 import { I18nProvider, useLanguage, useTranslation } from './i18n';
 import { getCurrentUser, logout, type User } from './pages/Auth';
 import { AdminEntry } from './admin';
@@ -49,7 +51,7 @@ function UserAvatar({ user, onLogout }: { user: User; onLogout: () => void }) {
 // 导航栏组件
 function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorkshopInHome, user, onLogout }: {
   currentPage: string;
-  setCurrentPage: (page: 'home' | 'gallery' | 'auth' | 'upload' | 'official-editor' | 'spark-editor' | 'showcase' | 'book' | 'book-gallery' | 'generation' | 'sf3d-generation' | 'triposr-generation' | 'instantmesh-generation') => void;
+  setCurrentPage: (page: 'home' | 'gallery' | 'gallery-test' | 'camera-config-test' | 'auth' | 'upload' | 'official-editor' | 'spark-editor' | 'showcase' | 'book' | 'book-gallery' | 'generation' | 'sf3d-generation' | 'triposr-generation' | 'instantmesh-generation') => void;
   showWorkshopInHome?: boolean;
   setShowWorkshopInHome?: (show: boolean) => void;
   user: User | null;
@@ -86,6 +88,24 @@ function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorksh
           onClick={() => setCurrentPage('gallery')}
         >
           {t.nav.gallery}
+        </button>
+        <button
+          className={`app-nav-link ${currentPage === 'gallery-test' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('gallery-test')}
+        >
+          🧪 {language === 'zh-CN' ? '画廊测试' : 'Gallery Test'}
+        </button>
+        <button
+          className={`app-nav-link ${currentPage === 'camera-config-test' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('camera-config-test')}
+        >
+          📸 相机配置测试
+        </button>
+        <button
+          className={`app-nav-link ${currentPage === 'new-architecture-test' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('new-architecture-test')}
+        >
+          🧪 新架构测试
         </button>
         <button
           className={`app-nav-link ${currentPage === 'showcase' ? 'active' : ''}`}
@@ -153,7 +173,7 @@ function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorksh
 
 // 主应用组件
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'gallery' | 'auth' | 'upload' | 'official-editor' | 'spark-editor' | 'showcase' | 'book' | 'book-gallery' | 'generation' | 'sf3d-generation' | 'triposr-generation' | 'instantmesh-generation'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'gallery' | 'gallery-test' | 'camera-config-test' | 'new-architecture-test' | 'auth' | 'upload' | 'official-editor' | 'spark-editor' | 'showcase' | 'book' | 'book-gallery' | 'generation' | 'sf3d-generation' | 'triposr-generation' | 'instantmesh-generation'>('home');
   const [showWorkshopInHome, setShowWorkshopInHome] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
@@ -188,6 +208,9 @@ function AppContent() {
         {currentPage === 'official-editor' && <OfficialSuperSplatEditor />}
         {currentPage === 'spark-editor' && <SparkEditor />}
         {currentPage === 'gallery' && <GalleryPage />}
+        {currentPage === 'gallery-test' && <GalleryPageTest />}
+        {currentPage === 'camera-config-test' && <CameraConfigTest />}
+        {currentPage === 'new-architecture-test' && <NewArchitectureTest />}
         {currentPage === 'auth' && (
           <AuthPage 
             onSuccess={() => setCurrentPage('home')}
@@ -195,8 +218,8 @@ function AppContent() {
         )}
         {currentPage === 'upload' && <UploadPage />}
         {currentPage === 'showcase' && <SparkShowcase />}
-        {currentPage === 'book' && <BookViewerPage onNavigate={setCurrentPage} />}
-        {currentPage === 'book-gallery' && <BookGalleryPage onNavigate={setCurrentPage} />}
+        {currentPage === 'book' && <BookViewerPage onNavigate={() => setCurrentPage('home')} />}
+        {currentPage === 'book-gallery' && <BookGalleryPage onNavigate={() => setCurrentPage('home')} />}
         {currentPage === 'generation' && <GenerationPage />}
         {currentPage === 'sf3d-generation' && <SF3DGenerationPage />}
         {currentPage === 'triposr-generation' && <TripoSRGenerationPage />}

@@ -24,8 +24,8 @@ export const OFFICIAL_MODELS = {
   },
 
   // 猫咪系列
-  'cat.spz': {
-    url: '/models/cat.spz', // 使用本地文件
+  'cat-2.spz': {
+    url: '/models/cat-2.spz', // 使用本地文件（含粉碎颗粒效果）
     thumbnail: '🐱',
     name: 'Cat',
     nameZh: '可爱猫咪',

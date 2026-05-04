@@ -3,7 +3,7 @@
  * 支持左右切换浏览多个3D模型
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import { Suspense } from 'react';
@@ -92,6 +92,7 @@ function Scene({ modelPath }: { modelPath: string }) {
 }
 
 export function OfficialSuperSplatEditor() {
+  // const { t } = useTranslation();  // 暂未使用，保留以便将来扩展
   const { language } = useTranslation();
   const isZh = language === 'zh-CN';
   const [currentIndex, setCurrentIndex] = useState(0);

@@ -21,7 +21,6 @@ import {
 import {
   PlusOutlined,
   SearchOutlined,
-  EditOutlined,
   DeleteOutlined,
   EyeOutlined,
   CheckCircleOutlined,
@@ -29,8 +28,7 @@ import {
   ReloadOutlined,
   BoxPlotOutlined,
 } from '@ant-design/icons';
-import { useList, useTranslate } from '@refinedev/core';
-import { useNavigate } from 'react-router-dom';
+import { useList } from '@refinedev/core';
 import type { IModel, ModelStatus, ModelCategory } from '../types';
 import { modelApi } from '../api';
 import { ModelPreviewModal } from '../components/ModelPreviewModal';
@@ -65,8 +63,8 @@ const formatMap: Record<string, string> = {
 };
 
 export const ModelList: React.FC = () => {
-  const translate = useTranslate();
-  const navigate = useNavigate();
+  // const translate = useTranslate();  // 暂未使用，保留以便将来扩展
+  // const navigate = useNavigate();  // 暂未使用，保留以便将来扩展
   const [searchText, setSearchText] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<ModelCategory | undefined>();
   const [statusFilter, setStatusFilter] = useState<ModelStatus | undefined>();
@@ -74,9 +72,12 @@ export const ModelList: React.FC = () => {
   const [previewModel, setPreviewModel] = useState<IModel | null>(null);
 
   // 获取数据
-  const { result, query } = useList<IModel>({
+  const listHook: any = useList<IModel>({
     resource: 'models',
-    pagination: { currentPage: 1, pageSize: 10 },
+    pagination: {
+      current: 1,
+      pageSize: 10,
+    },
     filters: [
       ...(searchText ? [{ field: 'name', operator: 'contains' as const, value: searchText }] : []),
       ...(categoryFilter ? [{ field: 'category', operator: 'eq' as const, value: categoryFilter }] : []),
@@ -84,10 +85,10 @@ export const ModelList: React.FC = () => {
     ],
   });
 
-  const data = result?.data || [];
-  const total = result?.total || 0;
-  const isLoading = query?.isLoading;
-  const refetchData = () => query?.refetch();
+  const data = listHook?.result?.data || [];
+  const total = listHook?.result?.total || 0;
+  const isLoading = listHook?.query?.isLoading;
+  const refetchData = () => listHook?.query?.refetch();
 
   // 表格列
   const columns: any = [

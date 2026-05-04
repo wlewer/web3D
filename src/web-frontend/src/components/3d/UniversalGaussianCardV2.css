@@ -1,0 +1,580 @@
+/* UniversalGaussianCard V2.0 - 样式文件 */
+
+/* ========== 基础卡片容器 ========== */
+.universal-card-v2 {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  background: #0a0a0f;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.universal-card-v2:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 48px rgba(102, 126, 234, 0.3);
+}
+
+.universal-card-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* ★ 新增：模型淡入动画 */
+  opacity: 0;
+  transition: opacity 0.8s ease-in-out;
+}
+
+/* 模型加载完成后淡入 */
+.universal-card-canvas.model-loaded {
+  opacity: 1;
+}
+
+/* ========== 布局模式 ========== */
+
+/* 网格模式（默认） */
+.universal-card-v2.layout-grid {
+  width: 100%;
+  height: 400px;
+}
+
+/* 列表模式 */
+.universal-card-v2.layout-list {
+  width: 100%;
+  height: 400px;
+}
+
+/* 紧凑模式 */
+.universal-card-v2.layout-compact {
+  width: 150px;
+  height: 150px;
+  border-radius: 8px;
+}
+
+.universal-card-v2.layout-compact:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(102, 126, 234, 0.25);
+}
+
+/* 模态框模式 */
+.universal-card-v2.layout-modal {
+  width: 80vw;
+  height: 80vh;
+  max-width: 1200px;
+  max-height: 800px;
+  border-radius: 16px;
+}
+
+/* 轮播模式 */
+.universal-card-v2.layout-carousel {
+  width: 500px;
+  height: 500px;
+}
+
+/* 画廊模式 */
+.universal-card-v2.layout-gallery {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+}
+
+/* 首页特色模式 */
+.universal-card-v2.layout-featured {
+  width: 100%;
+  height: 100vh;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.universal-card-v2.layout-featured:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* 自定义模式 */
+.universal-card-v2.layout-custom {
+  width: 100%;
+  height: 100%;
+}
+
+/* ========== 标题叠加层 ========== */
+.card-title-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  color: white;
+  pointer-events: none;
+}
+
+.card-title {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.card-subtitle {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.8;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ========== 加载指示器 - 优化版 ========== */
+.universal-card-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: white;
+  pointer-events: none;
+  z-index: 100;
+  animation: loadingFadeIn 0.5s ease-out;
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+/* 淡出状态 */
+.universal-card-loading.fade-out {
+  opacity: 0;
+  transform: translate(-50%, -55%);
+  pointer-events: none;
+}
+
+@keyframes loadingFadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -45%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* 3D旋转立方体容器 */
+.loading-cube-container {
+  width: 80px;
+  height: 80px;
+  perspective: 400px;
+  margin-bottom: 8px;
+  position: relative;
+}
+
+/* 立方体周围的光晕效果 */
+.loading-cube-container::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(102, 126, 234, 0.3) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: glowPulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+}
+
+/* 3D旋转立方体 */
+.loading-cube {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: cubeRotate 3s infinite ease-in-out;
+}
+
+@keyframes cubeRotate {
+  0% {
+    transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+  }
+  25% {
+    transform: rotateX(90deg) rotateY(90deg) rotateZ(45deg);
+  }
+  50% {
+    transform: rotateX(180deg) rotateY(180deg) rotateZ(90deg);
+  }
+  75% {
+    transform: rotateX(270deg) rotateY(270deg) rotateZ(135deg);
+  }
+  100% {
+    transform: rotateX(360deg) rotateY(360deg) rotateZ(180deg);
+  }
+}
+
+/* 立方体的面 */
+.cube-face {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border: 2px solid rgba(102, 126, 234, 0.6);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+  box-shadow: 0 0 15px rgba(102, 126, 234, 0.4), inset 0 0 15px rgba(102, 126, 234, 0.2);
+  backdrop-filter: blur(5px);
+}
+
+/* 前面 */
+.cube-front {
+  transform: translateZ(30px);
+}
+
+/* 后面 */
+.cube-back {
+  transform: rotateY(180deg) translateZ(30px);
+}
+
+/* 右面 */
+.cube-right {
+  transform: rotateY(90deg) translateZ(30px);
+}
+
+/* 左面 */
+.cube-left {
+  transform: rotateY(-90deg) translateZ(30px);
+}
+
+/* 顶面 */
+.cube-top {
+  transform: rotateX(90deg) translateZ(30px);
+}
+
+/* 底面 */
+.cube-bottom {
+  transform: rotateX(-90deg) translateZ(30px);
+}
+
+/* 加载阶段文本 */
+.loading-stage-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #667eea;
+  text-align: center;
+  min-height: 20px;
+  animation: stageFadeIn 0.5s ease-in;
+}
+
+@keyframes stageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 进度条容器 */
+.loading-bar-container {
+  width: 200px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 进度条 */
+.loading-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+  background-size: 200% 100%;
+  transition: width 0.3s ease;
+  animation: progressShine 2s linear infinite;
+  box-shadow: 0 0 10px rgba(102, 126, 234, 0.6);
+}
+
+@keyframes progressShine {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* 进度百分比 */
+.loading-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #667eea;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* 加载提示 */
+.loading-tip {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  text-align: center;
+  max-width: 250px;
+  line-height: 1.5;
+}
+
+/* ========== 错误提示 ========== */
+.universal-card-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 24px;
+  background: rgba(255, 71, 87, 0.9);
+  color: white;
+  border-radius: 8px;
+  font-size: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* ========== 统计信息 ========== */
+.universal-card-stats {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  color: white;
+  font-size: 12px;
+}
+
+.stats-fps {
+  font-weight: 600;
+  color: #667eea;
+}
+
+/* ========== 控制提示 ========== */
+.universal-card-hints {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+/* ========== 响应式设计 ========== */
+
+/* 平板设备 */
+@media (max-width: 768px) {
+  .universal-card-v2.layout-grid,
+  .universal-card-v2.layout-list {
+    height: 300px;
+  }
+  
+  .universal-card-v2.layout-modal {
+    width: 95vw;
+    height: 60vh;
+  }
+  
+  .card-title {
+    font-size: 16px;
+  }
+  
+  .card-subtitle {
+    font-size: 12px;
+  }
+  
+  .loading-bar-container {
+    width: 150px;
+  }
+  
+  /* 优化平板设备的加载动画 */
+  .loading-cube-container {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .cube-face {
+    width: 45px;
+    height: 45px;
+  }
+  
+  .cube-front { transform: translateZ(22.5px); }
+  .cube-back { transform: rotateY(180deg) translateZ(22.5px); }
+  .cube-right { transform: rotateY(90deg) translateZ(22.5px); }
+  .cube-left { transform: rotateY(-90deg) translateZ(22.5px); }
+  .cube-top { transform: rotateX(90deg) translateZ(22.5px); }
+  .cube-bottom { transform: rotateX(-90deg) translateZ(22.5px); }
+  
+  .loading-stage-text {
+    font-size: 13px;
+  }
+  
+  .loading-text {
+    font-size: 13px;
+  }
+  
+  .loading-tip {
+    font-size: 11px;
+    max-width: 200px;
+  }
+}
+
+/* 手机设备 */
+@media (max-width: 480px) {
+  .universal-card-v2.layout-grid,
+  .universal-card-v2.layout-list {
+    height: 250px;
+  }
+  
+  .universal-card-v2.layout-carousel {
+    width: 100%;
+    height: 350px;
+  }
+  
+  .card-title-overlay {
+    padding: 12px;
+  }
+  
+  .card-title {
+    font-size: 14px;
+  }
+  
+  .card-subtitle {
+    font-size: 11px;
+  }
+  
+  .universal-card-stats {
+    top: 8px;
+    right: 8px;
+    padding: 6px 8px;
+    font-size: 11px;
+  }
+  
+  .universal-card-hints {
+    bottom: 8px;
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+  
+  /* 优化手机设备的加载动画 */
+  .loading-cube-container {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .cube-face {
+    width: 38px;
+    height: 38px;
+  }
+  
+  .cube-front { transform: translateZ(19px); }
+  .cube-back { transform: rotateY(180deg) translateZ(19px); }
+  .cube-right { transform: rotateY(90deg) translateZ(19px); }
+  .cube-left { transform: rotateY(-90deg) translateZ(19px); }
+  .cube-top { transform: rotateX(90deg) translateZ(19px); }
+  .cube-bottom { transform: rotateX(-90deg) translateZ(19px); }
+  
+  .loading-bar-container {
+    width: 120px;
+  }
+  
+  .loading-stage-text {
+    font-size: 12px;
+  }
+  
+  .loading-text {
+    font-size: 12px;
+  }
+  
+  .loading-tip {
+    font-size: 10px;
+    max-width: 180px;
+  }
+}
+
+/* ========== 产品标签 ========== */
+.product-labels-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.product-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.product-label:hover {
+  transform: scale(1.05);
+}
+
+.product-label-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #667eea;
+  border: 2px solid white;
+  box-shadow: 0 0 10px rgba(102, 126, 234, 0.6);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.9);
+  }
+}
+
+.product-label-content {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border-left: 3px solid #667eea;
+  max-width: 200px;
+}
+
+.product-label-name {
+  margin: 0 0 4px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+}
+
+.product-label-description {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.4;
+}

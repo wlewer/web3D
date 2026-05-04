@@ -1,5 +1,5 @@
 // 3D模型查看器组件
-import { useRef, useState, Suspense } from 'react';
+import { useRef, Suspense } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
@@ -24,10 +24,10 @@ function GLBModel({ modelUrl, meshRef }: { modelUrl: string; meshRef: React.RefO
   );
 }
 
-export function ModelViewer({ modelUrl, config, onLoad, onError }: ModelViewerProps) {
+export function ModelViewer({ modelUrl, config /* onLoad, onError */ }: ModelViewerProps) {
   const mergedConfig = { ...DEFAULT_VIEWER_CONFIG, ...config };
   const meshRef = useRef<THREE.Group>(null);
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);  // 暂未使用，保留以便将来扩展
 
   useFrame((_, delta) => {
     if (meshRef.current && mergedConfig.autoRotate) {

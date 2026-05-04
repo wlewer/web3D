@@ -1,5 +1,6 @@
-/* 3D Splat 模型卡片样式 */
+/* 3D Splat 模型卡片样式 - 画框聚焦 + 加载动效 */
 
+/* ===== 卡片容器 ===== */
 .model-3d-card {
   position: relative;
   display: flex;
@@ -7,12 +8,14 @@
   align-items: center;
   gap: 8px;
   padding: 12px;
+  width: 100%;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(102, 126, 234, 0.2);
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.3s ease;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .model-3d-card:hover {
@@ -26,9 +29,12 @@
   background: rgba(102, 126, 234, 0.1);
 }
 
-/* 3D 容器 */
+/* ===== 3D 容器 ===== */
 .model-container {
   position: relative;
+  width: 100%;
+  aspect-ratio: 32/23;
+  min-height: 150px;
   border-radius: 12px;
   overflow: hidden;
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
@@ -36,9 +42,42 @@
 
 .model-container canvas {
   border-radius: 12px;
+  display: block;
 }
 
-/* 加载中 */
+/* ===== 加载完成后的画框聚焦效果 ===== */
+.model-container.loaded::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  border: 1.5px solid rgba(102, 126, 234, 0.25);
+  box-shadow:
+    inset 0 0 20px rgba(102, 126, 234, 0.08),
+    0 0 15px rgba(102, 126, 234, 0.05);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* 模型加载成功过渡动画：模糊→清晰 */
+.model-container.loaded canvas {
+  animation: canvasReveal 0.6s ease-out;
+}
+
+@keyframes canvasReveal {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: scale(1);
+  }
+}
+
+/* ===== 加载中状态 ===== */
 .model-loading {
   position: absolute;
   top: 0;
@@ -52,30 +91,41 @@
   background: rgba(0, 0, 0, 0.7);
   border-radius: 12px;
   gap: 8px;
+  z-index: 3;
+}
+
+/* 加载中骨架图标 + 脉冲 */
+.loading-skeleton-icon {
+  font-size: 2.5rem;
+  opacity: 0.6;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.95); }
+  50% { opacity: 0.8; transform: scale(1.05); }
 }
 
 .loading-spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
   border-top-color: #667eea;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 .loading-text {
-  color: #fff;
-  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.8rem;
   font-weight: 500;
 }
 
-/* 备用显示 */
+/* ===== 备用/错误显示 ===== */
 .model-fallback {
   position: absolute;
   top: 0;
@@ -83,10 +133,13 @@
   right: 0;
   bottom: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
   border-radius: 12px;
+  z-index: 3;
 }
 
 .fallback-icon {
@@ -94,16 +147,54 @@
   animation: float 3s ease-in-out infinite;
 }
 
-@keyframes float {
-  0%, 100% { 
-    transform: translateY(0); 
-  }
-  50% { 
-    transform: translateY(-8px); 
-  }
+/* 错误状态图标（增加脉冲） */
+.fallback-icon.error {
+  animation: floatError 2s ease-in-out infinite;
 }
 
-/* 标题 */
+@keyframes floatError {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* 错误文字：加粗红色醒目 */
+.fallback-text {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  padding: 4px 14px;
+  border-radius: 6px;
+  margin-top: 2px;
+}
+
+/* 点击重试提示 */
+.fallback-hint {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 错误状态边框脉冲 */
+.model-container.has-error {
+  border: 2px solid rgba(239, 68, 68, 0.6);
+  animation: errorPulse 2s ease-in-out infinite;
+}
+
+@keyframes errorPulse {
+  0%, 100% { border-color: rgba(239, 68, 68, 0.6); }
+  50% { border-color: rgba(239, 68, 68, 0.3); box-shadow: inset 0 0 15px rgba(239, 68, 68, 0.1); }
+}
+
+/* ===== 普通漂浮动画 ===== */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* ===== 标题 ===== */
 .model-title {
   display: flex;
   flex-direction: column;
@@ -129,54 +220,49 @@
   color: #fff;
 }
 
-/* 尺寸变体 */
-.model-3d-card.small .model-container {
-  width: 160px;
-  height: 120px;
-}
+/* ===== 尺寸变体 ===== */
+.model-3d-card.small { max-width: 240px; }
+.model-3d-card.medium { max-width: 400px; }
+.model-3d-card.large { max-width: 480px; }
 
-.model-3d-card.medium .model-container {
-  width: 200px;
-  height: 150px;
-}
-
-.model-3d-card.large .model-container {
-  width: 280px;
-  height: 200px;
-}
-
-/* 悬停效果 */
+/* 悬停时增强动效 */
 .model-3d-card:hover .fallback-icon {
   animation-duration: 1.5s;
 }
 
-/* 静态缩略图占位（非激活状态，不消耗 WebGL Context） */
-.model-thumbnail-placeholder {
-  width: 100%;
-  height: 100%;
+.model-3d-card:hover .model-container.loaded::after {
+  border-color: rgba(102, 126, 234, 0.5);
+  box-shadow:
+    inset 0 0 30px rgba(102, 126, 234, 0.15),
+    0 0 20px rgba(102, 126, 234, 0.1);
+  transition: all 0.3s ease;
+}
+
+/* ===== 镜头坐标 debug 面板 ===== */
+.camera-debug-panel {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  right: 6px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
-  border-radius: 12px;
-  gap: 6px;
-  cursor: pointer;
-  transition: background 0.3s ease;
+  gap: 1px;
+  background: rgba(0, 0, 0, 0.78);
+  border: 1px solid rgba(102, 126, 234, 0.35);
+  border-radius: 6px;
+  padding: 6px 8px;
+  z-index: 5;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
 }
 
-.model-thumbnail-placeholder:hover {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
-}
-
-.thumbnail-hover-hint {
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.5);
-  opacity: 0;
-  transition: opacity 0.3s ease;
+.camera-debug-line {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10px;
+  line-height: 1.35;
+  color: rgba(200, 210, 255, 0.9);
   white-space: nowrap;
-}
-
-.model-3d-card:hover .thumbnail-hover-hint {
-  opacity: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }

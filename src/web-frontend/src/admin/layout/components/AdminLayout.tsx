@@ -18,10 +18,9 @@ import {
   BellOutlined,
   GlobalOutlined,
   ExperimentOutlined,
-  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useGetIdentity, useTranslate } from '@refinedev/core';
+import { useGetIdentity } from '@refinedev/core';
 import type { IUser } from '@/admin/core/types';
 
 const { Header, Sider, Content } = Layout;
@@ -114,7 +113,6 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   const navigate = useNavigate();
   const location = useLocation();
   const { token } = antdTheme.useToken();
-  const translate = useTranslate();
   const { data: user } = useGetIdentity<IUser>();
 
   // 用户下拉菜单

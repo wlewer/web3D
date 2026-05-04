@@ -25,6 +25,8 @@ interface SparkViewerProps {
   }>;
   // 新增：交互回调 - 用户操控3D时触发
   onInteraction?: () => void;
+  // 新增：加载状态回调 - 供父组件感知加载进度
+  onLoadStateChange?: (loading: boolean) => void;
 }
 
 export function SparkViewer({
@@ -35,6 +37,7 @@ export function SparkViewer({
   backgroundColor = '#0a0a0f',
   products = [],
   onInteraction,
+  onLoadStateChange,
 }: SparkViewerProps) {
   const { language, t } = useTranslation();
   const isZh = language === 'zh-CN';
@@ -55,11 +58,16 @@ export function SparkViewer({
   const [error, setError] = useState<string | null>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
   const [fps, setFps] = useState(0);
-  const lastFrameTimeRef = useRef<number>(0);
   const fpsCounterRef = useRef<{ count: number; lastTime: number }>({ count: 0, lastTime: performance.now() });
-  const [isInteracting, setIsInteracting] = useState(false);
+  const isInteractingRef = useRef(false);
+  const sparkReadyRef = useRef(false); // Spark 内部渲染管线是否可用
+  const sparkFailedRef = useRef(false); // Spark 已进入异常状态，永久降级
+  const renderingLockRef = useRef(false); // 帧同步锁：防止 update() 未完成时再次调用
 
-  // 初始化 Three.js 场景
+  // 通知父组件加载状态变化
+  useEffect(() => {
+    onLoadStateChange?.(loading);
+  }, [loading, onLoadStateChange]);
   const initScene = useCallback(() => {
     if (!containerRef.current) {
       console.warn('SparkViewer: container not ready');
@@ -373,19 +381,40 @@ export function SparkViewer({
     }, 300);
   }, []);
 
-  // 加载 Splat 模型
+  // 加载 Splat 模型（含超时保护 + 心跳进度）
   const loadSplatModel = useCallback(async () => {
     if (!sparkRef.current) return;
 
+    let loadingTimedOut = false;
+    let progressReceived = false;
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
     try {
+      setError(null);
+      setLoading(true);
+      setModelLoaded(false);
       setProgress(10);
+
+      // ★ 心跳进度：Vite dev server 不发 Content-Length，lengthComputable=false
+      //    用计时器模拟下载进度，每 300ms 从 10% 缓慢爬到 75%（共滑行 15 秒）
+      const heartbeatStart = Date.now();
+      heartbeatTimer = setInterval(() => {
+        if (loadingTimedOut) return;
+        if (progressReceived) return; // 真实进度优先
+        const elapsed = (Date.now() - heartbeatStart) / 1000;
+        // 指数衰减曲线：前 5 秒快速爬升，后 10 秒缓慢
+        const simulated = 10 + (1 - Math.exp(-elapsed / 5)) * 65;
+        setProgress(Math.min(75, Math.round(simulated)));
+      }, 300);
 
       // 创建 SplatMesh，传入 URL
       const splat = new SplatMesh({ 
         url: splatUrl,
         onProgress: (event) => {
+          if (loadingTimedOut) return;
           if (event.lengthComputable) {
-            setProgress(Math.min(90, (event.loaded / event.total) * 100));
+            progressReceived = true;
+            setProgress(Math.min(90, 10 + (event.loaded / event.total) * 80));
           }
         }
       });
@@ -398,8 +427,26 @@ export function SparkViewer({
       // 添加到 Spark 渲染器
       sparkRef.current.add(splat);
 
+      // 超时保护：25 秒后如果还没初始化完成，显示占位模型
+      const timeoutGuard = setTimeout(() => {
+        if (!loadingTimedOut) {
+          loadingTimedOut = true;
+          console.warn(`Splat 模型加载超时: ${splatUrl}`);
+          setError('模型加载超时，请检查网络连接');
+          setLoading(false);
+          setModelLoaded(false);
+          createPlaceholderModel();
+        }
+      }, 25000);
+
       // 等待 SplatMesh 初始化完成
       await splat.initialized;
+      clearTimeout(timeoutGuard);
+
+      if (loadingTimedOut) return;
+
+      // 清除心跳
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
 
       setProgress(100);
       setTimeout(() => {
@@ -408,11 +455,14 @@ export function SparkViewer({
       }, 300);
     } catch (err) {
       console.error('Splat model load error:', err);
-      setError((err as Error).message);
-      setLoading(false);
-
-      // 如果 Splat 加载失败，显示占位模型
-      createPlaceholderModel();
+      if (heartbeatTimer) clearInterval(heartbeatTimer);
+      if (!loadingTimedOut) {
+        setError((err as Error).message);
+        setLoading(false);
+        setModelLoaded(false);
+        // 如果 Splat 加载失败，显示占位模型
+        createPlaceholderModel();
+      }
     }
   }, [splatUrl, createPlaceholderModel]);
 
@@ -454,11 +504,22 @@ export function SparkViewer({
     }
 
     // 使用 SparkRenderer 的 render 方法渲染 Splat 数据
-    if (spark) {
-      spark.update({ scene: sceneRef.current, camera });
-      spark.render(sceneRef.current, camera);
-    } else {
-      // 如果没有 SparkRenderer，使用普通的 Three.js 渲染
+    if (spark && !sparkFailedRef.current && splatMeshRef.current && !renderingLockRef.current) {
+      // 帧同步锁：前一次 update() 未完成时跳过该帧，防止累加器池耗尽
+      renderingLockRef.current = true;
+      spark.update({ scene: sceneRef.current, camera })
+        .then(() => {
+          spark.render(sceneRef.current, camera);
+          renderingLockRef.current = false;
+        })
+        .catch(() => {
+          renderingLockRef.current = false;
+          sparkFailedRef.current = true;
+        });
+      sparkReadyRef.current = true;
+    } else if (sceneRef.current && camera && renderer) {
+      // 没有 SparkRenderer 或已降级或帧被跳过，使用普通的 Three.js 渲染
+      // 即使跳过帧也继续渲染 Three.js 内容（粒子背景等）
       renderer.render(sceneRef.current, camera);
     }
 
@@ -473,7 +534,7 @@ export function SparkViewer({
     }
   }, []);
 
-  // 初始化 - 使用空依赖，只在挂载时执行一次
+  // 初始化场景 - 只执行一次
   useEffect(() => {
     // 等待 canvasRef 准备好
     const timer = setTimeout(() => {
@@ -521,7 +582,26 @@ export function SparkViewer({
         sceneRef.current = null;
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ★ 模型切换：splatUrl 变化时，复用现有场景/上下文，只替换模型
+  useEffect(() => {
+    if (!sparkRef.current || !sceneRef.current) return;
+
+    // 清理旧模型
+    if (splatMeshRef.current) {
+      try {
+        splatMeshRef.current.dispose?.();
+      } catch (e) {
+        console.warn('SplatMesh cleanup warning:', e);
+      }
+      splatMeshRef.current = null;
+    }
+
+    // 加载新模型（共用同一个 WebGL 上下文）
+    loadSplatModel();
+  }, [splatUrl, loadSplatModel]);
 
   // 处理窗口大小变化
   useEffect(() => {
@@ -549,7 +629,7 @@ export function SparkViewer({
     let interactionTimeout: ReturnType<typeof setTimeout>;
 
     const handleInteractionStart = () => {
-      setIsInteracting(true);
+      isInteractingRef.current = true;
       onInteraction?.();
       
       // 停止自动旋转
@@ -564,7 +644,7 @@ export function SparkViewer({
     const handleInteractionEnd = () => {
       // 延迟2秒后恢复自动旋转
       interactionTimeout = setTimeout(() => {
-        setIsInteracting(false);
+        isInteractingRef.current = false;
         if (controlsRef.current) {
           controlsRef.current.autoRotate = autoRotate;
         }

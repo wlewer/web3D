@@ -29,12 +29,13 @@ const LoginPage: React.FC = () => {
 
       if (result.success) {
         message.success('登录成功');
-        // 直接跳转到后台页面
+        // 使用 window.location 强制刷新页面
         setTimeout(() => {
           window.location.href = '/admin/';
         }, 500);
       } else {
         message.error(result.error?.message || '登录失败');
+        console.error('Login failed:', result.error);
       }
     } catch (error) {
       console.error('Login error:', error);

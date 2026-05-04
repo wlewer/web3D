@@ -13,7 +13,7 @@ import {
   DownloadOutlined,
 } from '@ant-design/icons';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Environment, useGLTF } from '@react-three/drei';
+import { OrbitControls, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
 // 官方示例图片列表 - 65张图片
@@ -335,7 +335,8 @@ export const ExperimentalGeneration: React.FC = () => {
         formData.append('model_version', hunyuanModel);
       }
 
-      const response = await fetch(mode.endpoint, {
+      const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE_URL}${mode.endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -366,7 +367,8 @@ export const ExperimentalGeneration: React.FC = () => {
     
     pollTimerRef.current = setInterval(async () => {
       try {
-        const response = await fetch(`/api/v1/experimental/task/${taskId}`, {
+        const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000';
+        const response = await fetch(`${API_BASE_URL}/api/v1/experimental/task/${taskId}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           },
@@ -398,7 +400,8 @@ export const ExperimentalGeneration: React.FC = () => {
           setStatusText('生成完成！');
           
           // 设置真实模型URL
-          const modelUrl = `/api/v1/experimental/download/${taskId}`;
+          const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:8000';
+          const modelUrl = `${API_BASE_URL}/api/v1/experimental/download/${taskId}`;
           setGeneratedUrl(modelUrl);
           setSuccess('🎉 3D模型生成成功！');
           setLoading(false);

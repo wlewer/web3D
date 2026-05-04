@@ -13,6 +13,52 @@
 }
 
 /* ============================================
+   测试版卡片容器样式
+   ============================================ */
+.gallery-3d-card-test {
+  /* 默认：每行3个，强制3列布局 */
+  flex: 0 0 calc((100% - 24px) / 3);
+  max-width: calc((100% - 24px) / 3);
+  min-width: 0; /* 移除最小宽度限制，让flex完全控制 */
+  height: 300px; /* 进一步降低高度，从320px改为300px，确保完全适配 */
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* 大屏幕（>1600px）：仍然保持3列 */
+@media (min-width: 1600px) {
+  .gallery-3d-card-test {
+    flex: 0 0 calc((100% - 24px) / 3);
+    max-width: calc((100% - 24px) / 3);
+  }
+}
+
+/* 中等屏幕（1200-1600px）：3列 */
+@media (max-width: 1600px) {
+  .gallery-3d-card-test {
+    flex: 0 0 calc((100% - 24px) / 3);
+    max-width: calc((100% - 24px) / 3);
+  }
+}
+
+/* 小屏幕（900-1200px）：2列 */
+@media (max-width: 1200px) {
+  .gallery-3d-card-test {
+    flex: 0 0 calc((100% - 12px) / 2);
+    max-width: calc((100% - 12px) / 2);
+  }
+}
+
+/* 超小屏幕（<900px）：1列 */
+@media (max-width: 900px) {
+  .gallery-3d-card-test {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+}
+
+/* ============================================
    左侧导航栏
    ============================================ */
 .gallery-sidebar {
@@ -243,9 +289,10 @@
 .gallery-carousel-area {
   flex: 1;
   display: flex;
-  align-items: center;
-  padding: 80px 80px 50px;
+  align-items: flex-start; /* 改为flex-start，从顶部开始布局 */
+  padding: 10px 20px 20px; /* 顶部10px，左右20px，底部20px */
   position: relative;
+  overflow: hidden; /* 防止内容溢出 */
 }
 
 /* 轮播容器 */
@@ -313,18 +360,32 @@
 /* 卡片展示区域 */
 .gallery-cards-viewport {
   flex: 1;
-  height: 100%;
-  overflow: hidden;
+  height: auto; /* 改为auto，让内容自适应 */
+  min-height: 0; /* 移除最小高度限制 */
+  overflow-y: hidden; /* 禁止滚动，让内容自适应 */
+  overflow-x: hidden;
   position: relative;
-  padding: 0 80px;
+  padding: 0;
+  max-height: calc(100vh - 140px); /* 最大高度：视口高度 - 导航栏 - padding */
+  
+  /* 隐藏滚动条 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+/* 隐藏滚动条 - Chrome/Safari */
+.gallery-cards-viewport::-webkit-scrollbar {
+  display: none;
 }
 
 .gallery-cards-track {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(2, 1fr);
-  gap: 18px;
-  height: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px; /* 进一步减少间距，从12px改为10px */
+  justify-content: center;
+  align-content: flex-start;
+  padding: 5px 0; /* 只保留上下5px，左右无padding */
+  overflow-y: hidden; /* 禁止内部滚动 */
 }
 
 /* 3D卡片样式 */
@@ -727,6 +788,50 @@
   border-radius: 12px;
   font-size: 13px;
   color: #667eea;
+}
+
+/* ============================================
+   简约弹框样式 - 参考首页"模型作品"
+   ============================================ */
+.gallery-modal-content-simple {
+  position: relative;
+  width: 90vw;
+  max-width: 1200px;
+  height: 85vh;
+  max-height: 800px;
+  background: rgba(26, 26, 46, 0.98);
+  border-radius: 24px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modalFadeIn 0.3s ease;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.gallery-modal-3d-viewer {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #0a0a0f;
+}
+
+.gallery-modal-hint {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  margin-top: 8px;
 }
 
 /* ============================================

@@ -29,7 +29,7 @@ services:
       POSTGRES_USER: web3d_user
       POSTGRES_PASSWORD: web3d_password_2025
     ports:
-      - "5432:5432"
+      - "25432:5432"
     volumes:
       - web3d_postgres_data:/var/lib/postgresql/data
     networks:
@@ -42,7 +42,7 @@ services:
     container_name: web3d-redis
     command: redis-server --requirepass redis_password_2025 --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
-      - "6379:6379"
+      - "26379:6379"
     volumes:
       - web3d_redis_data:/data
     networks:

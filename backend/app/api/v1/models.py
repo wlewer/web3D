@@ -4,7 +4,8 @@ Web3D Backend - 3D模型API路由
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, select, func as sa_func
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 import math
 import os
@@ -32,7 +33,7 @@ router = APIRouter()
 
 @router.get("/", response_model=ModelListResponse)
 async def list_models(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
@@ -48,30 +49,34 @@ async def list_models(
     """
     try:
         # 构建查询
-        query = db.query(Model3D)
+        query = select(Model3D)
         
         # 应用筛选条件
         if name:
-            query = query.filter(Model3D.name.ilike(f"%{name}%"))
+            query = query.where(Model3D.name.ilike(f"%{name}%"))
         if category:
-            query = query.filter(Model3D.category == category)
+            query = query.where(Model3D.category == category)
         if status_filter:
-            query = query.filter(Model3D.status == status_filter)
+            query = query.where(Model3D.status == status_filter)
         if format_filter:
-            query = query.filter(Model3D.format == format_filter)
+            query = query.where(Model3D.format == format_filter)
         if created_by:
-            query = query.filter(Model3D.created_by == created_by)
+            query = query.where(Model3D.created_by == created_by)
         
         # 非管理员只能看到已审核通过的模型
         if current_user.role not in ["admin", "editor"]:
-            query = query.filter(Model3D.status == "approved")
+            query = query.where(Model3D.status == "approved")
         
         # 获取总数
-        total = query.count()
+        count_query = select(sa_func.count()).select_from(query.subquery())
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
         
         # 分页
         offset = (page - 1) * page_size
-        models = query.order_by(Model3D.created_at.desc()).offset(offset).limit(page_size).all()
+        query = query.order_by(Model3D.created_at.desc()).offset(offset).limit(page_size)
+        result = await db.execute(query)
+        models = result.scalars().all()
         
         # 计算总页数
         total_pages = math.ceil(total / page_size) if total > 0 else 0
@@ -94,7 +99,7 @@ async def list_models(
 @router.get("/{model_id}", response_model=ModelResponse)
 async def get_model(
     model_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -122,7 +127,7 @@ async def get_model(
 @router.post("/", response_model=ModelResponse, status_code=status.HTTP_201_CREATED)
 async def create_model(
     model_data: ModelCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -158,7 +163,7 @@ async def create_model(
 async def update_model(
     model_id: str,
     model_data: ModelUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -200,7 +205,7 @@ async def update_model(
 @router.delete("/{model_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_model(
     model_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -234,7 +239,7 @@ async def delete_model(
 async def review_model(
     model_id: str,
     review_data: ModelReviewRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin", "editor")),
 ):
     """
@@ -270,7 +275,7 @@ async def review_model(
 @router.post("/batch-review")
 async def batch_review(
     review_data: BatchReviewRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin", "editor")),
 ):
     """
@@ -304,7 +309,7 @@ async def batch_review(
 
 @router.get("/stats")
 async def get_model_stats(
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
     """
@@ -338,7 +343,7 @@ async def get_model_stats(
 @router.patch("/{model_id}/archive")
 async def archive_model(
     model_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
 ):
     """

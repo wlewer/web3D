@@ -11,7 +11,7 @@ export const enUS = {
     home: 'Home',
     gallery: 'Gallery',
     showcase: 'Showcase',
-    upload: 'Upload',
+    upload: 'Models',
     generation: 'AI Generate',
     profile: 'Profile',
     login: 'Login',
