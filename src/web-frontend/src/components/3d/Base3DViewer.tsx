@@ -148,6 +148,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   // ✅ 对齐V2：相机配置管理引用（第1586-1587行）
   const prevConfigRef = useRef<CameraConfig | null>(null);
   const currentTweenRef = useRef<Tween | null>(null);  // 保存当前Tween动画引用
+  
+  // ✅ 修复循环依赖：使用ref保存loadModel引用
+  const loadModelRef = useRef<(() => Promise<void>) | null>(null);
 
   // Spark渲染状态管理
   const sparkReadyRef = useRef(false);
@@ -267,7 +270,18 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     }
     
     console.log('🎨 Base3DViewer场景初始化完成');
-  }, [backgroundColor, enableControls, autoRotate, decorations]);
+    
+    // ✅ 对齐V2：更新状态机为READY（第1484行）
+    setStateMachine(prev => ({ ...prev, state: 'READY' }));
+    console.log('✅ 场景初始化成功，进入READY状态');
+    
+    // ✅ 对齐V2：初始化成功后立即加载模型（第1487-1490行）
+    if (modelUrl) {
+      console.log(' 检测到modelUrl，触发首次加载');
+      // 直接使用loadModel引用，不添加到依赖项
+      loadModelRef.current?.();
+    }
+  }, [backgroundColor, enableControls, autoRotate, decorations, modelUrl]);  // ✅ 移除loadModel避免循环依赖
 
   /**
    * 加载模型（完全对齐V2：添加控制器管理）
@@ -405,6 +419,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       onError?.(err instanceof Error ? err : new Error(String(err)));
     }
   }, [modelUrl, autoCenter, margin, onProgress, onLoadComplete, onError]);
+  
+  // ✅ 修复循环依赖：将loadModel赋值给ref
+  loadModelRef.current = loadModel;
 
   /**
    * 动画循环（集成SparkRenderer渲染）
