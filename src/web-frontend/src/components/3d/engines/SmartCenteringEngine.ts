@@ -31,7 +31,7 @@ export interface FitResult {
  */
 export class SmartCenteringEngine {
   /**
-   * 计算最佳相机位置
+   * 计算最佳相机位置（完全对齐UniversalGaussianCardV2）
    * 
    * @param object 3D对象（SplatMesh或Object3D）
    * @param canvas Canvas元素（用于计算宽高比）
@@ -48,42 +48,118 @@ export class SmartCenteringEngine {
       autoCenter: true
     }
   ): FitResult {
-    // Step 1: 计算包围盒
-    const box = this.calculateBoundingBox(object);
+    // ★ 关键修复：初始化size和center，避免undefined错误
+    let boundingBox: THREE.Box3;
+    let size = new THREE.Vector3(1, 1, 1);  // 默认值1
+    let center = new THREE.Vector3(0, 0, 0);  // 默认值原点
     
-    // Step 2: 百分位裁剪空白区域（仅GLB模型）
-    const trimmedBox = this.trimEmptySpace(box, config.trimThreshold);
+    try {
+      // Step 1: 计算包围盒（关键修复：SplatMesh也要动态计算）
+      if (object instanceof SplatMesh) {
+        // SplatMesh：动态计算真实包围盒
+        console.log('📦 SplatMesh：计算真实包围盒');
+        boundingBox = new THREE.Box3().setFromObject(object);
+        
+        // 获取尺寸和中心点
+        const newSize = boundingBox.getSize(new THREE.Vector3());
+        const newCenter = boundingBox.getCenter(new THREE.Vector3());
+        
+        // 如果包围盒有效，更新size和center
+        if (newSize.length() > 0 && !isNaN(newSize.length())) {
+          size = newSize;
+          center = newCenter;
+          console.log('✅ SplatMesh包围盒尺寸:', size.toArray());
+        } else {
+          // 包围盒无效，使用扩展固定包围盒
+          console.log('⚠️ 包围盒无效，使用扩展固定包围盒');
+          boundingBox = new THREE.Box3(
+            new THREE.Vector3(-3, -3, -3),
+            new THREE.Vector3(3, 3, 3)
+          );
+          size = boundingBox.getSize(new THREE.Vector3());
+          center = boundingBox.getCenter(new THREE.Vector3());
+        }
+      } else {
+        // GLB模型：使用标准方法
+        console.log('📦 GLB模型：使用标准包围盒计算');
+        boundingBox = new THREE.Box3().setFromObject(object);
+        size = boundingBox.getSize(new THREE.Vector3());
+        center = boundingBox.getCenter(new THREE.Vector3());
+      }
+      
+      console.log('📐 模型包围盒:', { size: size.toArray(), center: center.toArray() });
+
+      // 安全检查：确保size和center有效
+      if (size.x === 0 && size.y === 0 && size.z === 0) {
+        console.log('⚠️ 包围盒无效，使用默认尺寸');
+        size.set(1, 1, 1);
+        center.set(0, 0, 0);
+      }
+    } catch (error) {
+      console.error('❌ 计算包围盒失败:', error);
+      // 使用默认值
+      size.set(1, 1, 1);
+      center.set(0, 0, 0);
+    }
+
+    // Step 2: 智能裁剪空白区域（仅GLB模型）
+    let trimmedSize: THREE.Vector3;
+    if (object instanceof SplatMesh) {
+      // SplatMesh：跳过裁剪，直接使用包围盒
+      console.log('⏭️ SplatMesh：跳过裁剪');
+      trimmedSize = size;
+    } else {
+      // GLB模型：执行百分位裁剪
+      console.log('✂️ GLB模型：执行百分位裁剪');
+      trimmedSize = this.trimEmptySpaceForGLB(object, boundingBox, config.trimThreshold);
+      console.log('✂️ 裁剪后尺寸:', trimmedSize.toArray());
+    }
+
+    // Step 3: 计算最佳相机距离（完全对齐V2）
+    const canvasWidth = canvas.clientWidth;
+    const canvasHeight = canvas.clientHeight;
+    const aspect = canvasWidth / canvasHeight;
+    const fov = 50; // ✅ 与V2保持一致
+    const fovRad = fov * Math.PI / 180;
     
-    // Step 3: 计算中心点
-    const center = new THREE.Vector3();
-    trimmedBox.getCenter(center);
+    console.log('🖼️ 画布尺寸:', { canvasWidth, canvasHeight, aspect, fov });
     
-    // ★ 重要：不修改模型position，只计算相机位置
-    // 让相机围绕模型中心观察，而不是移动模型
+    // 根据画布比例选择主导维度
+    const dominantSize = Math.max(trimmedSize.x, trimmedSize.y, trimmedSize.z);
     
-    // Step 5: 计算模型尺寸
-    const size = new THREE.Vector3();
-    trimmedBox.getSize(size);
+    // 计算相机距离（完全对齐V2的关键优化）
+    let distance;
+    if (object instanceof SplatMesh) {
+      // SplatMesh: 使用0.7的系数降低距离，让模型显示更大
+      distance = Math.max(2.0, dominantSize * config.margin * 0.7);
+      console.log('🎯 SplatMesh目标距离:', distance.toFixed(2));
+    } else {
+      // GLB模型: 使用0.8的系数降低距离
+      distance = (dominantSize / 2 / Math.tan(fovRad / 2)) * config.margin * 0.8;
+      console.log('🎯 GLB模型目标距离:', distance.toFixed(2));
+    }
+
+    // Step 4: 相机从正面稍偏上的位置观察，避免倒立（✅ V2核心修复）
+    // 关键修复：相机在Z轴正方向，Y轴稍微向上偏移15%
+    const cameraOffset = new THREE.Vector3(0, distance * 0.15, distance);
+    console.log('📷 相机从正面偏上观察（避免倒立）');
+    console.log('📷 相机偏移:', cameraOffset.toArray());
+
+    // Step 5: 计算相机目标位置（基于模型中心）
+    const targetPosition = new THREE.Vector3(
+      center.x,
+      center.y + distance * 0.15,  // ✅ Y轴向上偏移15%
+      center.z + distance          // ✅ Z轴向后移动distance
+    );
     
-    // Step 6: 确定主导维度
-    const maxDim = this.getDominantDimension(size, config.preferAxis);
-    
-    // Step 7: 计算相机距离
-    const aspect = canvas.clientWidth / canvas.clientHeight;
-    const fov = 60; // 默认FOV
-    const distance = this.calculateCameraDistance(maxDim, fov, aspect, config.margin);
-    
-    // Step 8: 计算相机位置（从正前方观察）
-    const cameraPosition = new THREE.Vector3(0, 0, distance);
-    
-    // Step 9: 观察点为中心
-    const targetPosition = new THREE.Vector3(0, 0, 0);
-    
+    console.log('📷 相机目标位置:', targetPosition.toArray());
+    console.log('🎯 观察目标（模型中心）:', center.toArray());
+
     return {
-      cameraPosition,
-      targetPosition: center,  // 观察点为模型中心
+      cameraPosition: targetPosition,  // ✅ 返回基于模型中心的相机位置
+      targetPosition: center,          // ✅ 观察点为模型中心
       fov,
-      modelCenter: center  // 返回模型中心供外部使用
+      modelCenter: center
     };
   }
 
@@ -132,7 +208,65 @@ export class SmartCenteringEngine {
   }
 
   /**
-   * 百分位裁剪空白区域
+   * GLB模型专用：百分位裁剪空白区域（完全对齐V2）
+   * 
+   * @param object GLB模型对象
+   * @param originalBox 原始包围盒
+   * @param threshold 裁剪阈值（0-1之间）
+   * @returns 裁剪后的尺寸
+   */
+  private static trimEmptySpaceForGLB(
+    object: THREE.Object3D,
+    originalBox: THREE.Box3,
+    threshold: number
+  ): THREE.Vector3 {
+    const originalSize = originalBox.getSize(new THREE.Vector3());
+    
+    // 收集顶点进行裁剪
+    const vertices: THREE.Vector3[] = [];
+    object.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.geometry) {
+        const positions = child.geometry.attributes.position;
+        if (positions) {
+          // 限制最大顶点数，避免性能问题
+          const maxVertices = 10000;
+          const step = positions.count > maxVertices ? Math.ceil(positions.count / maxVertices) : 1;
+          
+          for (let i = 0; i < positions.count; i += step) {
+            const vertex = new THREE.Vector3();
+            vertex.fromBufferAttribute(positions, i);
+            child.localToWorld(vertex);
+            vertices.push(vertex);
+          }
+        }
+      }
+    });
+
+    if (vertices.length === 0) {
+      return originalSize;
+    }
+
+    // 计算顶点分布的百分位数
+    const xs = vertices.map(v => v.x).sort((a, b) => a - b);
+    const ys = vertices.map(v => v.y).sort((a, b) => a - b);
+    const zs = vertices.map(v => v.z).sort((a, b) => a - b);
+
+    const trimIndex = Math.floor(vertices.length * threshold);
+    
+    const trimmedBox = new THREE.Box3(
+      new THREE.Vector3(xs[trimIndex], ys[trimIndex], zs[trimIndex]),
+      new THREE.Vector3(
+        xs[xs.length - 1 - trimIndex],
+        ys[ys.length - 1 - trimIndex],
+        zs[zs.length - 1 - trimIndex]
+      )
+    );
+
+    return trimmedBox.getSize(new THREE.Vector3());
+  }
+
+  /**
+   * 简化的百分位裁剪（基于包围盒缩放，用于快速估算）
    * 
    * @param box 原始包围盒
    * @param threshold 裁剪阈值（0-1之间）
