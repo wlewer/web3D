@@ -164,17 +164,24 @@
   flex-shrink: 0;
   background: #ffffff;
   border-radius: 8px;
-  padding: 15px;
+  padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow-y: auto;
 }
 
+.results-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 .test-sidebar h3 {
-  margin: 0 0 15px 0;
-  font-size: 16px;
+  margin: 0 0 10px 0;
+  font-size: 14px;
   color: #1a1a1a;
   border-bottom: 2px solid #667eea;
-  padding-bottom: 10px;
+  padding-bottom: 8px;
 }
 
 .test-tabs button:hover {
@@ -321,12 +328,12 @@
 }
 
 .result-card {
-  padding: 15px;
-  border-radius: 10px;
+  padding: 10px;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   transition: all 0.3s ease;
 }
 
@@ -346,34 +353,36 @@
 }
 
 .result-icon {
-  font-size: 28px;
+  font-size: 20px;
+  line-height: 1;
 }
 
 .result-name {
   font-weight: 600;
   color: #333;
-  font-size: 14px;
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .result-status {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  padding: 4px 12px;
-  border-radius: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.5);
 }
 
 .summary {
-  padding: 15px;
+  padding: 8px;
   background: #f8f9fa;
-  border-radius: 8px;
+  border-radius: 6px;
   text-align: center;
   border: 1px solid #e9ecef;
 }
 
 .summary p {
   margin: 0;
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 600;
   color: #333;
 }
