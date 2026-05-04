@@ -194,9 +194,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       // 加载过程中禁用控制器交互，防止相机位置被修改
       controls.enabled = false;
       
-      // 仰角限制
-      controls.minPolarAngle = Math.PI / 4;
-      controls.maxPolarAngle = Math.PI / 2.5;
+      // 仰角限制（对齐V2：允许完整的上下旋转）
+      controls.minPolarAngle = 0;              // 允许从顶部看
+      controls.maxPolarAngle = Math.PI;        // 允许从底部看
       
       // 水平360度自由旋转
       controls.minAzimuthAngle = -Infinity;

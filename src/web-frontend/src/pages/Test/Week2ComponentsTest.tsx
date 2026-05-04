@@ -109,12 +109,45 @@ export function Week2ComponentsTest() {
         {/* Base3DViewer 测试 */}
         {activeTab === 'base' && (
           <section className="test-section compact">
+            {/* 控制按钮 */}
+            <div className="test-controls">
+              <button onClick={() => baseViewerRef.current?.screenshot()}>📸 截图</button>
+              <button onClick={() => {
+                const config = baseViewerRef.current?.saveCameraConfig();
+                if (config) {
+                  localStorage.setItem('cameraConfig', JSON.stringify(config));
+                  console.log('💾 相机配置已保存:', config);
+                }
+              }}>💾 保存镜头</button>
+              <button onClick={() => {
+                const configStr = localStorage.getItem('cameraConfig');
+                if (configStr && baseViewerRef.current) {
+                  baseViewerRef.current.loadCameraConfig(JSON.parse(configStr));
+                  console.log(' 相机配置已加载');
+                }
+              }}>📂 加载镜头</button>
+              <button onClick={() => baseViewerRef.current?.resetCamera()}>🔄 重置镜头</button>
+              <button onClick={() => baseViewerRef.current?.reload()}>🔁 重新加载</button>
+              <button onClick={() => baseViewerRef.current?.toggleAutoRotate()}>🎠 自动旋转</button>
+            </div>
+            
             <div className="viewer-container fullscreen">
               <Base3DViewer
                 ref={baseViewerRef}
                 modelUrl={selectedModel.url}
                 autoCenter={true}
                 enableControls={true}
+                autoRotate={true}
+                decorations={{
+                  particles: {
+                    enabled: true,
+                    count: 3000,
+                    opacity: 0.6
+                  },
+                  platform: {
+                    enabled: true
+                  }
+                }}
                 onLoadComplete={() => {
                   console.log('✅ Base3DViewer 加载成功');
                   markSuccess('Base3DViewer');
