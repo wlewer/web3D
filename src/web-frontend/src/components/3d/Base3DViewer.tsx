@@ -200,7 +200,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   }, [backgroundColor, enableControls, autoRotate]);
 
   /**
-   * 加载模型（区分SplatMesh和Object3D处理）
+   * 加载模型（完全对齐V2：添加控制器管理）
    */
   const loadModel = useCallback(async () => {
     if (!sceneRef.current || !cameraRef.current || !canvasRef.current) {
@@ -214,6 +214,12 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       setModelLoaded(false);
 
       console.log(`📦 开始加载模型: ${modelUrl}`);
+
+      // ✅ 关键修复：加载开始时立即禁用控制器，防止相机位置被修改（对齐V2）
+      if (controlsRef.current) {
+        controlsRef.current.enabled = false;
+        console.log('🔒 加载开始：禁用控制器');
+      }
 
       // 使用ModelLoader加载模型
       const result: LoadResult = await ModelLoader.load(modelUrl, (progressData: LoadProgress) => {
@@ -425,6 +431,12 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     }
 
     console.log('🔄 modelUrl变化，准备加载新模型:', modelUrl);
+
+    // ✅ 关键修复：模型切换时立即禁用控制器，防止干扰新模型加载（对齐V2）
+    if (controlsRef.current) {
+      controlsRef.current.enabled = false;
+      console.log('🔒 模型切换：禁用控制器');
+    }
 
     // 清理旧模型
     if (modelRef.current) {
