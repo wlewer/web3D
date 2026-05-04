@@ -383,16 +383,15 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       setModelLoaded(true);
       setProgress(100);
       
-      // ✅ 对齐V2：加载完成后淡出
+      // ✅ 对齐V2：先显示淡出动画，再隐藏加载界面（第988-995行）
       setIsFadingOut(true);
       setTimeout(() => {
-        setIsFadingOut(false);
-      }, 300);
-            
-      // ★ 状态机转换：进入LOADED状态（对齐V2）
-      setStateMachine({ state: 'LOADED', currentModelUrl: modelUrl });
-            
-      onLoadComplete?.();
+        setLoading(false);
+        setModelLoaded(true);
+        setIsFadingOut(false);  // 重置淡出状态
+        setStateMachine(prev => ({ ...prev, state: 'LOADED' }));  // ✅ 对齐V2：使用prev
+        onLoadComplete?.();
+      }, 500);  // 淡出动画持续时间
 
       console.log('✅ 模型加载和居中对齐完成');
     } catch (err) {
@@ -400,8 +399,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       setError(err instanceof Error ? err.message : 'Unknown error');
       setLoading(false);
       
-      // ★ 状态机转换：进入ERROR状态（对齐V2）
-      setStateMachine({ state: 'ERROR', currentModelUrl: modelUrl });
+      // ★ 状态机转换：进入ERROR状态（对齐V2：使用prev）
+      setStateMachine(prev => ({ ...prev, state: 'ERROR' }));
       
       onError?.(err instanceof Error ? err : new Error(String(err)));
     }
@@ -489,8 +488,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     
     animate();
 
-    // ✅ 对齐V2：场景初始化完成后，进入READY状态
-    setStateMachine({ state: 'READY', currentModelUrl: '' });
+    // ✅ 对齐V2：场景初始化完成后，进入READY状态（使用prev）
+    setStateMachine(prev => ({ ...prev, state: 'READY' }));
 
     return () => {
       window.removeEventListener('resize', handleResize);
@@ -847,7 +846,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       modelRef.current = null;
     }
   
-    // ★ 状态机转换：进入LOADING状态（对齐V2第1579-1580行）
+    // ★ 状态机转换：进入LOADING状态（对齐V2第1580行：不使prev）
     setStateMachine({ state: 'LOADING', currentModelUrl: modelUrl });
       
     loadModel();
