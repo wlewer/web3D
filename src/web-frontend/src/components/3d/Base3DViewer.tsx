@@ -780,7 +780,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     setStateMachine({ state: 'LOADING', currentModelUrl: modelUrl });
       
     loadModel();
-  }, [modelUrl, loadModel, stateMachine.state, stateMachine.currentModelUrl, modelLoaded]);  // ✅ 完全对齐V2第1583行
+  }, [modelUrl, loadModel, modelLoaded]);  // ✅ 修复循环加载：移除stateMachine依赖项
 
   // 暴露方法给父组件
   useImperativeHandle(ref, () => ({
