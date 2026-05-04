@@ -1,16 +1,17 @@
 /**
  * Base3DViewer - 基础3D查看器（最终修复版）
  * 
- * 功能：纯3D渲染核心，无装饰功能
+ * 功能：纯3D渲染核心 + 可选装饰模块
  * 特点：
  * - 集成SparkRenderer（支持SplatMesh高斯泼溅模型）
  * - 完整灯光系统（环境光、方向光、补光等）
  * - 支持SPZ/GLB/PLY多种格式
+ * - ✅ 新增：SceneDecoration装饰模块（粒子、展示台、标签）
  * - forwardRef支持
  * - 完整的TypeScript类型
  * - ✅ 完全对齐UniversalGaussianCardV2的实现
  * 
- * @version 2.1.0
+ * @version 2.2.0
  * @author Lingma AI Assistant
  * @date 2026-04-18
  */
@@ -22,6 +23,7 @@ import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
 import { SmartCenteringEngine, type FitConfig } from './engines/SmartCenteringEngine';
 import { ModelLoader, type LoadProgress, type LoadResult } from './engines/ModelLoader';
 import { CameraManager, type CameraConfig } from './engines/CameraManager';
+import { SceneDecoration, type DecorationConfig } from './engines/SceneDecoration';
 
 export interface Base3DViewerProps {
   // ========== 核心必选 ==========
@@ -37,6 +39,9 @@ export interface Base3DViewerProps {
   backgroundColor?: string; // 背景色，默认'#0a0a0f'
   width?: string | number;  // 宽度，默认'100%'
   height?: string | number; // 高度，默认'100%'
+  
+  // ========== 场景装饰（新增）==========
+  decorations?: DecorationConfig; // 装饰配置（粒子、展示台、标签）
   
   // ========== 事件回调 ==========
   onLoadComplete?: () => void;    // 加载完成
@@ -66,6 +71,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   backgroundColor = '#0a0a0f',
   width = '100%',
   height = '100%',
+  decorations,
   onLoadComplete,
   onError,
   onProgress,
@@ -80,6 +86,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   const sparkRef = useRef<SparkRenderer | null>(null);
   const modelRef = useRef<THREE.Object3D | SplatMesh | null>(null);
   const frameIdRef = useRef<number>(0);
+  
+  // ✅ 新增：场景装饰管理器
+  const decorationRef = useRef<SceneDecoration | null>(null);
 
   // State
   const [loading, setLoading] = useState(true);
@@ -196,8 +205,19 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     scene.add(spark);
 
     console.log('✨ SparkRenderer已创建并添加到场景');
+    
+    // ✅ 新增：初始化场景装饰管理器
+    if (!decorationRef.current) {
+      decorationRef.current = new SceneDecoration(scene);
+    }
+    
+    // ✅ 应用装饰配置（如果提供了）
+    if (decorations) {
+      decorationRef.current.apply(decorations);
+    }
+    
     console.log('🎨 Base3DViewer场景初始化完成');
-  }, [backgroundColor, enableControls, autoRotate]);
+  }, [backgroundColor, enableControls, autoRotate, decorations]);
 
   /**
    * 加载模型（完全对齐V2：添加控制器管理）
@@ -292,6 +312,11 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       if (controlsRef.current) {
         controlsRef.current.enabled = true;
         console.log('🎯 控制器已启用');
+      }
+      
+      // ✅ 新增：显示产品标签（如果启用了）
+      if (decorationRef.current && decorations?.labels?.enabled) {
+        decorationRef.current.showLabels();
       }
 
       setLoading(false);
@@ -412,6 +437,12 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       }
       if (sceneRef.current) {
         sceneRef.current.clear();
+      }
+      
+      // ✅ 新增：清理场景装饰
+      if (decorationRef.current) {
+        decorationRef.current.dispose();
+        decorationRef.current = null;
       }
       
       console.log('🗑️ Base3DViewer资源已清理');
