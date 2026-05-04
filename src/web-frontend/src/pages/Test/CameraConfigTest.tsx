@@ -1,30 +1,37 @@
-// 相机配置保存功能测试页面
+// 相机配置保存功能测试页面 - Week 2重构验证
 import { useState, useRef, useEffect } from 'react';
-import { UniversalGaussianCardV2, type UniversalGaussianCardRef, type CameraConfig } from '../../components/3d/UniversalGaussianCardV2';
+import { UniversalGaussianCardV3 } from '../../components/3d/UniversalGaussianCardV3';
+import type { Base3DViewerRef } from '../../components/3d/Base3DViewer';
+import type { CameraConfig } from '../../components/3d/engines/CameraManager';
+import { Simple3DViewer } from '../../components/3d/Simple3DViewer';
+import { GalleryCard } from '../../components/3d/GalleryCard';
 import './CameraConfigTest.css';
 
-// 测试模型列表
+// 测试模型列表（包含SPZ和GLB格式）
 const TEST_MODELS = [
   {
     id: 'butterfly',
     name: '🦋 蓝色大闪蝶',
-    url: '/models/butterfly.spz'
+    url: '/models/butterfly.spz',
+    format: 'spz'
   },
   {
     id: 'cat',
     name: '🐱 可爱猫咪',
-    url: '/models/cat.spz'
+    url: '/models/cat.spz',
+    format: 'spz'
   },
   {
     id: 'room',
     name: '🏠 儿童房间',
-    url: '/models/kidsroom.spz'
+    url: '/models/kidsroom_transparent.glb',
+    format: 'glb'
   }
 ];
 
 export function CameraConfigTest() {
   // const { t } = useTranslation();  // 暂未使用，保留以便将来扩展
-  const cardRef = useRef<UniversalGaussianCardRef>(null);
+  const cardRef = useRef<Base3DViewerRef>(null);
   
   const [currentModelIndex, setCurrentModelIndex] = useState(0);
   const [cameraConfigs, setCameraConfigs] = useState<Record<string, CameraConfig>>({});
@@ -219,17 +226,15 @@ export function CameraConfigTest() {
             </div>
           </div>
           
-          <UniversalGaussianCardV2
+          <UniversalGaussianCardV3
             ref={cardRef}
             key={`model-${currentModel.url}-${configsLoaded}`}
             modelUrl={currentModel.url}
             customCameraConfig={currentConfig || null}
-            layout="featured"
             autoRotate={false}
-            showParticles={true}
             showPlatform={true}
             autoCenter={true}
-            margin={2.2}
+            margin={2.5}
           />
         </div>
         

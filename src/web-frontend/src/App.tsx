@@ -3,8 +3,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HomePage, GalleryPage, AuthPage, UploadPage, SparkShowcase, BookViewerPage, BookGalleryPage, GenerationPage } from './pages';
 import { GalleryPageTest } from './pages/Gallery/GalleryPageTest';
-import { CameraConfigTest } from './pages/Test/CameraConfigTest';
-import { NewArchitectureTest } from './pages/Test/NewArchitectureTest';
+import { CameraConfigTest, NewArchitectureTest, Week2ComponentsTest } from './pages/Test';
 import { SF3DGenerationPage } from './pages/Generation/SF3DGenerationPage';
 import { TripoSRGenerationPage } from './pages/Generation/TripoSRGenerationPage';
 import { InstantMeshGenerationPage } from './pages/Generation/InstantMeshGenerationPage';
@@ -102,6 +101,12 @@ function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorksh
           📸 相机配置测试
         </button>
         <button
+          className={`app-nav-link ${currentPage === 'week2-components-test' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('week2-components-test')}
+        >
+          🧪 Week 2组件验证
+        </button>
+        <button
           className={`app-nav-link ${currentPage === 'new-architecture-test' ? 'active' : ''}`}
           onClick={() => setCurrentPage('new-architecture-test')}
         >
@@ -173,7 +178,7 @@ function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorksh
 
 // 主应用组件
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'gallery' | 'gallery-test' | 'camera-config-test' | 'new-architecture-test' | 'auth' | 'upload' | 'official-editor' | 'spark-editor' | 'showcase' | 'book' | 'book-gallery' | 'generation' | 'sf3d-generation' | 'triposr-generation' | 'instantmesh-generation'>('home');
+  const [currentPage, setCurrentPage] = useState<'home' | 'gallery' | 'gallery-test' | 'camera-config-test' | 'new-architecture-test' | 'week2-components-test' | 'auth' | 'upload' | 'official-editor' | 'spark-editor' | 'showcase' | 'book' | 'book-gallery' | 'generation' | 'sf3d-generation' | 'triposr-generation' | 'instantmesh-generation'>('home');
   const [showWorkshopInHome, setShowWorkshopInHome] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
@@ -210,6 +215,7 @@ function AppContent() {
         {currentPage === 'gallery' && <GalleryPage />}
         {currentPage === 'gallery-test' && <GalleryPageTest />}
         {currentPage === 'camera-config-test' && <CameraConfigTest />}
+        {currentPage === 'week2-components-test' && <Week2ComponentsTest />}
         {currentPage === 'new-architecture-test' && <NewArchitectureTest />}
         {currentPage === 'auth' && (
           <AuthPage 
