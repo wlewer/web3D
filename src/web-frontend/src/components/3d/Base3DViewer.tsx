@@ -20,6 +20,7 @@ import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperat
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { SparkRenderer, SplatMesh } from '@sparkjsdev/spark';
+import TWEEN, { Tween, Easing } from '@tweenjs/tween.js';  // ✅ 对齐V2：平滑过渡动画
 import { SmartCenteringEngine, type FitConfig } from './engines/SmartCenteringEngine';
 import { ModelLoader, type LoadProgress, type LoadResult } from './engines/ModelLoader';
 import { CameraManager, type CameraConfig } from './engines/CameraManager';
@@ -39,14 +40,24 @@ export interface Base3DViewerProps {
   backgroundColor?: string; // 背景色，默认'#0a0a0f'
   width?: string | number;  // 宽度，默认'100%'
   height?: string | number; // 高度，默认'100%'
+  showTitle?: boolean;      // ✅ 对齐V2：标题叠加层，默认true
+  title?: string;           // ✅ 对齐V2：标题文本
+  subtitle?: string;        // ✅ 对齐V2：副标题文本
+  showStats?: boolean;      // ✅ 对齐V2：统计信息显示，默认true
   
   // ========== 场景装饰（新增）==========
   decorations?: DecorationConfig; // 装饰配置（粒子、展示台、标签）
+  
+  // ========== 相机配置保存 ==========
+  customCameraConfig?: CameraConfig | null;  // ✅ 对齐V2：自定义相机配置（优先使用）
   
   // ========== 事件回调 ==========
   onLoadComplete?: () => void;    // 加载完成
   onError?: (error: Error) => void; // 加载错误
   onProgress?: (progress: number) => void; // 加载进度（0-100）
+  onClick?: () => void;           // ✅ 对齐V2：单击事件
+  onDoubleClick?: () => void;     // ✅ 对齐V2：双击事件
+  onInteraction?: () => void;     // ✅ 对齐V2：用户交互通知
 }
 
 export interface Base3DViewerRef {
@@ -79,10 +90,18 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   backgroundColor = '#0a0a0f',
   width = '100%',
   height = '100%',
+  showTitle = true,
+  title,
+  subtitle,
+  showStats = true,
   decorations,
+  customCameraConfig = null,
   onLoadComplete,
   onError,
   onProgress,
+  onClick,
+  onDoubleClick,
+  onInteraction,
 }, ref) => {
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -104,6 +123,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   const [error, setError] = useState<string | null>(null);
   const [modelLoaded, setModelLoaded] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);  // ✅ 对齐V2：相机就绪状态
+  const [loadingStage, setLoadingStage] = useState<'initializing' | 'loading' | 'processing' | 'rendering'>('initializing');  // ✅ 对齐V2：加载阶段
+  const [isFadingOut, setIsFadingOut] = useState(false);  // ✅ 对齐V2：加载完成淡出状态
   
   // ✅ 对齐V2：使用状态机管理加载生命周期（防止重复加载和并发问题）
   const [stateMachine, setStateMachine] = useState<{
@@ -123,6 +144,10 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   
   // ✅ 对齐V2：用户交互状态
   const isInteractingRef = useRef(false);
+  
+  // ✅ 对齐V2：相机配置管理引用（第1586-1587行）
+  const prevConfigRef = useRef<CameraConfig | null>(null);
+  const currentTweenRef = useRef<Tween | null>(null);  // 保存当前Tween动画引用
 
   // Spark渲染状态管理
   const sparkReadyRef = useRef(false);
@@ -257,6 +282,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       setLoading(true);
       setError(null);
       setModelLoaded(false);
+      setLoadingStage('initializing');  // ✅ 对齐V2：设置加载阶段
 
       console.log(`📦 开始加载模型: ${modelUrl}`);
 
@@ -265,6 +291,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         controlsRef.current.enabled = false;
         console.log('🔒 加载开始：禁用控制器');
       }
+
+      setLoadingStage('loading');  // ✅ 对齐V2：进入加载阶段
 
       // 使用ModelLoader加载模型
       const result: LoadResult = await ModelLoader.load(modelUrl, (progressData: LoadProgress) => {
@@ -305,8 +333,10 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
 
       console.log('✅ 模型加载成功，开始智能居中');
 
-      // 智能居中
-      if (autoCenter) {
+      setLoadingStage('processing');  // ✅ 对齐V2：进入处理阶段
+
+      // ✅ 对齐V2：如果存在自定义相机配置，跳过智能居中（第935/1038/1252行）
+      if (autoCenter && !customCameraConfig) {
         const fitConfig: FitConfig = {
           margin,
           trimThreshold: 0.05,
@@ -331,6 +361,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
             target: fitResult.targetPosition
           });
         }
+      } else if (customCameraConfig) {
+        console.log('⏭️ 跳过智能居中：存在自定义相机配置');
       }
 
       // 模型加载完成后启用控制器
@@ -338,6 +370,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         controlsRef.current.enabled = true;
         console.log('🎯 控制器已启用');
       }
+            
+      setLoadingStage('rendering');  // ✅ 对齐V2：进入渲染阶段
             
       // ✅ 新增：显示产品标签（如果启用了）
       if (decorationRef.current && decorations?.labels?.enabled) {
@@ -347,6 +381,12 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       setLoading(false);
       setModelLoaded(true);
       setProgress(100);
+      
+      // ✅ 对齐V2：加载完成后淡出
+      setIsFadingOut(true);
+      setTimeout(() => {
+        setIsFadingOut(false);
+      }, 300);
             
       // ★ 状态机转换：进入LOADED状态（对齐V2）
       setStateMachine({ state: 'LOADED', currentModelUrl: modelUrl });
@@ -497,6 +537,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         controlsRef.current.autoRotate = false;
       }
       
+      // ✅ 对齐V2：触发用户交互通知
+      onInteraction?.();
+      
       clearTimeout(interactionTimeout);
     };
 
@@ -524,6 +567,163 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       clearTimeout(interactionTimeout);
     };
   }, [autoRotate]);
+
+  // ✅ 对齐V2：相机配置应用函数（第1590-1725行）
+  const applyCameraConfig = useCallback((config: CameraConfig) => {
+    console.log('📹 [相机配置] 开始执行平滑过渡动画');
+    console.log('📹 [相机配置] 目标配置:', JSON.stringify(config));
+      
+    if (!cameraRef.current || !controlsRef.current) {
+      console.log('⚠️ [相机配置] 跳过：相机或控制器未初始化');
+      return;
+    }
+    
+    // ★ 关键修复：停止之前的动画（如果有的话）
+    if (currentTweenRef.current) {
+      currentTweenRef.current.stop();
+      console.log('📹 [相机配置] 已停止旧的Tween动画');
+    }
+    
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+        
+    // ★ 关键修复：在应用配置前，先确保相机有一个合理的初始位置
+    const targetCenter = new THREE.Vector3(
+      config.target[0],
+      config.target[1],
+      config.target[2]
+    );
+    const currentPos = camera.position.clone();
+    const distanceToTarget = currentPos.distanceTo(targetCenter);
+    const targetDistance = new THREE.Vector3(
+      config.position[0],
+      config.position[1],
+      config.position[2]
+    ).distanceTo(targetCenter);
+        
+    console.log('📹 [相机配置] 当前相机位置:', {
+      position: `[${currentPos.x.toFixed(2)}, ${currentPos.y.toFixed(2)}, ${currentPos.z.toFixed(2)}]`,
+      distanceToTarget: distanceToTarget.toFixed(2),
+      targetDistance: targetDistance.toFixed(2),
+      distanceFromOrigin: currentPos.length().toFixed(2)
+    });
+        
+    // 如果相机距离目标太近(<目标距离的50%)，说明可能没有正确初始化，先重置
+    if (distanceToTarget < targetDistance * 0.5 || currentPos.length() < 2.0) {
+      console.log('⚠️ [相机配置] 相机位置异常，先重置到默认位置');
+      const offset = new THREE.Vector3(0, 2, 6); // 默认偏移（更高更远）
+      camera.position.copy(targetCenter).add(offset);
+      controls.target.copy(targetCenter);
+      controls.update();
+      console.log('✅ [相机配置] 相机已重置到默认位置:', camera.position);
+    }
+    
+    // 目标位置
+    const targetPosition = new THREE.Vector3(
+      config.position[0],
+      config.position[1],
+      config.position[2]
+    );
+    const targetTarget = new THREE.Vector3(
+      config.target[0],
+      config.target[1],
+      config.target[2]
+    );
+    const targetZoom = config.zoom;
+    
+    // 起始位置（使用重置后的位置或当前位置）
+    const startPosition = camera.position.clone();
+    const startTarget = controls.target.clone();
+    const startZoom = camera.zoom;
+    
+    // 计算动画参数
+    const distance = startPosition.distanceTo(targetPosition);
+    const duration = Math.min(Math.max(distance * 500, 800), 1500);
+    
+    console.log(`📹 [相机配置] 开始相机过渡动画：`, {
+      起点: `[${startPosition.x.toFixed(2)}, ${startPosition.y.toFixed(2)}, ${startPosition.z.toFixed(2)}]`,
+      终点: `[${targetPosition.x.toFixed(2)}, ${targetPosition.y.toFixed(2)}, ${targetPosition.z.toFixed(2)}]`,
+      距离: distance.toFixed(2),
+      时长: `${duration}ms`
+    });
+    
+    // ✅ 使用Tween.js实现平滑过渡（对齐V2）
+    const tween = new Tween({
+      progress: 0,
+      pos: { x: startPosition.x, y: startPosition.y, z: startPosition.z },
+      target: { x: startTarget.x, y: startTarget.y, z: startTarget.z },
+      zoom: startZoom
+    })
+      .to({
+        progress: 1,
+        pos: { x: targetPosition.x, y: targetPosition.y, z: targetPosition.z },
+        target: { x: targetTarget.x, y: targetTarget.y, z: targetTarget.z },
+        zoom: targetZoom
+      }, duration)
+      .easing(Easing.Quadratic.InOut)
+      .onUpdate(({ pos, target, zoom }) => {
+        camera.position.set(pos.x, pos.y, pos.z);
+        controls.target.set(target.x, target.y, target.z);
+        controls.update();
+        camera.zoom = zoom;
+        camera.updateProjectionMatrix();
+        
+        if (rendererRef.current && sceneRef.current) {
+          rendererRef.current.render(sceneRef.current, camera);
+        }
+      })
+      .onComplete(() => {
+        console.log('✅ [相机配置] 自定义相机配置平滑过渡完成:', config);
+        prevConfigRef.current = config;
+      })
+      .start();
+    
+    currentTweenRef.current = tween;
+    
+    // 启动Tween更新循环
+    const animateTween = () => {
+      requestAnimationFrame(animateTween);
+      TWEEN.update();  // ✅ 使用全局TWEEN对象
+    };
+    animateTween();
+  }, []);
+
+  // ✅ 对齐V2：customCameraConfig监听useEffect（第1727-1761行）
+  useEffect(() => {
+    console.log('📹 [相机配置] customCameraConfig:', customCameraConfig, 'modelLoaded:', modelLoaded, 'cameraReady:', cameraReady);
+    console.log('📹 [相机配置] prevConfigRef:', prevConfigRef.current);
+    
+    // ★ 关键修复：必须等待相机和模型都完全就绪
+    if (!customCameraConfig || !modelLoaded || !cameraReady) {
+      console.log('⚠️ [相机配置] 跳过：配置、模型或相机未就绪');
+      return;
+    }
+    
+    const configStr = JSON.stringify(customCameraConfig);
+    const prevStr = prevConfigRef.current ? JSON.stringify(prevConfigRef.current) : null;
+    // ★ 关键修复：如果prevConfigRef为null，说明是组件刚挂载，必须应用配置
+    const isConfigChanged = !prevConfigRef.current || prevStr !== configStr;
+    
+    console.log('📹 [相机配置] 配置变化检测:', {
+      isConfigChanged,
+      prevConfigIsNull: !prevConfigRef.current,
+      当前配置: configStr,
+      之前配置: prevStr || 'null'
+    });
+    
+    // ★ 关键修复：移除!isConfigChanged的检查，因为modelLoaded变化时也需要应用
+    // 只要customCameraConfig有值，就应该应用
+    
+    console.log('📹 [相机配置] 检测到自定义相机配置，准备平滑过渡...');
+    console.log('📹 [相机配置] 目标配置详情:', {
+      position: customCameraConfig.position,
+      target: customCameraConfig.target,
+      zoom: customCameraConfig.zoom
+    });
+    
+    // ★ 关键修复：直接执行，不需要延迟
+    applyCameraConfig(customCameraConfig);
+  }, [modelLoaded, cameraReady, customCameraConfig, applyCameraConfig]);
 
   // ✅ 修复4：模型切换逻辑（完全对齐V2第1533-1583行）
   useEffect(() => {
@@ -708,20 +908,114 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   };
 
   return (
-    <div ref={containerRef} style={containerStyle}>
+    <div 
+      ref={containerRef} 
+      style={containerStyle}
+      onClick={onClick}  // ✅ 对齐V2：单击事件
+      onDoubleClick={onDoubleClick}  // ✅ 对齐V2：双击事件
+    >
       <canvas ref={canvasRef} style={canvasStyle} />
       
-      {/* 加载状态 */}
+      {/* ✅ 对齐V2：标题叠加层 */}
+      {showTitle && (title || subtitle) && (
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '20px',
+          color: '#ffffff',
+          pointerEvents: 'none',
+          zIndex: 10
+        }}>
+          {title && <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>{title}</h3>}
+          {subtitle && <p style={{ margin: '4px 0 0 0', fontSize: '14px', opacity: 0.8 }}>{subtitle}</p>}
+        </div>
+      )}
+      
+      {/* ✅ 对齐V2：加载指示器 - 优化版 */}
       {loading && (
-        <div style={overlayStyle}>
-          <div>加载中... {Math.round(progress || 0)}%</div>
+        <div style={{
+          ...overlayStyle,
+          opacity: isFadingOut ? 0 : 1,
+          transition: 'opacity 0.3s ease-out'
+        }}>
+          {/* 加载阶段提示 */}
+          <div style={{ marginBottom: '10px', fontSize: '16px' }}>
+            {loadingStage === 'initializing' && '🚀 初始化场景...'}
+            {loadingStage === 'loading' && '📦 加载模型数据...'}
+            {loadingStage === 'processing' && '⚙️ 处理模型数据...'}
+            {loadingStage === 'rendering' && '✨ 渲染3D视图...'}
+          </div>
+          
+          {/* 进度条 */}
+          <div style={{
+            width: '200px',
+            height: '4px',
+            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+            borderRadius: '2px',
+            overflow: 'hidden',
+            marginBottom: '10px'
+          }}>
+            <div style={{
+              width: `${progress}%`,
+              height: '100%',
+              backgroundColor: '#00ff00',
+              transition: 'width 0.3s ease'
+            }} />
+          </div>
+          
+          {/* 进度百分比 */}
+          <span style={{ fontSize: '14px' }}>{Math.round(progress)}%</span>
+          
+          {/* 加载提示 */}
+          <div style={{ marginTop: '10px', fontSize: '12px', opacity: 0.6 }}>
+            💡 首次加载可能需要几秒钟
+          </div>
         </div>
       )}
       
       {/* 错误状态 */}
       {error && (
         <div style={{ ...overlayStyle, color: '#ff4444' }}>
-          <div>加载失败: {error}</div>
+          <div>⚠️ 加载失败: {error}</div>
+        </div>
+      )}
+      
+      {/* ✅ 对齐V2：统计信息 */}
+      {showStats && modelLoaded && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          right: '20px',
+          color: '#ffffff',
+          fontSize: '12px',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          padding: '8px 12px',
+          borderRadius: '4px',
+          display: 'flex',
+          gap: '12px'
+        }}>
+          <span>3DGS</span>
+          <span>FPS: {fps > 0 ? fps : '--'}</span>
+        </div>
+      )}
+      
+      {/* ✅ 对齐V2：控制提示 */}
+      {modelLoaded && enableControls && (
+        <div style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: '20px',
+          color: '#ffffff',
+          fontSize: '12px',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          padding: '8px 12px',
+          borderRadius: '4px',
+          display: 'flex',
+          gap: '8px'
+        }}>
+          <span>拖拽旋转</span>
+          <span>·</span>
+          <span>滚轮缩放</span>
         </div>
       )}
       
@@ -737,7 +1031,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
           padding: '4px 8px',
           borderRadius: '4px'
         }}>
-          FPS: {fps}
+          DEV FPS: {fps}
         </div>
       )}
     </div>
