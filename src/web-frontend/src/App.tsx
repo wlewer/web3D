@@ -50,7 +50,7 @@ function UserAvatar({ user, onLogout }: { user: User; onLogout: () => void }) {
 // 导航栏组件
 function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorkshopInHome, user, onLogout }: {
   currentPage: string;
-  setCurrentPage: (page: 'home' | 'gallery' | 'gallery-test' | 'camera-config-test' | 'auth' | 'upload' | 'official-editor' | 'spark-editor' | 'showcase' | 'book' | 'book-gallery' | 'generation' | 'sf3d-generation' | 'triposr-generation' | 'instantmesh-generation') => void;
+  setCurrentPage: (page: 'home' | 'gallery' | 'gallery-test' | 'camera-config-test' | 'auth' | 'upload' | 'official-editor' | 'spark-editor' | 'showcase' | 'book' | 'book-gallery' | 'generation' | 'sf3d-generation' | 'triposr-generation' | 'instantmesh-generation' | 'week2-components-test' | 'new-architecture-test') => void;
   showWorkshopInHome?: boolean;
   setShowWorkshopInHome?: (show: boolean) => void;
   user: User | null;
@@ -178,7 +178,29 @@ function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorksh
 
 // 主应用组件
 function AppContent() {
-  const [currentPage, setCurrentPage] = useState<'home' | 'gallery' | 'gallery-test' | 'camera-config-test' | 'new-architecture-test' | 'week2-components-test' | 'auth' | 'upload' | 'official-editor' | 'spark-editor' | 'showcase' | 'book' | 'book-gallery' | 'generation' | 'sf3d-generation' | 'triposr-generation' | 'instantmesh-generation'>('home');
+  // 从URL路径初始化页面状态
+  const getPageFromPath = (): typeof currentPage => {
+    const path = window.location.pathname;
+    if (path === '/test/week2-components-test') return 'week2-components-test';
+    if (path === '/test/new-architecture-test') return 'new-architecture-test';
+    if (path === '/test/camera-config-test') return 'camera-config-test';
+    if (path === '/test/gallery-test') return 'gallery-test';
+    if (path === '/auth') return 'auth';
+    if (path === '/upload') return 'upload';
+    if (path === '/editor/official') return 'official-editor';
+    if (path === '/editor/spark') return 'spark-editor';
+    if (path === '/showcase') return 'showcase';
+    if (path === '/book') return 'book';
+    if (path === '/book-gallery') return 'book-gallery';
+    if (path === '/generation') return 'generation';
+    if (path === '/generation/sf3d') return 'sf3d-generation';
+    if (path === '/generation/triposr') return 'triposr-generation';
+    if (path === '/generation/instantmesh') return 'instantmesh-generation';
+    if (path === '/gallery') return 'gallery';
+    return 'home';
+  };
+
+  const [currentPage, setCurrentPage] = useState(getPageFromPath());
   const [showWorkshopInHome, setShowWorkshopInHome] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
@@ -195,13 +217,42 @@ function AppContent() {
     logout();
     setUser(null);
     setCurrentPage('home');
+    window.history.pushState({}, '', '/');
+  };
+
+  // 页面切换时同步URL
+  const handlePageChange = (page: typeof currentPage) => {
+    setCurrentPage(page);
+    
+    // 同步URL路径
+    const pathMap: Record<typeof currentPage, string> = {
+      'home': '/',
+      'gallery': '/gallery',
+      'gallery-test': '/test/gallery-test',
+      'camera-config-test': '/test/camera-config-test',
+      'week2-components-test': '/test/week2-components-test',
+      'new-architecture-test': '/test/new-architecture-test',
+      'auth': '/auth',
+      'upload': '/upload',
+      'official-editor': '/editor/official',
+      'spark-editor': '/editor/spark',
+      'showcase': '/showcase',
+      'book': '/book',
+      'book-gallery': '/book-gallery',
+      'generation': '/generation',
+      'sf3d-generation': '/generation/sf3d',
+      'triposr-generation': '/generation/triposr',
+      'instantmesh-generation': '/generation/instantmesh',
+    };
+    
+    window.history.pushState({}, '', pathMap[page]);
   };
 
   return (
     <div className="app">
       <NavBar
         currentPage={currentPage}
-        setCurrentPage={setCurrentPage}
+        setCurrentPage={handlePageChange}
         showWorkshopInHome={showWorkshopInHome}
         setShowWorkshopInHome={setShowWorkshopInHome}
         user={user}
@@ -209,7 +260,7 @@ function AppContent() {
       />
       
       <main className="app-main">
-        {currentPage === 'home' && <HomePage onNavigate={setCurrentPage} showWorkshop3D={showWorkshopInHome} onWorkshopClose={() => setShowWorkshopInHome(false)} />}
+        {currentPage === 'home' && <HomePage onNavigate={handlePageChange} showWorkshop3D={showWorkshopInHome} onWorkshopClose={() => setShowWorkshopInHome(false)} />}
         {currentPage === 'official-editor' && <OfficialSuperSplatEditor />}
         {currentPage === 'spark-editor' && <SparkEditor />}
         {currentPage === 'gallery' && <GalleryPage />}
@@ -219,13 +270,13 @@ function AppContent() {
         {currentPage === 'new-architecture-test' && <NewArchitectureTest />}
         {currentPage === 'auth' && (
           <AuthPage 
-            onSuccess={() => setCurrentPage('home')}
+            onSuccess={() => handlePageChange('home')}
           />
         )}
         {currentPage === 'upload' && <UploadPage />}
         {currentPage === 'showcase' && <SparkShowcase />}
-        {currentPage === 'book' && <BookViewerPage onNavigate={() => setCurrentPage('home')} />}
-        {currentPage === 'book-gallery' && <BookGalleryPage onNavigate={() => setCurrentPage('home')} />}
+        {currentPage === 'book' && <BookViewerPage onNavigate={() => handlePageChange('home')} />}
+        {currentPage === 'book-gallery' && <BookGalleryPage onNavigate={() => handlePageChange('home')} />}
         {currentPage === 'generation' && <GenerationPage />}
         {currentPage === 'sf3d-generation' && <SF3DGenerationPage />}
         {currentPage === 'triposr-generation' && <TripoSRGenerationPage />}
