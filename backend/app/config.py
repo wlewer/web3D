@@ -117,10 +117,12 @@ class Settings(BaseSettings):
     HUNYUAN3D_SECRET_ID: str = ""  # 腾讯云SecretId
     HUNYUAN3D_SECRET_KEY: str = ""  # 腾讯云SecretKey
     HUNYUAN3D_API_VERSION: str = "rapid"  # API版本：rapid=标准版，pro=专业版
+    HUNYUAN3D_ENDPOINT: str = "domestic"  # API站点：domestic=国内站，intl=国际站
     
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # 允许 Ssettings 中未定义的额外字段（如 VERSION_*）
         protected_namespaces = ()  # 禁用受保护命名空间检查，避免 model_ 前缀警告
 
 

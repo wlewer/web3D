@@ -21,7 +21,7 @@ import base64
 import asyncio
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Callable
 import logging
 import aiohttp
 from PIL import Image
@@ -31,6 +31,7 @@ from tencentcloud.common import credential
 from tencentcloud.common.profile.client_profile import ClientProfile
 from tencentcloud.common.profile.http_profile import HttpProfile
 from tencentcloud.ai3d.v20250513 import ai3d_client, models
+from app.services.model_versions import model_versions
 
 logger = logging.getLogger(__name__)
 
@@ -42,13 +43,26 @@ class Hunyuan3DCloudService:
     文档：https://cloud.tencent.com/document/product/1804/120696
     """
     
-    REGION = "ap-guangzhou"
+    # 根据站点类型配置
+    ENDPOINT_CONFIG = {
+        'domestic': {  # 国内站
+            'endpoint': 'ai3d.tencentcloudapi.com',
+            'region': 'ap-guangzhou',
+            'desc': '国内站'
+        },
+        'intl': {  # 国际站（通过不同域名路由，但Region同为ap-guangzhou）
+            'endpoint': 'ai3d.intl.tencentcloudapi.com',
+            'region': 'ap-guangzhou',
+            'desc': '国际站'
+        }
+    }
     
     def __init__(
         self,
         secret_id: str,
         secret_key: str,
-        version: str = "rapid",  # rapid=标准版, pro=专业版
+        version: str = "rapid",  # rapid=标准版, pro=专业版, express=极速版(国际站)
+        endpoint_type: str = "domestic",  # domestic=国内站, intl=国际站
         timeout: int = 300  # 5分钟超时
     ):
         """
@@ -56,17 +70,21 @@ class Hunyuan3DCloudService:
             secret_id: 腾讯云SecretId
             secret_key: 腾讯云SecretKey
             version: API版本
-                - rapid: 标准版（SubmitHunyuanTo3DRapidJob）- 30-60秒，消耗10积分
-                - pro: 专业版（SubmitHunyuanTo3DProJob）- 60-120秒，消耗20积分
-                ⚠️ 注意：极速版（express）不存在，请使用rapid代替
+                - rapid: 标准版（SubmitHunyuanTo3DRapidJob）- 国内站
+                - pro: 专业版（SubmitHunyuanTo3DProJob）- 国内站
+                - express: 极速版（SubmitHunyuanTo3DRapidJob）- 国际站
+            endpoint_type: API站点类型
+                - domestic: 国内站（默认）
+                - intl: 国际站
             timeout: 请求超时时间（秒）
         """
         self.secret_id = secret_id
         self.secret_key = secret_key
         
-        # 验证version参数，极速版不存在，自动降级为标准版
-        if version == "express":
-            logger.warning(f"[Hunyuan3D Cloud] 极速版（express）不存在，自动降级为标准版（rapid）")
+        # 验证version参数
+        valid_versions = ['rapid', 'pro', 'express']
+        if version not in valid_versions:
+            logger.warning(f"[Hunyuan3D Cloud] 未知版本: {version}，自动使用标准版（rapid）")
             version = "rapid"
         
         self.version = version
@@ -80,26 +98,38 @@ class Hunyuan3DCloudService:
             self.submit_action = "SubmitHunyuanTo3DRapidJob"
             self.query_action = "QueryHunyuanTo3DRapidJob"
         
+        # 获取站点配置
+        endpoint_type = endpoint_type or 'domestic'
+        config = self.ENDPOINT_CONFIG.get(endpoint_type, self.ENDPOINT_CONFIG['domestic'])
+        self.endpoint_type = endpoint_type
+        self.region = config['region']
+        endpoint_url = config['endpoint']
+        
         # 初始化腾讯云SDK客户端
         cred = credential.Credential(secret_id, secret_key)
         
         http_profile = HttpProfile()
-        http_profile.endpoint = "ai3d.tencentcloudapi.com"
+        http_profile.endpoint = endpoint_url
         http_profile.reqTimeout = timeout
         
         client_profile = ClientProfile()
         client_profile.httpProfile = http_profile
         
-        self.client = ai3d_client.Ai3dClient(cred, self.REGION, client_profile)
+        self.client = ai3d_client.Ai3dClient(cred, self.region, client_profile)
         
-        logger.info(f"[Hunyuan3D Cloud] 初始化成功: version={version}, region={self.REGION}")
+        logger.info(
+            f"[Hunyuan3D Cloud] 初始化成功: "
+            f"version={version}, endpoint={endpoint_url}, "
+            f"region={self.region}, site={config['desc']}"
+        )
     
     async def generate(
         self,
         image_path: str,
         output_path: str,
         prompt: str = None,
-        result_format: str = "glb"
+        result_format: str = "glb",
+        progress_callback: Optional[callable] = None  # 进度回调函数，参数为 progress 0-100
     ) -> Dict[str, Any]:
         """
         从图片生成3D模型
@@ -137,8 +167,8 @@ class Hunyuan3DCloudService:
             
             logger.info(f"[Hunyuan3D Cloud] 任务已提交: {task_id}")
             
-            # 3. 轮询查询任务状态
-            result_data = await self._poll_task_status(task_id)
+            # 3. 轮询查询任务状态（传入进度回调）
+            result_data = await self._poll_task_status(task_id, progress_callback=progress_callback)
             
             if not result_data:
                 return {
@@ -183,11 +213,14 @@ class Hunyuan3DCloudService:
             }
             
         except Exception as e:
-            logger.error(f"[Hunyuan3D Cloud] 生成失败: {e}", exc_info=True)
+            error_code = getattr(e, 'code', 'Unknown')
+            error_msg = str(e)
+            logger.error(f"[Hunyuan3D Cloud] 生成失败: code={error_code}, message={error_msg}", exc_info=True)
             elapsed = time.time() - start_time
             return {
                 'success': False,
-                'error': str(e),
+                'error': error_msg,
+                'error_code': error_code,
                 'generation_time': elapsed
             }
     
@@ -231,18 +264,28 @@ class Hunyuan3DCloudService:
             return job_id
             
         except Exception as e:
-            logger.error(f"[Hunyuan3D Cloud] 提交任务失败: {e}")
+            # 提取详细的腾讯云错误信息
+            error_code = getattr(e, 'code', 'Unknown')
+            error_msg = str(e)
+            logger.error(f"[Hunyuan3D Cloud] 提交任务失败: code={error_code}, message={error_msg}")
             raise
     
     async def _poll_task_status(
         self,
         task_id: str,
         poll_interval: int = 5,
-        max_retries: int = 60  # 最多轮询5分钟
+        max_retries: int = 60,  # 最多轮询5分钟
+        progress_callback: Optional[Callable] = None  # 进度回调函数
     ) -> Optional[Dict[str, Any]]:
         """轮询查询任务状态，返回结果数据（使用腾讯云官方SDK）"""
         for attempt in range(max_retries):
             try:
+                # 计算并更新进度（30% → 90% 区间）
+                if progress_callback:
+                    # attempt 0 时 30%, attempt max_retries-1 时 90%
+                    progress = min(90, 30 + int((attempt / max_retries) * 60))
+                    progress_callback(progress)
+                
                 # 根据版本选择请求模型
                 if self.version == "pro":
                     req = models.QueryHunyuanTo3DProJobRequest()
@@ -385,13 +428,21 @@ def get_hunyuan3d_cloud(
     
     import os
     
-    # 从环境变量读取配置
-    if secret_id is None:
-        secret_id = os.getenv("HUNYUAN3D_SECRET_ID")
-    if secret_key is None:
-        secret_key = os.getenv("HUNYUAN3D_SECRET_KEY")
+    # 版本参数兜底
     if version is None:
         version = os.getenv("HUNYUAN3D_API_VERSION", "rapid")
+    
+    # 从配置驱动模块读取端点路由和密钥（支持逐版本配置）
+    vc = model_versions.get(version)
+    endpoint_type = vc.endpoint if vc else os.getenv("HUNYUAN3D_ENDPOINT", "domestic")
+    
+    # 使用配置驱动模块读取密钥（优先级：版本级 > 全局）
+    if secret_id is None or secret_key is None:
+        ver_secret_id, ver_secret_key = model_versions.get_secrets(version)
+        if secret_id is None:
+            secret_id = ver_secret_id
+        if secret_key is None:
+            secret_key = ver_secret_key
     
     if not secret_id or not secret_key:
         raise ValueError(
@@ -400,13 +451,16 @@ def get_hunyuan3d_cloud(
         )
     
     # 如果配置变更或首次调用，创建新实例
-    # 注意：这里不使用严格的单例模式，允许不同version版本创建不同实例
-    if _hunyuan_cloud_service is None or _hunyuan_cloud_service.version != version:
+    # 当version或endpoint_type改变时重新创建实例
+    if (_hunyuan_cloud_service is None 
+        or _hunyuan_cloud_service.version != version
+        or _hunyuan_cloud_service.endpoint_type != endpoint_type):
         _hunyuan_cloud_service = Hunyuan3DCloudService(
             secret_id=secret_id,
             secret_key=secret_key,
-            version=version
+            version=version,
+            endpoint_type=endpoint_type
         )
-        logger.info(f"创建Hunyuan3D云端服务实例，版本: {version}")
+        logger.info(f"创建Hunyuan3D云端服务实例，版本: {version}, 站点: {endpoint_type}")
     
     return _hunyuan_cloud_service

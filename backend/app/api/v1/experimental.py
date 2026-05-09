@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.services.model_versions import model_versions
 
 logger = logging.getLogger(__name__)
 
@@ -356,9 +357,9 @@ async def upload_huggingface(
     
     task_id = f"hunyuan_cloud_{uuid.uuid4().hex[:8]}"
     
-    # 检查运行模式
-    generation_mode = os.getenv('HUNYUAN3D_MODE', 'mock').lower()
-    logger.info(f"[EXPERIMENTAL] Hunyuan3D mode: {generation_mode}")
+    # 从配置驱动模块读取版本模式（支持逐版本覆盖）
+    generation_mode = model_versions.get_mode(version)
+    logger.info(f"[EXPERIMENTAL] Hunyuan3D mode: {generation_mode} (version={version})")
     
     # Mock模式：直接返回示例模型，不调用腾讯API
     if generation_mode == 'mock':
@@ -494,20 +495,13 @@ async def _handle_cloud_generation(
     from app.services.generation.hunyuan3d_cloud_service import get_hunyuan3d_cloud
     from app.services.quota_service import QuotaService
 
-    # 模型版本映射
-    # rapid/pro → 国内站（消耗预付费包-50个）
-    # express   → 国际站（消耗免费资源包-200积分）
-    version_map = {
-        'hy-3d-3.0': {'api_version': 'rapid'},    # 标准版 → 国内站
-        'hy-3d-3.1': {'api_version': 'pro'},       # 专业版 → 国内站
-        'HY-3D-Express': {'api_version': 'express'}, # 极速版 → 国际站
-        'rapid': {'api_version': 'rapid'},
-        'pro': {'api_version': 'pro'},
-        'express': {'api_version': 'express'}
-    }
-
-    model_config = version_map.get(version, version_map['hy-3d-3.0'])
-    api_version = model_config['api_version']
+    # 从配置驱动模块读取版本映射
+    # 所有版本的API参数在 .env 的 VERSION_* 中集中配置
+    vc = model_versions.get(version)
+    if not vc:
+        logger.warning(f"[EXPERIMENTAL] 未知版本: {version}，使用默认标准版")
+        vc = model_versions.get('hy-3d-3.0') or model_versions.get('rapid')
+    api_version = vc.api_version if vc else 'rapid'
 
     # 不再本地预扣额度，额度由腾讯云API直接管理
     # 腾讯云API会在资源包耗尽时返回 ResourceInsufficient 错误
@@ -547,18 +541,9 @@ async def _handle_cloud_generation(
                 elif progress_value == 90:
                     task_status[task_id]['message'] = '即将完成，正在下载模型文件...'
 
-            # 版本信息映射（用于标准化目录和中文命名）
-            version_info = {
-                'hy-3d-3.0': {'prefix': 'hy3d-rapid', 'display': '标准版'},
-                'hy-3d-3.1': {'prefix': 'hy3d-pro', 'display': '专业版'},
-                'HY-3D-Express': {'prefix': 'hy3d-express', 'display': '极速版'},
-                'rapid': {'prefix': 'hy3d-rapid', 'display': '标准版'},
-                'pro': {'prefix': 'hy3d-pro', 'display': '专业版'},
-                'express': {'prefix': 'hy3d-express', 'display': '极速版'},
-            }
-            v_info = version_info.get(version, version_info['hy-3d-3.0'])
-            dir_prefix = v_info['prefix']
-            display_name = v_info['display']
+            # 从配置驱动模块读取版本信息
+            dir_prefix = vc.prefix if vc else 'hy3d-rapid'
+            display_name = vc.display if vc else '标准版'
             dir_name = f"{dir_prefix}_{task_id[:8]}"
 
             # 标准化目录：uploads/generation/{版本前缀}_{task_id[:8]}/model.glb
@@ -566,11 +551,9 @@ async def _handle_cloud_generation(
             model_dir.mkdir(parents=True, exist_ok=True)
             output_path = model_dir / "model.glb"
 
-            # 提示用户当前版本的实际使用情况
-            if version == 'HY-3D-Express':
-                task_status[task_id]['message'] = f'国际站云端处理中（极速版·国际站，预计10-30秒）...'
-            else:
-                task_status[task_id]['message'] = f'云端GPU处理中（{display_name}，预计1-3分钟）...'
+            # 从配置驱动模块读取云端处理消息（支持逐版本配置）
+            cloud_msg_template = model_versions.get_cloud_message(version)
+            task_status[task_id]['message'] = cloud_msg_template.format(display=display_name)
 
             task_status[task_id]['progress'] = 30
 
