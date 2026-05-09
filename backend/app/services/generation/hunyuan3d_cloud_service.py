@@ -224,6 +224,11 @@ class Hunyuan3DCloudService:
                 'generation_time': elapsed
             }
     
+    async def _call_sdk(self, method, request):
+        """在线程池中执行同步SDK调用，避免阻塞事件循环"""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, method, request)
+
     async def _submit_task(
         self,
         image_base64: str,
@@ -241,7 +246,9 @@ class Hunyuan3DCloudService:
             # 根据版本选择请求模型
             if self.version == "pro":
                 req = models.SubmitHunyuanTo3DProJobRequest()
-            else:  # rapid (default)
+            elif self.version == "express":
+                req = models.SubmitHunyuanTo3DRapidJobRequest()
+            else:  # rapid
                 req = models.SubmitHunyuanTo3DRapidJobRequest()
             
             # 设置参数（图生3D只能提供ImageBase64，不能同时提供Prompt）
@@ -253,11 +260,13 @@ class Hunyuan3DCloudService:
             else:
                 raise ValueError("必须提供ImageBase64或Prompt其中之一")
             
-            # 调用API
+            # 调用API（在线程池中执行，避免阻塞事件循环）
             if self.version == "pro":
-                resp = self.client.SubmitHunyuanTo3DProJob(req)
+                resp = await self._call_sdk(self.client.SubmitHunyuanTo3DProJob, req)
+            elif self.version == "express":
+                resp = await self._call_sdk(self.client.SubmitHunyuanTo3DRapidJob, req)
             else:  # rapid
-                resp = self.client.SubmitHunyuanTo3DRapidJob(req)
+                resp = await self._call_sdk(self.client.SubmitHunyuanTo3DRapidJob, req)
             
             job_id = resp.JobId
             logger.info(f"[Hunyuan3D Cloud] 任务提交成功: JobId={job_id}, version={self.version}")
@@ -289,16 +298,20 @@ class Hunyuan3DCloudService:
                 # 根据版本选择请求模型
                 if self.version == "pro":
                     req = models.QueryHunyuanTo3DProJobRequest()
-                else:  # rapid (default)
+                elif self.version == "express":
+                    req = models.QueryHunyuanTo3DRapidJobRequest()
+                else:  # rapid
                     req = models.QueryHunyuanTo3DRapidJobRequest()
                 
                 req.JobId = task_id
                 
-                # 调用API
+                # 调用API（在线程池中执行，避免阻塞事件循环）
                 if self.version == "pro":
-                    resp = self.client.QueryHunyuanTo3DProJob(req)
+                    resp = await self._call_sdk(self.client.QueryHunyuanTo3DProJob, req)
+                elif self.version == "express":
+                    resp = await self._call_sdk(self.client.QueryHunyuanTo3DRapidJob, req)
                 else:  # rapid
-                    resp = self.client.QueryHunyuanTo3DRapidJob(req)
+                    resp = await self._call_sdk(self.client.QueryHunyuanTo3DRapidJob, req)
                 
                 # 调试：打印响应对象的原始内容
                 logger.debug(f"[Hunyuan3D Cloud] 响应对象类型: {type(resp)}")
