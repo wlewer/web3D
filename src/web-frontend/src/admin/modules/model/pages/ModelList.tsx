@@ -2,7 +2,7 @@
  * 模型管理 - 模型列表页
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Table,
   Button,
@@ -70,6 +70,15 @@ export const ModelList: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<ModelStatus | undefined>();
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewModel, setPreviewModel] = useState<IModel | null>(null);
+  const [statsData, setStatsData] = useState<any>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // 获取统计信息
+  useEffect(() => {
+    modelApi.getStats()
+      .then(res => setStatsData(res.data))
+      .catch(err => console.warn('获取模型统计失败:', err));
+  }, [refreshKey]);
 
   // 获取数据
   const listHook: any = useList<IModel>({
@@ -85,10 +94,13 @@ export const ModelList: React.FC = () => {
     ],
   });
 
-  const data = listHook?.result?.data || [];
-  const total = listHook?.result?.total || 0;
-  const isLoading = listHook?.query?.isLoading;
-  const refetchData = () => listHook?.query?.refetch();
+  const data = listHook?.data?.data || [];
+  const total = listHook?.data?.total || 0;
+  const isLoading = listHook?.isLoading;
+  const refetchData = () => {
+    listHook?.refetch();
+    setRefreshKey(k => k + 1);
+  };
 
   // 表格列
   const columns: any = [
@@ -265,7 +277,7 @@ export const ModelList: React.FC = () => {
           <Card>
             <Statistic
               title="总模型数"
-              value={total}
+              value={statsData?.total ?? total}
               prefix={<BoxPlotOutlined />}
             />
           </Card>
@@ -274,7 +286,7 @@ export const ModelList: React.FC = () => {
           <Card>
             <Statistic
               title="待审核"
-              value={0}
+              value={statsData?.pending ?? 0}
               valueStyle={{ color: '#faad14' }}
             />
           </Card>
@@ -283,7 +295,7 @@ export const ModelList: React.FC = () => {
           <Card>
             <Statistic
               title="已通过"
-              value={0}
+              value={statsData?.approved ?? 0}
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>
@@ -292,7 +304,7 @@ export const ModelList: React.FC = () => {
           <Card>
             <Statistic
               title="已驳回"
-              value={0}
+              value={statsData?.rejected ?? 0}
               valueStyle={{ color: '#ff4d4f' }}
             />
           </Card>

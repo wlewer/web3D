@@ -96,6 +96,64 @@ async def list_models(
         )
 
 
+@router.get("/stats")
+async def get_model_stats(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """
+    获取模型统计信息
+    Get model statistics
+    """
+    # 使用异步查询
+    total_result = await db.execute(
+        select(func.count(Model3D.id))
+    )
+    total = total_result.scalar() or 0
+    
+    pending_result = await db.execute(
+        select(func.count(Model3D.id)).where(Model3D.status == "pending")
+    )
+    pending = pending_result.scalar() or 0
+    
+    approved_result = await db.execute(
+        select(func.count(Model3D.id)).where(Model3D.status == "approved")
+    )
+    approved = approved_result.scalar() or 0
+    
+    rejected_result = await db.execute(
+        select(func.count(Model3D.id)).where(Model3D.status == "rejected")
+    )
+    rejected = rejected_result.scalar() or 0
+    
+    archived_result = await db.execute(
+        select(func.count(Model3D.id)).where(Model3D.status == "archived")
+    )
+    archived = archived_result.scalar() or 0
+    
+    # 按分类统计
+    category_result = await db.execute(
+        select(Model3D.category, func.count(Model3D.id)).group_by(Model3D.category)
+    )
+    by_category = {cat: count for cat, count in category_result.all()}
+    
+    # 总文件大小
+    size_result = await db.execute(
+        select(func.sum(Model3D.file_size))
+    )
+    total_size = size_result.scalar() or 0
+    
+    return {
+        "total": total,
+        "pending": pending,
+        "approved": approved,
+        "rejected": rejected,
+        "archived": archived,
+        "byCategory": by_category,
+        "totalSize": total_size,
+    }
+
+
 @router.get("/{model_id}", response_model=ModelResponse)
 async def get_model(
     model_id: str,
@@ -106,7 +164,10 @@ async def get_model(
     获取单个模型详情
     Get single model details
     """
-    model = db.query(Model3D).filter(Model3D.id == model_id).first()
+    result = await db.execute(
+        select(Model3D).where(Model3D.id == model_id)
+    )
+    model = result.scalar_one_or_none()
     
     if not model:
         raise HTTPException(
@@ -151,8 +212,9 @@ async def create_model(
     )
     
     db.add(new_model)
-    db.commit()
-    db.refresh(new_model)
+    await db.flush()
+    await db.refresh(new_model)
+    # 不手动commit，由 get_db 依赖自动处理
     
     logger.info(f"Model created: {new_model.name} by {current_user.username}")
     
@@ -170,7 +232,10 @@ async def update_model(
     更新模型信息
     Update model information
     """
-    model = db.query(Model3D).filter(Model3D.id == model_id).first()
+    result = await db.execute(
+        select(Model3D).where(Model3D.id == model_id)
+    )
+    model = result.scalar_one_or_none()
     
     if not model:
         raise HTTPException(
@@ -194,8 +259,8 @@ async def update_model(
     for key, value in update_data.items():
         setattr(model, key, value)
     
-    db.commit()
-    db.refresh(model)
+    await db.flush()
+    await db.refresh(model)
     
     logger.info(f"Model updated: {model.name} by {current_user.username}")
     
@@ -212,7 +277,10 @@ async def delete_model(
     删除模型
     Delete 3D model
     """
-    model = db.query(Model3D).filter(Model3D.id == model_id).first()
+    result = await db.execute(
+        select(Model3D).where(Model3D.id == model_id)
+    )
+    model = result.scalar_one_or_none()
     
     if not model:
         raise HTTPException(
@@ -227,8 +295,7 @@ async def delete_model(
             detail="Insufficient permissions"
         )
     
-    db.delete(model)
-    db.commit()
+    await db.delete(model)
     
     logger.info(f"Model deleted: {model.name} by {current_user.username}")
     
@@ -246,7 +313,10 @@ async def review_model(
     审核模型（仅管理员和编辑者）
     Review model (admin and editor only)
     """
-    model = db.query(Model3D).filter(Model3D.id == model_id).first()
+    result = await db.execute(
+        select(Model3D).where(Model3D.id == model_id)
+    )
+    model = result.scalar_one_or_none()
     
     if not model:
         raise HTTPException(
@@ -264,8 +334,8 @@ async def review_model(
     elif review_data.status != ModelStatus.REJECTED:
         model.rejection_reason = None
     
-    db.commit()
-    db.refresh(model)
+    await db.flush()
+    await db.refresh(model)
     
     logger.info(f"Model reviewed: {model.name} -> {model.status} by {current_user.username}")
     
@@ -282,7 +352,10 @@ async def batch_review(
     批量审核模型
     Batch review models
     """
-    models = db.query(Model3D).filter(Model3D.id.in_(review_data.ids)).all()
+    result = await db.execute(
+        select(Model3D).where(Model3D.id.in_(review_data.ids))
+    )
+    models = result.scalars().all()
     
     if not models:
         raise HTTPException(
@@ -300,44 +373,10 @@ async def batch_review(
         elif review_data.status != ModelStatus.REJECTED:
             model.rejection_reason = None
     
-    db.commit()
     
     logger.info(f"Batch review performed on {len(models)} models by {current_user.username}")
     
     return {"message": f"Successfully reviewed {len(models)} models"}
-
-
-@router.get("/stats")
-async def get_model_stats(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
-):
-    """
-    获取模型统计信息
-    Get model statistics
-    """
-    total = db.query(func.count(Model3D.id)).scalar()
-    pending = db.query(func.count(Model3D.id)).filter(Model3D.status == "pending").scalar()
-    approved = db.query(func.count(Model3D.id)).filter(Model3D.status == "approved").scalar()
-    rejected = db.query(func.count(Model3D.id)).filter(Model3D.status == "rejected").scalar()
-    archived = db.query(func.count(Model3D.id)).filter(Model3D.status == "archived").scalar()
-    
-    # 按分类统计
-    categories = db.query(Model3D.category, func.count(Model3D.id)).group_by(Model3D.category).all()
-    by_category = {cat: count for cat, count in categories}
-    
-    # 总文件大小
-    total_size = db.query(func.sum(Model3D.file_size)).scalar() or 0
-    
-    return {
-        "total": total,
-        "pending": pending,
-        "approved": approved,
-        "rejected": rejected,
-        "archived": archived,
-        "byCategory": by_category,
-        "totalSize": total_size,
-    }
 
 
 @router.patch("/{model_id}/archive")
@@ -350,7 +389,10 @@ async def archive_model(
     归档模型（仅管理员）
     Archive model (admin only)
     """
-    model = db.query(Model3D).filter(Model3D.id == model_id).first()
+    result = await db.execute(
+        select(Model3D).where(Model3D.id == model_id)
+    )
+    model = result.scalar_one_or_none()
     
     if not model:
         raise HTTPException(
@@ -359,7 +401,6 @@ async def archive_model(
         )
     
     model.status = "archived"
-    db.commit()
     
     logger.info(f"Model archived: {model.name} by {current_user.username}")
     

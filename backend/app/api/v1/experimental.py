@@ -23,7 +23,7 @@ env_path = project_root / '.env'
 if not env_path.exists():
     env_path = Path(__file__).parent.parent.parent / '.env'  # 备用：backend/.env
 
-load_dotenv(env_path)
+load_dotenv(env_path, override=True)
 logger.info(f"[EXPERIMENTAL] Loaded .env from: {env_path}")
 logger.info(f"[EXPERIMENTAL] HUNYUAN3D_MODE={os.getenv('HUNYUAN3D_MODE', 'NOT SET')}")
 
@@ -388,64 +388,41 @@ async def _handle_mock_generation(
 ):
     """Mock模式：返回示例模型，用于开发测试"""
     from app.services.quota_service import QuotaService
-    
-    # 版本成本映射
-    cost_map = {
-        'hy-3d-3.0': 10,
-        'hy-3d-3.1': 20,
-        'HY-3D-Express': 5,
-    }
-    cost_per_use = cost_map.get(version, 10)
-    
-    # 扣除额度
-    quota_service = QuotaService(db)
-    deduct_result = quota_service.deduct_quota(
-        user_id=current_user.id,
-        amount=cost_per_use,
-        task_id=task_id
-    )
-    
-    if not deduct_result['success']:
-        raise HTTPException(
-            status_code=402 if deduct_result.get('error_code') == 'INSUFFICIENT_QUOTA' else 400,
-            detail=deduct_result['error']
-        )
-    
+
     upload_dir = Path('uploads/experimental')
     upload_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # 保存上传文件（仅用于记录）
     image_path = upload_dir / f"{task_id}_input.png"
     with open(image_path, 'wb') as f:
         f.write(await file.read())
-    
+
     logger.info(f"[EXPERIMENTAL] Mock mode: received image {image_path}")
-    
+
     # 初始化任务状态
     task_status[task_id] = {
         'status': 'processing',
         'progress': 0,
         'message': f'[Mock] 正在生成3D模型... [模型: {version}]',
-        'user_id': current_user.id,
-        'cost': cost_per_use
+        'user_id': current_user.id
     }
     logger.info(f"[EXPERIMENTAL] Task created: {task_id}, status keys={list(task_status.keys())}")
-    
+
     async def mock_process():
         try:
             # 模拟进度更新
             for progress in [10, 30, 50, 70, 90, 100]:
                 await asyncio.sleep(1)  # 每秒更新一次
                 task_status[task_id]['progress'] = progress
-                
+
                 if progress < 100:
                     task_status[task_id]['message'] = f'[Mock] 生成中... {progress}%'
                 else:
                     task_status[task_id]['message'] = '[Mock] 生成完成！'
-            
+
             # 使用示例GLB文件
             example_glb = Path(__file__).parent.parent.parent.parent / 'assets' / 'example.glb'
-            
+
             # 如果示例文件不存在，尝试其他可能的路径
             if not example_glb.exists():
                 alternative_paths = [
@@ -457,7 +434,7 @@ async def _handle_mock_generation(
                     if alt_path.exists():
                         example_glb = alt_path
                         break
-            
+
             # 如果还是找不到，创建一个简单的GLB
             if not example_glb.exists():
                 logger.warning(f"[EXPERIMENTAL] Example GLB not found, creating placeholder")
@@ -479,36 +456,28 @@ async def _handle_mock_generation(
                 shutil.copy2(example_glb, output_path)
                 task_status[task_id]['glb_path'] = str(output_path)
                 logger.info(f"[EXPERIMENTAL] Copied example GLB: {example_glb} -> {output_path}")
-            
+
             task_status[task_id]['status'] = 'completed'
             task_status[task_id]['generation_time'] = 6.0
-            
-            # 记录成功
-            quota_service.record_generation_success(current_user.id)
-            
+
+            # 记录API调用成功（仅统计）
+            quota_service = QuotaService(db)
+            await quota_service.record_api_call(current_user.id, success=True)
+
             logger.info(f"[EXPERIMENTAL] Mock generation completed: {output_path}")
-            
+
         except Exception as e:
             logger.error(f"[EXPERIMENTAL] Mock process failed: {e}", exc_info=True)
             task_status[task_id]['status'] = 'failed'
             task_status[task_id]['message'] = f"异常: {str(e)}"
-            
-            # 退还额度
-            quota_service.refund_quota(
-                user_id=current_user.id,
-                amount=cost_per_use,
-                reason=f"Mock模式异常: {str(e)}"
-            )
-    
+
     # 启动后台任务
     asyncio.create_task(mock_process())
-    
+
     return {
         'task_id': task_id,
         'status': 'processing',
         'message': 'Mock模式：生成任务已提交',
-        'quota_deducted': cost_per_use,
-        'remaining_quota': deduct_result['remaining_quota'],
         'mode': 'mock'
     }
 
@@ -521,170 +490,208 @@ async def _handle_cloud_generation(
     db: AsyncSession,
     background_tasks: BackgroundTasks
 ):
-    """Cloud模式：调用腾讯混元3D API"""
+    """Cloud模式：调用腾讯混元3D API（额度由腾讯云直接管理）"""
     from app.services.generation.hunyuan3d_cloud_service import get_hunyuan3d_cloud
     from app.services.quota_service import QuotaService
-    
-    # 模型版本映射和成本计算
-    # 注意：腾讯云混元3D只有两个版本：rapid（标准版）和pro（专业版）
-    # express（极速版）不存在，会自动降级为rapid
+
+    # 模型版本映射
+    # rapid/pro → 国内站（消耗预付费包-50个）
+    # express   → 国际站（消耗免费资源包-200积分）
     version_map = {
-        'hy-3d-3.0': {'api_version': 'rapid', 'cost': 10},  # 标准版
-        'hy-3d-3.1': {'api_version': 'pro', 'cost': 20},     # 专业版
-        'HY-3D-Express': {'api_version': 'rapid', 'cost': 5}, # 极速版 -> 自动降级为标准版
-        'rapid': {'api_version': 'rapid', 'cost': 10},       # 标准版
-        'pro': {'api_version': 'pro', 'cost': 20},           # 专业版
-        'express': {'api_version': 'rapid', 'cost': 5}       # 极速版 -> 自动降级为标准版
+        'hy-3d-3.0': {'api_version': 'rapid'},    # 标准版 → 国内站
+        'hy-3d-3.1': {'api_version': 'pro'},       # 专业版 → 国内站
+        'HY-3D-Express': {'api_version': 'express'}, # 极速版 → 国际站
+        'rapid': {'api_version': 'rapid'},
+        'pro': {'api_version': 'pro'},
+        'express': {'api_version': 'express'}
     }
-    
+
     model_config = version_map.get(version, version_map['hy-3d-3.0'])
     api_version = model_config['api_version']
-    cost_per_use = model_config['cost']
-    
-    # 检查并扣除额度
-    quota_service = QuotaService(db)
-    deduct_result = await quota_service.deduct_quota(
-        user_id=current_user.id,
-        amount=cost_per_use,
-        task_id=task_id
-    )
-    
-    if not deduct_result['success']:
-        raise HTTPException(
-            status_code=402 if deduct_result.get('error_code') == 'INSUFFICIENT_QUOTA' else 400,
-            detail=deduct_result['error']
-        )
-    
-    logger.info(f"[EXPERIMENTAL] Deducted {cost_per_use} points, remaining: {deduct_result['remaining_quota']}")
-    
+
+    # 不再本地预扣额度，额度由腾讯云API直接管理
+    # 腾讯云API会在资源包耗尽时返回 ResourceInsufficient 错误
+
     upload_dir = Path('uploads/experimental')
     upload_dir.mkdir(parents=True, exist_ok=True)
-    
+
     image_path = upload_dir / f"{task_id}_input.png"
     with open(image_path, 'wb') as f:
         f.write(await file.read())
-    
+
     logger.info(f"[EXPERIMENTAL] Cloud mode: received image {image_path}")
-    
+
     task_status[task_id] = {
         'status': 'processing',
         'progress': 0,
         'message': '正在上传图片到云端...',
-        'user_id': current_user.id,
-        'cost': cost_per_use
+        'user_id': current_user.id
     }
-    
+
     async def cloud_process():
         try:
             engine = get_hunyuan3d_cloud(version=api_version)
-            
+
             task_status[task_id]['progress'] = 10
             task_status[task_id]['message'] = '正在上传图片到云端...'
-            
-            output_path = upload_dir / f"{task_id}_model.glb"
-            
+
+            # 定义进度回调函数（从30%→90%区间更新）
+            def update_progress(progress_value: int):
+                task_status[task_id]['progress'] = progress_value
+                if progress_value == 30:
+                    task_status[task_id]['message'] = '云端提交成功，正在等待GPU处理完成...'
+                elif progress_value == 50:
+                    task_status[task_id]['message'] = 'GPU正在渲染3D模型纹理...'
+                elif progress_value == 70:
+                    task_status[task_id]['message'] = '模型渲染中，正在生成最终网格...'
+                elif progress_value == 90:
+                    task_status[task_id]['message'] = '即将完成，正在下载模型文件...'
+
+            # 版本信息映射（用于标准化目录和中文命名）
+            version_info = {
+                'hy-3d-3.0': {'prefix': 'hy3d-rapid', 'display': '标准版'},
+                'hy-3d-3.1': {'prefix': 'hy3d-pro', 'display': '专业版'},
+                'HY-3D-Express': {'prefix': 'hy3d-express', 'display': '极速版'},
+                'rapid': {'prefix': 'hy3d-rapid', 'display': '标准版'},
+                'pro': {'prefix': 'hy3d-pro', 'display': '专业版'},
+                'express': {'prefix': 'hy3d-express', 'display': '极速版'},
+            }
+            v_info = version_info.get(version, version_info['hy-3d-3.0'])
+            dir_prefix = v_info['prefix']
+            display_name = v_info['display']
+            dir_name = f"{dir_prefix}_{task_id[:8]}"
+
+            # 标准化目录：uploads/generation/{版本前缀}_{task_id[:8]}/model.glb
+            model_dir = Path(f"uploads/generation/{dir_name}")
+            model_dir.mkdir(parents=True, exist_ok=True)
+            output_path = model_dir / "model.glb"
+
             # 提示用户当前版本的实际使用情况
             if version == 'HY-3D-Express':
-                task_status[task_id]['message'] = f'云端GPU处理中（极速版暂时使用标准版，预计30-60秒）... [模型: {version}]'
+                task_status[task_id]['message'] = f'国际站云端处理中（极速版·国际站，预计10-30秒）...'
             else:
-                task_status[task_id]['message'] = f'云端GPU处理中（预计1-3分钟）... [模型: {version}]'
-            
+                task_status[task_id]['message'] = f'云端GPU处理中（{display_name}，预计1-3分钟）...'
+
             task_status[task_id]['progress'] = 30
-            
+
             result = await engine.generate(
                 image_path=str(image_path),
-                output_path=str(output_path)
+                output_path=str(output_path),
+                progress_callback=update_progress
             )
-            
+
             if result['success']:
                 task_status[task_id]['progress'] = 100
                 task_status[task_id]['status'] = 'completed'
                 task_status[task_id]['message'] = '生成完成！'
-                task_status[task_id]['glb_path'] = result['output_path']
+                task_status[task_id]['glb_path'] = str(output_path)
                 task_status[task_id]['generation_time'] = result['generation_time']
-                
-                quota_service.record_generation_success(current_user.id)
-                
-                # 将生成的模型复制到标准存储目录
-                import shutil
-                from pathlib import Path as PathLib
-                model_dir = PathLib(f"uploads/generation/{task_id}")
-                model_dir.mkdir(parents=True, exist_ok=True)
-                model_filename = f"model_hunyuan_cloud_{task_id[:8]}.glb"
-                standard_path = model_dir / model_filename
-                
-                # 复制文件到标准位置
-                shutil.copy2(result['output_path'], standard_path)
-                logger.info(f"[Cloud] Model copied to: {standard_path}")
-                
-                # 保存模型记录到数据库
+
+                # 记录API调用成功（仅统计）
+                quota_service = QuotaService(db)
+                await quota_service.record_api_call(current_user.id, success=True)
+
+                # 模型已直接保存到标准化目录：uploads/generation/{dir_name}/model.glb
+                logger.info(f"[Cloud] Model saved to: {output_path}")
+
+                # 保存模型记录到数据库（自动保存到后台模型管理列表）
                 try:
                     from app.models.model import Model3D
                     from app.database import async_session_maker
-                    from sqlalchemy import select
-                    
-                    file_size = standard_path.stat().st_size
-                    
-                    async with async_session_maker() as db:
+
+                    file_size = output_path.stat().st_size
+
+                    # 构造可通过浏览器直接访问的URL路径
+                    model_url_path = f"http://localhost:8000/generation-models/{dir_name}/model.glb"
+
+                    async with async_session_maker() as db_session:
                         # 创建模型记录
                         model = Model3D(
-                            name=f"混元3D生成模型_{task_id[:8]}",
-                            description=f"通过腾讯混元3D云端API生成的3D模型 [版本: {version}]",
+                            name=f"混元3D生成_{display_name}_{task_id[:8]}",
+                            description=f"通过腾讯混元3D云端API生成的3D模型",
                             category='other',
                             status='approved',  # 自动审核通过
-                            model_url=str(standard_path),
+                            model_url=model_url_path,
                             format='glb',
                             file_size=file_size,
-                            generation_engine='hunyuan3d_cloud',
                             created_by=current_user.id,
-                            tags=["AI生成", "混元3D", "云端"]
+                            tags=["AI生成", "混元3D", "云端", display_name]
                         )
-                        db.add(model)
-                        await db.commit()
-                        await db.refresh(model)
-                        
+                        db_session.add(model)
+                        await db_session.commit()
+                        await db_session.refresh(model)
+
                         task_status[task_id]['model_id'] = model.id
-                        logger.info(f"[Cloud] Model saved to database: {model.id}")
-                        
+                        logger.info(f"[Cloud] Model saved to database: {model.id} (URL: {model_url_path})")
+
                 except Exception as db_error:
-                    logger.error(f"[Cloud] Failed to save model to database: {db_error}", exc_info=True)
+                    logger.error(f"[Cloud] 保存到数据库失败: {db_error}", exc_info=True)
                     # 不影响生成结果，仅记录错误
-                
-                logger.info(f"[Cloud] Generation success: {result['output_path']}, time: {result['generation_time']:.2f}s")
+
+                logger.info(f"[Cloud] Generation success: {output_path}, time: {result['generation_time']:.2f}s")
             else:
+                error_msg = result.get('error', '未知错误')
+                error_code = result.get('error_code', '')
                 task_status[task_id]['status'] = 'failed'
-                task_status[task_id]['message'] = f"生成失败: {result.get('error', '未知错误')}"
-                
-                refund_result = quota_service.refund_quota(
-                    user_id=current_user.id,
-                    amount=cost_per_use,
-                    reason=f"任务失败: {result.get('error', '未知错误')}"
+
+                # 检测是否为资源包耗尽错误（优先使用error_code精确判断）
+                is_resource_exhausted = (
+                    error_code in ('ResourceInsufficient', 'FailedOperation.ResourcePackExhausted') or
+                    'resourceinsufficient' in error_msg.lower() or
+                    'resourcepackexhausted' in error_msg.lower()
                 )
-                logger.warning(f"[Cloud] Refunded {cost_per_use} points: {refund_result}")
-                
+                if is_resource_exhausted:
+                    task_status[task_id]['message'] = (
+                        '❌ 腾讯混元3D资源包已用完！'
+                        '请前往腾讯云控制台购买更多资源包。'
+                    )
+                    task_status[task_id]['resource_exhausted'] = True
+                    logger.error(f"[Cloud] 资源包已耗尽: code={error_code}, msg={error_msg}")
+                else:
+                    # 显示实际错误信息（便于排查问题）
+                    task_status[task_id]['message'] = f"生成失败: {error_msg} (code: {error_code})"
+                    logger.error(f"[Cloud] API调用失败 (非资源包问题): code={error_code}, msg={error_msg}")
+
+                # 记录API调用失败（仅统计）
+                quota_service = QuotaService(db)
+                await quota_service.record_api_call(current_user.id, success=False)
+
         except Exception as e:
-            logger.error(f"[Cloud] Generation exception: {e}", exc_info=True)
+            error_str = str(e)
+            logger.error(f"[Cloud] Generation exception: {error_str}", exc_info=True)
             task_status[task_id]['status'] = 'failed'
-            task_status[task_id]['message'] = f"异常: {str(e)}"
-            
-            refund_result = quota_service.refund_quota(
-                user_id=current_user.id,
-                amount=cost_per_use,
-                reason=f"系统异常: {str(e)}"
+
+            # 使用精确匹配检测资源包耗尽
+            is_resource_exhausted = (
+                'resourceinsufficient' in error_str.lower() or
+                'resourcepackexhausted' in error_str.lower() or
+                'FailedOperation.ResourcePackExhausted' in error_str
             )
-            logger.warning(f"[Cloud] Refunded {cost_per_use} points due to exception: {refund_result}")
-    
+            if is_resource_exhausted:
+                task_status[task_id]['message'] = (
+                    '❌ 腾讯混元3D资源包已用完！'
+                    '请前往腾讯云控制台购买更多资源包。'
+                )
+                task_status[task_id]['resource_exhausted'] = True
+            else:
+                task_status[task_id]['message'] = f"生成失败: {error_str}"
+
+            # 记录API调用失败（仅统计）
+            try:
+                quota_service = QuotaService(db)
+                await quota_service.record_api_call(current_user.id, success=False)
+            except Exception:
+                pass
+
     if background_tasks:
         background_tasks.add_task(cloud_process)
     else:
         await cloud_process()
-    
+
     return {
         'task_id': task_id,
         'status': 'processing',
         'message': '生成任务已提交，请在后台查看进度',
-        'quota_deducted': cost_per_use,
-        'remaining_quota': deduct_result['remaining_quota'],
         'mode': 'cloud'
     }
 
