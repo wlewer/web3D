@@ -63,7 +63,7 @@ export const AdminEntry: React.FC = () => {
                 syncWithLocation: false,
                 warnWhenUnsavedChanges: false,
               }}
-              notificationProvider={null}
+              notificationProvider={undefined}
             >
               <LoginPage />
             </Refine>
@@ -89,7 +89,7 @@ export const AdminEntry: React.FC = () => {
               syncWithLocation: false,
               warnWhenUnsavedChanges: false,
             }}
-            notificationProvider={null}
+            notificationProvider={undefined}
           >
             <ProtectedRoute>
               <AdminApp />

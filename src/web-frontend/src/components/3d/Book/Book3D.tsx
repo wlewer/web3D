@@ -1,7 +1,7 @@
 // 3D书本主组件
 
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Environment } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import { useState, useCallback } from 'react';
 import { useBookFlip } from '../../../hooks/useBookFlip';
 import { Page } from './Page';

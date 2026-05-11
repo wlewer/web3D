@@ -105,7 +105,7 @@ interface BookItemProps {
   t: any;
 }
 
-function BookItem({ book, position, rotation, isPopping, isPopup, popupProgress, onClick, config, getBookTitle, getBookSubtitle, t }: BookItemProps) {
+function BookItem({ book, position, rotation, isPopup, popupProgress, onClick, config, getBookTitle, getBookSubtitle }: BookItemProps) {
   const groupRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
@@ -524,7 +524,7 @@ interface BookGalleryProps {
 }
 
 export function BookGallery({ books = DEFAULT_BOOKS, config, onBookSelect, onBack, getBookTitle: getBookTitleProp, getBookSubtitle: getBookSubtitleProp }: BookGalleryProps) {
-  const { t, language } = useTranslation();
+  const { t } = useTranslation();
   const [selectedBookId, setSelectedBookId] = useState<string | null>(null);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('circle-single');
 

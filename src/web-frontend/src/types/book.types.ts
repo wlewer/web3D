@@ -53,7 +53,7 @@ export interface BookGalleryItem {
   /** 编号标记 */
   number: number;
   /** 书籍标题 */
-  title: string;
+  title?: string;
   /** 书籍标题的i18n key（可选，用于动态翻译） */
   titleKey?: string;
   /** 副标题 */

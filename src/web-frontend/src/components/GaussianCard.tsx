@@ -316,7 +316,7 @@ export const GaussianCard = memo(function GaussianCard({
   // 3D产品标签——基于Canvas纹理的精灵标签
   // ═══════════════════════════════════════════════════════════
   const create3DLabel = useCallback((
-    product: GaussianCardProps['products'][number],
+    product: NonNullable<GaussianCardProps['products']>[number],
     position: [number, number, number]
   ): THREE.Sprite => {
     const canvas = document.createElement('canvas');

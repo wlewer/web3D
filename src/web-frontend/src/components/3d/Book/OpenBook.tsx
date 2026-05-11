@@ -34,11 +34,10 @@ export function OpenBook({
   pageWidth = 1.5,
   pageHeight = 2,
   visible = true,
-  flipProgress = 0,
 }: OpenBookProps) {
   const { t } = useTranslation();
   const groupRef = useRef<THREE.Group>(null);
-  const [hovered, setHovered] = useState(false);
+  const [hovered, _setHovered] = useState(false);
 
   // 书本翻开角度 - 优化为更平摊的效果，接近Word文档的摊开方式
   const openAngle = Math.PI * 0.48; // 约86度，几乎平摊

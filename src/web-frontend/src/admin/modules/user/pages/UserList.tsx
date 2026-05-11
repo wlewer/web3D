@@ -35,7 +35,7 @@ import {
   ReloadOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { useList, useDelete, useTranslate } from '@refinedev/core';
+import { useList, useDelete } from '@refinedev/core';
 import { useNavigate } from 'react-router-dom';
 import type { IUser, UserRole, UserStatus } from '../types';
 import { userApi } from '../api';
@@ -71,7 +71,6 @@ const statusMap: Record<UserStatus, { color: string; text: string; icon: React.R
 };
 
 export const UserList: React.FC = () => {
-  const translate = useTranslate();
   const navigate = useNavigate();
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [searchText, setSearchText] = useState('');
@@ -79,7 +78,7 @@ export const UserList: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<UserStatus | undefined>();
 
   // 使用 Refine useList Hook 获取数据
-  const { result, query } = useList<IUser>({
+  const { data: listData, isLoading, refetch } = useList<IUser>({
     resource: 'users',
     pagination: {
       current: 1,
@@ -92,10 +91,9 @@ export const UserList: React.FC = () => {
     ],
   });
 
-  const data = result?.data;
-  const total = result?.total || 0;
-  const isLoading = query?.isLoading;
-  const refetchData = () => query?.refetch();
+  const data = listData?.data;
+  const total = listData?.total || 0;
+  const refetchData = () => refetch();
 
   // 删除 mutation
   const { mutate: deleteUser } = useDelete();

@@ -38,7 +38,7 @@ export function SuperSplatViewer({
   className = '',
 }: SuperSplatViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
   useEffect(() => {
     // 动态加载SuperSplat Viewer CSS

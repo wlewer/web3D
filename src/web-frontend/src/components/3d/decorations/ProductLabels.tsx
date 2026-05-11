@@ -14,7 +14,7 @@
  * - 需要标注产品特性的场合
  */
 
-import React from 'react';
+
 import * as THREE from 'three';
 
 export interface ProductLabel {

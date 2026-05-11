@@ -101,7 +101,6 @@ export function calculateShadowIntensity(progress: number): number {
  * @returns 扭曲后的位置
  */
 export function calculatePageWarp(progress: number, vertexPosition: { x: number; y: number }): { x: number; y: number } {
-  const angle = calculateFlipAngle(progress);
   const bend = calculatePaperBend(progress, 0.3);
   
   // 根据Y坐标计算扭曲程度（顶部和底部扭曲较小，中间较大）

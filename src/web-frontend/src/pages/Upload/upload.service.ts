@@ -5,7 +5,7 @@ import { type UploadRequest, type UploadResponse } from './upload.types';
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // 上传图片到服务器
-export async function uploadImages(request: UploadRequest): Promise<UploadResponse> {
+export async function uploadImages(_request: UploadRequest): Promise<UploadResponse> {
   // 模拟 API 调用
   await delay(2000);
 

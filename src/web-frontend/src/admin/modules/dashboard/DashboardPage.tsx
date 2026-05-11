@@ -10,10 +10,7 @@ import {
   AppstoreOutlined,
   RiseOutlined,
 } from '@ant-design/icons';
-import { useTranslate } from '@refinedev/core';
-
 const Dashboard: React.FC = () => {
-  const translate = useTranslate();
 
   // 统计数据
   const statsData = [

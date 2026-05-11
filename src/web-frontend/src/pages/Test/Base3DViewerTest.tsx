@@ -4,7 +4,7 @@
  * 用于测试基础3D查看器的功能
  */
 
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { Base3DViewer } from '../../components/3d/Base3DViewer';
 import type { Base3DViewerRef } from '../../components/3d/Base3DViewer';
 

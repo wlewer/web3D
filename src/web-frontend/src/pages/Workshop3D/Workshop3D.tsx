@@ -576,7 +576,7 @@ export function Workshop3D({ onNavigate, embedded = false, onClose, panoramaUrl 
         raycaster.setFromCamera(mouse, camera);
         const clickableObjects: any[] = [];
         machineModels.forEach(m => {
-          m.group.children.forEach(child => clickableObjects.push(child));
+          m.group.children.forEach((child: THREE.Object3D) => clickableObjects.push(child));
           clickableObjects.push(m.group);
         });
 

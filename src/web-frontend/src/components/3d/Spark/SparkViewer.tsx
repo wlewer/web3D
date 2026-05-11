@@ -509,7 +509,7 @@ export function SparkViewer({
       renderingLockRef.current = true;
       spark.update({ scene: sceneRef.current, camera })
         .then(() => {
-          spark.render(sceneRef.current, camera);
+          spark.render(sceneRef.current!, camera);
           renderingLockRef.current = false;
         })
         .catch(() => {

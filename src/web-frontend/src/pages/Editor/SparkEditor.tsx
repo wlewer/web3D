@@ -3,14 +3,13 @@
  * 基于 @sparkjsdev/spark 引擎实现真正的3D编辑功能
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, message, Space, Slider, Switch } from 'antd';
-import { 
-  SaveOutlined, 
-  UndoOutlined, 
-  RedoOutlined, 
+import {
+  SaveOutlined,
+  UndoOutlined,
+  RedoOutlined,
   DeleteOutlined,
-  ZoomInOutlined,
   RotateRightOutlined,
   DownloadOutlined
 } from '@ant-design/icons';
@@ -43,9 +42,9 @@ export function SparkEditor({ initialModelUrl, onSave }: SparkEditorProps) {
       try {
         setIsLoading(true);
         
-        // 动态导入Spark
-        const SparkModule = await import('@sparkjsdev/spark');
-        const { Spark } = SparkModule;
+        // 动态导入Spark（@sparkjsdev/spark 当前 API 为 SparkRenderer，无 Spark 类）
+        // 此处保留为兼容旧版 API 引用
+        const Spark = (await import('@sparkjsdev/spark') as any).Spark;
 
         // 创建Spark实例
         spark = new Spark({

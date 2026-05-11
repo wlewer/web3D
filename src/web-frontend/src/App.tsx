@@ -69,7 +69,7 @@ function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorksh
           onClick={() => {
             // 点击首页按钮：隐藏3D车间，回到正常首页
             setCurrentPage('home');
-            setShowWorkshopInHome(false);
+            setShowWorkshopInHome?.(false);
           }}
         >
           {t.nav.home}
@@ -117,7 +117,7 @@ function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorksh
             if (currentPage !== 'home') {
               setCurrentPage('home');
             }
-            setShowWorkshopInHome(true);
+            setShowWorkshopInHome?.(true);
           }}
         >
           🏭 {language === 'zh-CN' ? '3D车间' : '3D Workshop'}

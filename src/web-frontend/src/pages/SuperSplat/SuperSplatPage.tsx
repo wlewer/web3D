@@ -43,8 +43,8 @@ const OFFICIAL_SCENES = [
 ];
 
 export function SuperSplatPage() {
-  const { t, language } = useTranslation();
-  const isZh = language === 'zh';
+  const { language } = useTranslation();
+  const isZh = language.startsWith('zh');
   const [loading, setLoading] = useState(true);
   const [selectedScene, setSelectedScene] = useState(0);
 

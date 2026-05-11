@@ -49,7 +49,7 @@ export class SmartCenteringEngine {
     }
   ): FitResult {
     // ★ 关键修复：初始化size和center，避免undefined错误
-    let boundingBox: THREE.Box3;
+    let boundingBox = new THREE.Box3();
     let size = new THREE.Vector3(1, 1, 1);  // 默认值1
     let center = new THREE.Vector3(0, 0, 0);  // 默认值原点
     
@@ -303,62 +303,6 @@ export class SmartCenteringEngine {
     );
     
     return trimmedBox;
-  }
-
-  /**
-   * 获取主导维度
-   * 
-   * @param size 尺寸向量
-   * @param preferAxis 优先轴向
-   * @returns 主导维度的长度
-   */
-  private static getDominantDimension(
-    size: THREE.Vector3,
-    preferAxis: 'auto' | 'x' | 'y' | 'z'
-  ): number {
-    if (preferAxis === 'x') return size.x;
-    if (preferAxis === 'y') return size.y;
-    if (preferAxis === 'z') return size.z;
-    
-    // auto模式：选择最大维度
-    return Math.max(size.x, size.y, size.z);
-  }
-
-  /**
-   * 计算相机距离
-   * 
-   * @param modelSize 模型尺寸
-   * @param fov 视野角度（度）
-   * @param aspect 宽高比
-   * @param margin 边距系数
-   * @returns 相机距离
-   */
-  private static calculateCameraDistance(
-    modelSize: number,
-    fov: number,
-    aspect: number,
-    margin: number
-  ): number {
-    // 将FOV转换为弧度
-    const fovRad = (fov * Math.PI) / 180;
-    
-    // 根据FOV和模型尺寸计算距离
-    // 公式：distance = (modelSize / 2) / tan(fovRad / 2)
-    let distance = (modelSize / 2) / Math.tan(fovRad / 2);
-    
-    // 考虑宽高比（取较大值确保完整显示）
-    if (aspect > 1) {
-      // 横向屏幕，使用垂直FOV
-      distance = distance;
-    } else {
-      // 纵向屏幕，调整距离
-      distance = distance / aspect;
-    }
-    
-    // 应用margin系数
-    distance *= margin;
-    
-    return distance;
   }
 
   /**

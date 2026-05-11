@@ -18,7 +18,6 @@ interface PageProps {
 }
 
 export function Page({
-  page,
   pageIndex,
   currentPage,
   flipProgress,

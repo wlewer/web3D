@@ -399,7 +399,7 @@ export const zhCN = {
     saved: '已保存',
     shared: '已分享',
     medium: '中',
-    export: '导出',
+    exportAction: '导出',
     options: '选项',
   },
 

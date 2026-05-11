@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Button, Alert, Spin, Drawer, Progress, Tag, Popover, message, Modal } from 'antd';
+import { Upload, Button, Alert, Spin, Drawer, Tag, Popover, message, Modal } from 'antd';
 import {
   CloudUploadOutlined,
   PlayCircleOutlined,
@@ -309,8 +309,6 @@ export const ProfessionalGenerationPage: React.FC = () => {
     { key: 'left_front', label: '左前45°', required: false, desc: '左前45°视图（仅3.1版支持）' },
     { key: 'right_front', label: '右前45°', required: false, desc: '右前45°视图（仅3.1版支持）' },
   ] as const;
-  type ViewKey = typeof MAIN_VIEWS[number]['key'] | typeof EXTRA_VIEWS[number]['key'];
-  const ALL_VIEW_TYPES = [...MAIN_VIEWS, ...EXTRA_VIEWS];
   const [multiViewFiles, setMultiViewFiles] = useState<Record<string, File | null>>({
     front: null, back: null, left: null, right: null,
     top: null, bottom: null, left_front: null, right_front: null

@@ -25,7 +25,7 @@ export interface DisplayPlatformProps {
  * @returns THREE.Group 包含平台主体和装饰环
  */
 export function createDisplayPlatform({
-  size = 10,  // 保留参数用于保持接口兼容
+  _size = 10,  // 保留参数用于保持接口兼容
   color = 0xffffff,
   opacity = 0.1,
   segments = 32,

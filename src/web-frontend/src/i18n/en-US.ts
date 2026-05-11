@@ -379,7 +379,7 @@ export const enUS = {
     // Operation History
     operationHistory: 'Operation History',
     // Others
-    mode: 'Current Mode',
+    currentMode: 'Current Mode',
     modelId: 'ID',
     modelCategory: 'Category',
     webgl: 'WebGL Renderer',
@@ -399,7 +399,7 @@ export const enUS = {
     saved: 'Saved',
     shared: 'Shared',
     medium: 'Medium',
-    export: 'Export',
+    exportAction: 'Export',
     options: 'Options',
   },
 

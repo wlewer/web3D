@@ -1,7 +1,5 @@
 // SplatMesh 组件 - 加载和显示 3DGS 模型
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
-import * as THREE from 'three';
 import { SparkRenderer, SplatMesh as SplatMeshType } from '@sparkjsdev/spark';
 import type { SplatMeshConfig, SplatStats } from './spark.types';
 
@@ -31,8 +29,8 @@ export const SplatMesh = forwardRef<SplatMeshRef, SplatMeshProps>(
       getStats: () => stats,
       dispose: () => {
         if (meshRef.current) {
-          meshRef.current.geometry?.dispose();
-          meshRef.current.material?.dispose();
+          (meshRef.current as any).geometry?.dispose();
+          (meshRef.current as any).material?.dispose();
         }
       },
     }));
@@ -77,7 +75,7 @@ export const SplatMesh = forwardRef<SplatMeshRef, SplatMeshProps>(
 
           if (mounted) {
             setStats({
-              pointCount: splat.geometry ? 1000 : 0,
+              pointCount: (splat as any).geometry ? 1000 : 0,
               loaded: true,
               loading: false,
               progress: 100,

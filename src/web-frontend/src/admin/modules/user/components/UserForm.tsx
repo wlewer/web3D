@@ -22,7 +22,7 @@ import {
   UploadOutlined,
 } from '@ant-design/icons';
 import { useTranslate } from '@refinedev/core';
-import type { IUserCreateDTO, IUserUpdateDTO, UserRole, UserStatus } from '../types';
+import type { IUserCreateDTO, IUserUpdateDTO } from '../types';
 import { userApi } from '../api';
 
 const { Option } = Select;

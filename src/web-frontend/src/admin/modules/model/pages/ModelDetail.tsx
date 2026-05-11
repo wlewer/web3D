@@ -15,7 +15,6 @@ import {
   Spin,
   message,
   Statistic,
-  Divider,
 } from 'antd';
 import {
   ArrowLeftOutlined,

@@ -1,5 +1,5 @@
 // 国际化上下文和 Provider
-import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 import { zhCN, type Translations } from './zh-CN';
 import { enUS } from './en-US';
 

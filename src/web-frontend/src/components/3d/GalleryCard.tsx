@@ -50,8 +50,6 @@ export function GalleryCard({
   onClick,
   className = ''
 }: GalleryCardProps) {
-  // 忽略未使用的thumbnail参数
-  const _thumbnail = undefined;
   const handleClick = () => {
     onClick?.(id);
   };
