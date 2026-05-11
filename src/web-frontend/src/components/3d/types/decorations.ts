@@ -52,7 +52,7 @@ export function buildDecorationConfig(
     showLabels,
     products = [],
     language = 'zh-CN',
-    particleSize = 0.3,
+    particleSize = 0.08,
   } = props;
 
   // 根据 layout 决定装饰默认值（对齐 V2 行为）

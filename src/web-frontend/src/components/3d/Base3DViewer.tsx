@@ -357,6 +357,23 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     ctrl.setCenterOffset(orbitCenterYOffset);
   }, [orbitCenterYOffset]);
   
+  // ★ Prop 驱动相机距离（margin变化时平滑重设相机位置，不重新加载模型）
+  useEffect(() => {
+    if (!modelLoaded || !cameraRef.current || !canvasRef.current || !modelRef.current) return;
+    if (!autoCenter) return;
+    // 环绕运行时暂停，避免Tween冲突
+    if (orbitControllerRef.current?.isActive) {
+      orbitControllerRef.current.stop();
+    }
+    smartFitCameraToObject(modelRef.current, cameraRef.current, canvasRef.current, {
+      margin,
+      trimThreshold: 0.05,
+      preferAxis: 'auto',
+      autoCenter: true
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [margin]);
+  
   // ★ 模型加载完成后：如果切换前环绕正在运行，自动重启（以新相机位置重建上下文）
   useEffect(() => {
     if (!modelLoaded) return;
@@ -1859,8 +1876,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
           pointerEvents: 'none',
           zIndex: 10
         }}>
-          {title && <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>{title}</h3>}
-          {subtitle && <p style={{ margin: '4px 0 0 0', fontSize: '14px', opacity: 0.8 }}>{subtitle}</p>}
+          {title && <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', textShadow: '0 0 8px rgba(0,0,0,0.9), 0 2px 4px rgba(0,0,0,0.5)' }}>{title}</h3>}
+          {subtitle && <p style={{ margin: '4px 0 0 0', fontSize: '14px', opacity: 0.85, textShadow: '0 0 6px rgba(0,0,0,0.8)' }}>{subtitle}</p>}
         </div>
       )}
       
@@ -1919,14 +1936,15 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
           position: 'absolute',
           bottom: '20px',
           right: '20px',
-          color: '#ffffff',
-          fontSize: '12px',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          padding: '8px 12px',
+          color: 'rgba(255,255,255,0.7)',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          padding: '4px 10px',
           borderRadius: '4px',
           display: 'flex',
-          gap: '12px',
-          zIndex: 20
+          gap: '10px',
+          zIndex: 20,
+          textShadow: '0 0 6px rgba(0,0,0,0.8)'
         }}>
           <span>3DGS</span>
           <span>FPS: {fps > 0 ? fps : '--'}</span>
@@ -1939,14 +1957,14 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
           position: 'absolute',
           bottom: '20px',
           left: '20px',
-          color: '#ffffff',
-          fontSize: '12px',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          padding: '8px 12px',
+          color: 'rgba(255,255,255,0.6)',
+          fontSize: '11px',
+          padding: '4px 10px',
           borderRadius: '4px',
           display: 'flex',
           gap: '8px',
-          zIndex: 20
+          zIndex: 20,
+          textShadow: '0 0 6px rgba(0,0,0,0.8)'
         }}>
           <span>拖拽旋转</span>
           <span>·</span>
@@ -1954,21 +1972,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         </div>
       )}
       
-      {/* FPS显示（开发模式） */}
-      {import.meta.env.DEV && modelLoaded && (
-        <div style={{
-          position: 'absolute',
-          top: '10px',
-          right: '10px',
-          color: '#00ff00',
-          fontSize: '12px',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          padding: '4px 8px',
-          borderRadius: '4px'
-        }}>
-          DEV FPS: {fps}
-        </div>
-      )}
+      {/* DEV FPS 已移除（与截图按钮冲突，FPS信息由 3DGS 面板提供） */}
     </div>
   );
 });

@@ -137,7 +137,7 @@ export function Week2ComponentsTest() {
   const [margin, setMargin] = useState(saved.margin !== undefined ? saved.margin : 2.8);
   const [lang, setLang] = useState<'zh-CN' | 'en-US'>(saved.lang || 'zh-CN');
   const [bgIdx, setBgIdx] = useState(saved.bgIdx !== undefined ? saved.bgIdx : 0);
-  const [particleSize, setParticleSize] = useState(saved.particleSize !== undefined ? saved.particleSize : 0.3);
+  const [particleSize, setParticleSize] = useState(saved.particleSize !== undefined ? saved.particleSize : 0.05);
   const [autoRotateSpeed, setAutoRotateSpeed] = useState(saved.autoRotateSpeed !== undefined ? saved.autoRotateSpeed : 1.0);
   const [fov, setFov] = useState(saved.fov !== undefined ? saved.fov : 50);
 
@@ -258,6 +258,23 @@ export function Week2ComponentsTest() {
     track('模型加载失败');
   }, [track]);
 
+  // ★ 轮播前后切换
+  const prevModel = useCallback(() => {
+    const currentIdx = TEST_MODELS.findIndex(m => m.id === model.id);
+    const prevIdx = (currentIdx - 1 + TEST_MODELS.length) % TEST_MODELS.length;
+    setModel(TEST_MODELS[prevIdx]);
+    setSavedCamConfig(null);
+    setIsHeroLoading(true);
+  }, [model.id]);
+
+  const nextModel = useCallback(() => {
+    const currentIdx = TEST_MODELS.findIndex(m => m.id === model.id);
+    const nextIdx = (currentIdx + 1) % TEST_MODELS.length;
+    setModel(TEST_MODELS[nextIdx]);
+    setSavedCamConfig(null);
+    setIsHeroLoading(true);
+  }, [model.id]);
+
   // ★ 首页布局：自动轮播6个模型（同首页英雄区效果）
   // ★ 环绕模式时：暂停轮播开关，等环绕周期完成后再切
   useEffect(() => {
@@ -279,6 +296,15 @@ export function Week2ComponentsTest() {
     }, 8000);
     return () => clearInterval(interval);
   }, [autoPlay, layout, model.id, isHeroLoading, orbitEnabled]);
+
+  // ★ 加载超时保护：模型超过15秒未加载完成，强制恢复轮播
+  useEffect(() => {
+    if (!autoPlay || layout !== 'featured' || !isHeroLoading) return;
+    const timer = setTimeout(() => {
+      setIsHeroLoading(false);
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [autoPlay, layout, isHeroLoading]);
 
   // ★ 环绕周期完成时：执行待切换
   const handleOrbitCycleComplete = useCallback(() => {
@@ -472,8 +498,8 @@ export function Week2ComponentsTest() {
             )}
           </section>
 
-          {/* 事件追踪 */}
-          <section className="w2t-panel w2t-panel-results">
+          {/* 事件追踪（调试用，默认隐藏） */}
+          <section className="w2t-panel w2t-panel-results" style={{ display: 'none' }}>
             <h3>📊 事件追踪</h3>
             <div className="w2t-results-grid">
               {events.length === 0 ? (
@@ -512,18 +538,17 @@ export function Week2ComponentsTest() {
                         autoRotate={true}
                         autoRotateSpeed={0.5}
                         showParticles={true}
+                        particleSize={particleSize}
                         showPlatform={false}
                         showLabels={false}
                         showTitle={true}
                         title={`${m.icon} ${m.name}`}
                         subtitle={`${m.format} · ${m.category}`}
-                        showStats={false}
+                        showStats={showStats}
                         onLoadComplete={() => track('网格卡片加载完成')}
                         onError={() => track('网格卡片加载失败')}
                       />
-                    </div>
-                    <div className="w2t-card-footer">
-                      <button className="w2t-card-detail-btn" onClick={e => { e.stopPropagation(); setDetailModel(m); setDetailLayout('featured'); }}>
+                      <button className="w2t-card-detail-overlay" onClick={e => { e.stopPropagation(); setDetailModel(m); setDetailLayout('featured'); }}>
                         🔍 查看详情
                       </button>
                     </div>
@@ -546,18 +571,17 @@ export function Week2ComponentsTest() {
                         autoRotate={true}
                         autoRotateSpeed={0.5}
                         showParticles={true}
+                        particleSize={particleSize}
                         showPlatform={false}
                         showLabels={false}
                         showTitle={true}
                         title={`${m.icon} ${m.name}`}
                         subtitle={`${m.format} · ${m.category}`}
-                        showStats={false}
+                        showStats={showStats}
                         onLoadComplete={() => track('画廊卡片加载完成')}
                         onError={() => track('画廊卡片加载失败')}
                       />
-                    </div>
-                    <div className="w2t-card-footer">
-                      <button className="w2t-card-detail-btn" onClick={e => { e.stopPropagation(); setDetailModel(m); setDetailLayout('gallery'); }}>
+                      <button className="w2t-card-detail-overlay" onClick={e => { e.stopPropagation(); setDetailModel(m); setDetailLayout('gallery'); }}>
                         🔍 查看详情
                       </button>
                     </div>
@@ -604,30 +628,34 @@ export function Week2ComponentsTest() {
                 onScreenshot={() => track('截图事件')}
               />
               
-              {/* ★ 首页布局：顶部轮播指示点 */}
+              {/* ★ 首页布局：顶部轮播控制 - 仿首页样式 */}
               {layout === 'featured' && (
                 <div className="w2t-carousel-indicators">
-                  {TEST_MODELS.map(m => (
-                    <button
-                      key={m.id}
-                      className={`w2t-carousel-dot ${model.id === m.id ? 'active' : ''}`}
-                      onClick={() => {
-                        if (model.id !== m.id) {
-                          setModel(m);
-                          setIsHeroLoading(true);
-                          setSavedCamConfig(null);
-                        }
-                      }}
-                      title={`${m.icon} ${m.name}`}
-                    />
-                  ))}
+                  <button className="w2t-carousel-arrow" onClick={prevModel}>‹</button>
+                  <div className="w2t-carousel-dots">
+                    {TEST_MODELS.map(m => (
+                      <button
+                        key={m.id}
+                        className={`w2t-carousel-dot ${model.id === m.id ? 'active' : ''}`}
+                        onClick={() => {
+                          if (model.id !== m.id) {
+                            setModel(m);
+                            setIsHeroLoading(true);
+                            setSavedCamConfig(null);
+                          }
+                        }}
+                        title={`${m.icon} ${m.name}`}
+                      />
+                    ))}
+                  </div>
+                  <button className="w2t-carousel-arrow" onClick={nextModel}>›</button>
                   <span className="w2t-carousel-sep" />
                   <button
-                    className={`w2t-carousel-autobtn ${autoRotate ? 'on' : ''}`}
-                    onClick={(e) => { e.stopPropagation(); setAutoRotate(!autoRotate); }}
-                    title={autoRotate ? (lang === 'zh-CN' ? '暂停旋转' : 'Pause Rotation') : (lang === 'zh-CN' ? '自动旋转' : 'Auto Rotate')}
+                    className={`w2t-carousel-autobtn ${autoPlay ? 'on' : ''}`}
+                    onClick={(e) => { e.stopPropagation(); setAutoPlay(!autoPlay); }}
+                    title={autoPlay ? (lang === 'zh-CN' ? '暂停轮播' : 'Pause Carousel') : (lang === 'zh-CN' ? '开始轮播' : 'Start Carousel')}
                   >
-                    {autoRotate ? '⏸' : '▶️'}
+                    {autoPlay ? '⏸' : '▶️'}
                   </button>
                 </div>
               )}
@@ -652,27 +680,14 @@ export function Week2ComponentsTest() {
               </span>
             </div>
 
-            {/* 布局模式切换 */}
-            <div className="w2t-modal-layouts">
-              {(['featured', 'grid', 'gallery', 'compact', 'modal'] as LayoutMode[]).map(l => (
-                <button
-                  key={l}
-                  className={`w2t-layout-btn ${detailLayout === l ? 'active' : ''}`}
-                  onClick={() => setDetailLayout(l)}
-                >
-                  {l === 'featured' ? '📺 首页' : l === 'grid' ? '🔲 网格' : l === 'gallery' ? '🖼️ 画廊' : l === 'compact' ? '📦 紧凑' : '💬 弹框'}
-                </button>
-              ))}
-            </div>
-
             {/* 3D 查看器 - 始终使用 V3 */}
             <div className="w2t-modal-viewer">
               <UniversalGaussianCardV3
                 ref={detailViewerRef}
                 modelUrl={detailModel.url}
                 autoCenter={true}
-                margin={detailLayout === 'featured' ? 3.0 : 2.5}
-                layout={detailLayout}
+                margin={2.5}
+                layout="featured"
                 enableControls={true}
                 autoRotate={true}
                 autoRotateSpeed={autoRotateSpeed}
@@ -686,19 +701,17 @@ export function Week2ComponentsTest() {
                 particleSize={particleSize}
                 showTitle={true}
                 title={detailModel.name}
-                subtitle={`${detailModel.format} · ${detailLayout} 布局`}
+                subtitle={`${detailModel.format} · 详情预览`}
                 showStats={true}
-                onScreenshot={() => track('截图事件')}
+                onScreenshot={(dataUrl) => {
+                  track('截图事件');
+                  const a = document.createElement('a');
+                  a.href = dataUrl;
+                  a.download = `${detailModel.name}-${Date.now()}.png`;
+                  a.click();
+                }}
               />
             </div>
-
-          {/* 截图按钮 */}
-            <button className="w2t-modal-screenshot" onClick={() => {
-              const dataUrl = detailViewerRef.current?.screenshot();
-              if (dataUrl) track('截图事件');
-            }}>
-              📷 {lang === 'zh-CN' ? '截图' : 'Screenshot'}
-            </button>
 
             {/* 底部信息 */}
             <div className="w2t-modal-footer">

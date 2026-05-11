@@ -146,7 +146,7 @@ export class SceneDecoration implements SceneDecorationAPI {
 
     const {
       count = 3000,
-      size = 0.1,
+      size = 0.05,
       opacity = 0.6,
       spread = 15,
       colorRange = {

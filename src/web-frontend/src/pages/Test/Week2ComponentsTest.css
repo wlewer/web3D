@@ -277,36 +277,12 @@
   font-size: 12px;
   color: var(--text-dim);
   margin-top: 2px;
-}
-
-.w2t-modal-layouts {
   display: flex;
-  gap: 6px;
-  padding: 8px 20px;
-  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
 }
 
-.w2t-layout-btn {
-  padding: 4px 12px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-dim);
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
 
-.w2t-layout-btn:hover {
-  border-color: var(--accent);
-  color: var(--text);
-}
-
-.w2t-layout-btn.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-}
 
 .w2t-modal-viewer {
   flex: 1;
@@ -316,6 +292,31 @@
   border: 1px solid var(--border);
   background: #000;
   position: relative;
+}
+
+/* 弹框内截图按钮 - 浮动在画布右上角 */
+.w2t-modal-viewer .screenshot-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 30;
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s;
+  line-height: 1;
+  pointer-events: auto;
+}
+
+.w2t-modal-viewer .screenshot-btn:hover {
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .w2t-modal-footer {
@@ -644,7 +645,7 @@
   display: flex;
   overflow: hidden;
   background: var(--bg-primary);
-  min-height: 400px;
+  border-bottom: 1px solid var(--border);
 }
 
 .w2t-viewer {
@@ -689,16 +690,15 @@
   align-content: center;
 }
 
-/* ===== 网格布局（6张独立V3卡片，3列） ===== */
+/* ===== 网格布局（6张独立V3卡片，3列×2行，均匀占据） ===== */
 .w2t-grid-viewer {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 1fr 1fr;
   gap: 12px;
   padding: 12px;
   width: 100%;
   height: 100%;
-  overflow-y: auto;
-  align-content: start;
 }
 
 .w2t-grid-card {
@@ -711,7 +711,7 @@
   transition: all 0.3s ease;
   cursor: pointer;
   position: relative;
-  min-height: 280px;
+  min-height: 0;
 }
 
 .w2t-grid-card:hover {
@@ -722,45 +722,46 @@
 
 .w2t-grid-card .w2t-card-3d {
   flex: 1;
-  min-height: 200px;
   position: relative;
+  min-height: 0;
 }
 
-.w2t-grid-card .w2t-card-footer {
-  padding: 8px 12px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: center;
-}
-
-.w2t-card-detail-btn {
-  padding: 6px 16px;
-  border: 1px solid var(--accent);
-  background: transparent;
-  color: var(--accent);
-  border-radius: 6px;
+/* ===== 内嵌详情按钮（覆盖在3D画布底部） ===== */
+.w2t-card-detail-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 12px 8px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.75));
+  border: none;
+  color: #667eea;
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s;
-  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.3s ease;
+  z-index: 5;
+  letter-spacing: 0.5px;
+  font-weight: 500;
 }
 
-.w2t-card-detail-btn:hover {
-  background: var(--accent);
-  color: white;
-  box-shadow: 0 0 12px var(--accent-glow);
+.w2t-card-detail-overlay:hover {
+  color: #8b9cf7;
+  background: linear-gradient(transparent, rgba(102,126,234,0.4));
 }
 
-/* ===== 画廊布局（响应式网格，2列） ===== */
+/* ===== 画廊布局（2列×3行，均匀占据） ===== */
 .w2t-gallery-viewer {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  padding: 16px;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 14px;
+  padding: 14px;
   width: 100%;
   height: 100%;
-  overflow-y: auto;
-  align-content: start;
 }
 
 .w2t-gallery-card {
@@ -773,7 +774,7 @@
   transition: all 0.3s ease;
   cursor: pointer;
   position: relative;
-  min-height: 320px;
+  min-height: 0;
 }
 
 .w2t-gallery-card:hover {
@@ -784,80 +785,117 @@
 
 .w2t-gallery-card .w2t-card-3d {
   flex: 1;
-  min-height: 240px;
   position: relative;
-}
-
-.w2t-gallery-card .w2t-card-footer {
-  padding: 10px 14px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: center;
+  min-height: 0;
 }
 
 /* ===== 滚动条 ===== */
 
-/* ===== 首页轮播指示点（在查看器顶部） ===== */
+/* ===== 顶部轮播控制 - 仿首页 top-model-switcher 样式 ===== */
 .w2t-carousel-indicators {
   position: absolute;
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
+  background: rgba(15, 15, 35, 0.7);
+  padding: 8px 16px;
+  border-radius: 30px;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  backdrop-filter: blur(10px);
   z-index: 30;
-  padding: 6px 14px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
   pointer-events: auto;
 }
 
-.w2t-carousel-dot {
-  width: 10px;
-  height: 10px;
+/* 左右箭头 - 仿首页 top-switch-btn */
+.w2t-carousel-arrow {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  background: transparent;
+  border: 1px solid rgba(102, 126, 234, 0.5);
+  background: rgba(102, 126, 234, 0.2);
+  color: #667eea;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+}
+.w2t-carousel-arrow:hover {
+  background: rgba(102, 126, 234, 0.4);
+  border-color: #667eea;
+  transform: scale(1.1);
+}
+
+/* 圆点容器 */
+.w2t-carousel-dots {
+  display: flex;
+  gap: 8px;
+}
+
+/* 圆点 - 仿首页 top-model-dot */
+.w2t-carousel-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.2);
   cursor: pointer;
   transition: all 0.3s ease;
   padding: 0;
 }
-
 .w2t-carousel-dot.active {
-  background: var(--accent, #667eea);
-  border-color: var(--accent, #667eea);
-  box-shadow: 0 0 8px rgba(102, 126, 234, 0.6);
+  border-color: #667eea;
+  background: #667eea;
+  transform: scale(1.3);
+  box-shadow: 0 0 10px #667eea;
+}
+.w2t-carousel-dot:hover {
+  border-color: #667eea;
   transform: scale(1.2);
 }
 
-/* ★ 首页轮播自动旋转按钮 */
+/* 分隔线 */
+.w2t-carousel-sep {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+/* 暂停/播放按钮 - 仿首页 top-autoplay-btn */
 .w2t-carousel-autobtn {
-  width: 24px;
-  height: 24px;
-  border: 2px solid rgba(255,255,255,.4);
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  background: transparent;
-  color: #ccc;
+  border: 2px solid rgba(102, 126, 234, 0.5);
+  background: rgba(15, 15, 35, 0.7);
+  color: white;
+  font-size: 16px;
   cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  transition: all .15s;
   padding: 0;
   line-height: 1;
 }
-.w2t-carousel-autobtn:hover { color: #fff; border-color: #fff; }
-.w2t-carousel-autobtn.on { background: rgba(102,126,234,.5); border-color: var(--accent, #667eea); color: #fff; }
-.w2t-carousel-sep {
-  width: 1px;
-  height: 14px;
-  background: rgba(255,255,255,.25);
-  margin: 0 2px;
-  display: inline-block;
+.w2t-carousel-autobtn:hover {
+  background: rgba(102, 126, 234, 0.3);
+  border-color: #667eea;
+  transform: scale(1.1);
 }
+.w2t-carousel-autobtn.on {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.2);
+}
+
 
 /* ★ FOV快速预设 */
 .w2t-fov-presets {
@@ -880,22 +918,7 @@
 .w2t-fov-preset:hover { color: #eee; border-color: #888; }
 .w2t-fov-preset.active { background: #2a6ea8; border-color: #2a6ea8; color: #fff; }
 
-/* ★ 详情弹框截图按钮 */
-.w2t-modal-screenshot {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 10;
-  padding: 4px 10px;
-  background: rgba(0,0,0,.5);
-  border: 1px solid #555;
-  border-radius: 6px;
-  color: #ccc;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all .15s;
-}
-.w2t-modal-screenshot:hover { background: rgba(0,0,0,.7); color: #fff; }
+
 
 .w2t-carousel-dot:hover {
   border-color: white;

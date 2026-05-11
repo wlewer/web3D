@@ -40,6 +40,12 @@ logs/
 
 # Uploads
 uploads/
+
+# TypeScript error logs
+ts-err.txt
+ts-errors.txt
+
+# Other logs
 *.tmp
 
 # 3D Model Files (too large)

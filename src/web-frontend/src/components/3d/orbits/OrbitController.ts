@@ -202,9 +202,10 @@ export class OrbitController {
 
     this.params = { ...this.params, [this.currentMode.meta.id]: modeParams };
 
-    // 如果正在运行，重启以应用新参数
+    // ★ 修复：不再全量 restartAnimation（避免重建上下文导致距离变化）
+    // 改用轻量 _restartTween 仅重建 tween，保持原始轨道半径不变
     if (this._active && this._baseContext) {
-      this.restartAnimation();
+      this._restartTween();
     }
   }
 
@@ -377,9 +378,10 @@ export class OrbitController {
 
     this._speed = clamped;
 
-    // 如果正在运行，重启以应用新速度
+    // ★ 修复：不再全量 restartAnimation（避免重建上下文导致距离变化）
+    // 改用轻量 _restartTween 仅重建 tween，保持原始轨道半径不变
     if (this._active) {
-      this.restartAnimation();
+      this._restartTween();
     }
 
     console.log(`[OrbitController] 速度: ${this._speed.toFixed(1)}x`);
@@ -422,10 +424,13 @@ export class OrbitController {
    */
   setCenterOffset(offset: number): void {
     if (Math.abs(offset - this._centerYOffset) < 0.001) return;
+    const oldOffset = this._centerYOffset;
     this._centerYOffset = offset;
-    // 如果正在运行，重建上下文使偏移生效
-    if (this._active) {
-      this.restartAnimation();
+    // ★ 修复：不重启 Tween！只更新 baseHeight 补偿，使偏移变化不引起跳跃
+    // 因为 createTween 的 onUpdate 中 this._centerYOffset 是引用值，每次帧更新都会读取最新值
+    if (this._active && this._baseContext) {
+      // 调整 baseHeight 补偿：旧值 → 新值，使 post-processing 后相机 Y 位置不变
+      this._baseContext.baseHeight += (oldOffset - offset);
     }
   }
   
@@ -453,8 +458,9 @@ export class OrbitController {
   private buildContext(): OrbitContext {
     // ★ 关键修复：同步中心点到当前 controls.target，防止智能居中后中心点过期
     this.center.copy(this.controls.target);
-    // 应用垂直偏移（不改变 controls.target，仅调整轨道中心）
-    this.center.y += this._centerYOffset;
+    // ★ 修复：_centerYOffset 不再污染 center（center 用于 target 和 baseDistance 计算），
+    // 改为在 createTween 的 onUpdate 中作为后处理应用到相机 position.y
+    // ★ baseHeight 补偿：减去 _centerYOffset，使 post-processing 后 t=0 位置匹配当前相机位置不跳跃
       
     const startPos = this.camera.position.clone();
     const baseDist = startPos.distanceTo(this.center);
@@ -468,7 +474,7 @@ export class OrbitController {
       controls: this.controls,
       center: this.center.clone(),
       baseDistance: baseDist < 0.01 ? 5 : baseDist,
-      baseHeight: startPos.y,
+      baseHeight: startPos.y - this._centerYOffset,
       startAngle,
     };
   }
@@ -494,6 +500,10 @@ export class OrbitController {
       .easing(Easing.Linear.None)
       .onUpdate(({ t }) => {
         const snapshot = mode.getPosition(t, ctx, modeParams);
+
+        // ★ 修复：中心垂直偏移作为后处理，仅影响相机Y轴位置
+        // 不影响 baseDistance（轨道半径）和 target（相机关注点）
+        snapshot.position.y += this._centerYOffset;
 
         // 更新相机位置
         this.camera.position.copy(snapshot.position);
@@ -543,6 +553,25 @@ export class OrbitController {
     this.stop();
     this._active = true;
     this.start(this.calcDuration());
+  }
+
+  /** ★ 轻量重启 Tween（参数变化时使用，不重建完整上下文，保持原始轨道半径） */
+  private _restartTween(): void {
+    if (this.tween) {
+      this.tween.stop();
+      this.tween.remove();
+      this.tween = null;
+    }
+    if (this._baseContext) {
+      // ★ 保持原始 baseDistance 不变（防止轨道半径抖动导致模型忽大忽小）
+      // 仅同步当前相机角度和高度，使新周期从当前位置附近开始
+      this._baseContext.baseHeight = this.camera.position.y - this._centerYOffset;
+      this._baseContext.startAngle = Math.atan2(
+        this.camera.position.x - this._baseContext.center.x,
+        this.camera.position.z - this._baseContext.center.z
+      );
+      this.createTween(this.calcDuration());
+    }
   }
 
   /**
