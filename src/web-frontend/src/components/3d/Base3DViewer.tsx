@@ -1925,7 +1925,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
           padding: '8px 12px',
           borderRadius: '4px',
           display: 'flex',
-          gap: '12px'
+          gap: '12px',
+          zIndex: 20
         }}>
           <span>3DGS</span>
           <span>FPS: {fps > 0 ? fps : '--'}</span>
@@ -1944,7 +1945,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
           padding: '8px 12px',
           borderRadius: '4px',
           display: 'flex',
-          gap: '8px'
+          gap: '8px',
+          zIndex: 20
         }}>
           <span>拖拽旋转</span>
           <span>·</span>
