@@ -21,7 +21,6 @@ import {
   LockOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
-import { useTranslate } from '@refinedev/core';
 import type { IUserCreateDTO, IUserUpdateDTO } from '../types';
 import { userApi } from '../api';
 
@@ -43,7 +42,6 @@ export const UserForm: React.FC<UserFormProps> = ({
   onSuccess,
   onCancel,
 }) => {
-  const translate = useTranslate();
   const [form] = Form.useForm();
   const [loading, setLoading] = React.useState(false);
   const [avatarUrl, setAvatarUrl] = React.useState<string>('');

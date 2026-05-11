@@ -417,7 +417,7 @@ export const UniversalGaussianCardV2 = forwardRef<UniversalGaussianCardRef, Univ
       console.log(' 开始智能居中算法...');
       
       // 关键修复：初始化size和center，避免undefined错误
-      let boundingBox: THREE.Box3;
+      let boundingBox = new THREE.Box3();
       let size = new THREE.Vector3(1, 1, 1);  // 默认值1
       let center = new THREE.Vector3(0, 0, 0);  // 默认值原点
       
@@ -1378,7 +1378,7 @@ export const UniversalGaussianCardV2 = forwardRef<UniversalGaussianCardRef, Univ
       renderingLockRef.current = true;
       spark.update({ scene: sceneRef.current, camera })
         .then(() => {
-          spark.render(sceneRef.current, camera);
+          spark.render(sceneRef.current!, camera);
           renderingLockRef.current = false;
         })
         .catch(() => {

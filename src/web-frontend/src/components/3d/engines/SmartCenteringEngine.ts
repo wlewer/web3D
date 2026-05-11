@@ -265,45 +265,7 @@ export class SmartCenteringEngine {
     return trimmedBox.getSize(new THREE.Vector3());
   }
 
-  /**
-   * 简化的百分位裁剪（基于包围盒缩放，用于快速估算）
-   * 
-   * @param box 原始包围盒
-   * @param threshold 裁剪阈值（0-1之间）
-   * @returns 裁剪后的包围盒
-   */
-  private static trimEmptySpace(box: THREE.Box3, threshold: number): THREE.Box3 {
-    if (threshold <= 0 || threshold >= 1) {
-      return box.clone();
-    }
-    
-    const min = box.min.clone();
-    const max = box.max.clone();
-    const size = new THREE.Vector3().subVectors(max, min);
-    
-    // 计算裁剪量
-    const trimAmount = size.clone().multiplyScalar(threshold / 2);
-    
-    // 应用裁剪
-    min.add(trimAmount);
-    max.sub(trimAmount);
-    
-    // 确保min < max
-    const trimmedBox = new THREE.Box3(
-      new THREE.Vector3(
-        Math.min(min.x, max.x),
-        Math.min(min.y, max.y),
-        Math.min(min.z, max.z)
-      ),
-      new THREE.Vector3(
-        Math.max(min.x, max.x),
-        Math.max(min.y, max.y),
-        Math.max(min.z, max.z)
-      )
-    );
-    
-    return trimmedBox;
-  }
+
 
   /**
    * 验证配置有效性
