@@ -17,6 +17,7 @@ import {
   Row,
   Col,
   Statistic,
+  Tooltip,
 } from 'antd';
 import {
   PlusOutlined,
@@ -27,6 +28,8 @@ import {
   CloseCircleOutlined,
   ReloadOutlined,
   BoxPlotOutlined,
+  FolderOutlined,
+  CopyOutlined,
 } from '@ant-design/icons';
 import { useList } from '@refinedev/core';
 import type { IModel, ModelStatus, ModelCategory } from '../types';
@@ -60,6 +63,52 @@ const formatMap: Record<string, string> = {
   obj: 'OBJ',
   ply: 'PLY',
   splat: 'Splat (3DGS)',
+  spz: '3DGS',
+};
+
+// 格式对应的颜色
+const formatColors: Record<string, string> = {
+  glb: '#1677ff',
+  gltf: '#52c41a',
+  fbx: '#fa8c16',
+  obj: '#faad14',
+  ply: '#722ed1',
+  splat: '#eb2f96',
+  spz: '#13c2c2',
+};
+
+// 格式缩略图占位组件
+const FormatPlaceholder: React.FC<{ format: string; fileSize: number }> = ({ format, fileSize }) => {
+  const fmt = (format || 'glb').toLowerCase();
+  const color = formatColors[fmt] || '#1677ff';
+  const label = formatMap[fmt] || fmt.toUpperCase();
+  const sizeText = fileSize
+    ? fileSize < 1024 * 1024
+      ? `${(fileSize / 1024).toFixed(0)}KB`
+      : `${(fileSize / (1024 * 1024)).toFixed(1)}MB`
+    : '';
+  return (
+    <div
+      style={{
+        width: 60,
+        height: 60,
+        borderRadius: 4,
+        background: color + '15',
+        border: '1px solid ' + color + '30',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 12,
+        fontWeight: 600,
+        color: color,
+        flexShrink: 0,
+      }}
+    >
+      <span style={{ fontSize: 13, lineHeight: 1.2 }}>{label}</span>
+      {sizeText && <span style={{ fontSize: 9, fontWeight: 400, opacity: 0.7, marginTop: 2 }}>{sizeText}</span>}
+    </div>
+  );
 };
 
 export const ModelList: React.FC = () => {
@@ -72,6 +121,8 @@ export const ModelList: React.FC = () => {
   const [previewModel, setPreviewModel] = useState<IModel | null>(null);
   const [statsData, setStatsData] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [current, setCurrent] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // 获取统计信息
   useEffect(() => {
@@ -84,8 +135,8 @@ export const ModelList: React.FC = () => {
   const listHook: any = useList<IModel>({
     resource: 'models',
     pagination: {
-      current: 1,
-      pageSize: 10,
+      current,
+      pageSize,
     },
     filters: [
       ...(searchText ? [{ field: 'name', operator: 'contains' as const, value: searchText }] : []),
@@ -111,13 +162,18 @@ export const ModelList: React.FC = () => {
       width: 250,
       render: (_: string, record: IModel) => (
         <Space>
-          <Image
-            src={record.thumbnailUrl || '/placeholder-3d.png'}
-            width={60}
-            height={60}
-            style={{ objectFit: 'cover', borderRadius: 4 }}
-            fallback="/placeholder-3d.png"
-          />
+          {record.thumbnailUrl ? (
+            <Image
+              src={record.thumbnailUrl}
+              width={60}
+              height={60}
+              style={{ objectFit: 'cover', borderRadius: 4 }}
+              fallback="/placeholder-3d.png"
+              preview={false}
+            />
+          ) : (
+            <FormatPlaceholder format={record.format} fileSize={record.fileSize} />
+          )}
           <div>
             <div style={{ fontWeight: 500 }}>{record.name}</div>
             <div style={{ fontSize: 12, color: '#999' }}>
@@ -164,10 +220,71 @@ export const ModelList: React.FC = () => {
       render: (count?: number) => count?.toLocaleString() || '-',
     },
     {
+      title: '文件路径',
+      dataIndex: 'modelUrl',
+      key: 'modelUrl',
+      width: 200,
+      ellipsis: true,
+      render: (url: string) => {
+        if (!url) return '-';
+        // 提取可读的路径部分
+        let displayPath = url;
+        // 去除 http:// 或 https:// 前缀
+        const httpIdx = displayPath.indexOf('//');
+        if (httpIdx !== -1) {
+          displayPath = displayPath.substring(httpIdx + 2);
+          const slashIdx = displayPath.indexOf('/');
+          if (slashIdx !== -1) {
+            displayPath = displayPath.substring(slashIdx);
+          }
+        }
+        // 简化 generation-models 路径
+        const genPrefix = '/generation-models/';
+        if (displayPath.startsWith(genPrefix)) {
+          displayPath = '<生成目录>' + displayPath.substring(genPrefix.length - 1);
+        }
+        return (
+          <Tooltip title={'完整路径: ' + url}>
+            <Space
+              size={4}
+              style={{ cursor: 'pointer', fontSize: 12, color: '#888' }}
+              onClick={() => {
+                navigator.clipboard.writeText(url);
+                message.success('路径已复制');
+              }}
+            >
+              <FolderOutlined style={{ color: '#faad14' }} />
+              <span style={{ maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block' }}>
+                {displayPath}
+              </span>
+              <CopyOutlined style={{ fontSize: 10, color: '#bbb' }} />
+            </Space>
+          </Tooltip>
+        );
+      },
+    },
+    {
       title: '创建时间',
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 180,
+      render: (date: string) => {
+        if (!date) return '-';
+        try {
+          const d = new Date(date);
+          if (isNaN(d.getTime())) return date;
+          return d.toLocaleString('zh-CN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          });
+        } catch {
+          return date;
+        }
+      },
     },
     {
       title: '操作',
@@ -270,42 +387,43 @@ export const ModelList: React.FC = () => {
   };
 
   return (
-    <div>
-      {/* 统计卡片 */}
-      <Row gutter={16} style={{ marginBottom: 24 }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* 统计卡片 - 紧凑布局 */}
+      <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
         <Col span={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="总模型数"
               value={statsData?.total ?? total}
               prefix={<BoxPlotOutlined />}
+              valueStyle={{ fontSize: 16 }}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="待审核"
               value={statsData?.pending ?? 0}
-              valueStyle={{ color: '#faad14' }}
+              valueStyle={{ color: '#faad14', fontSize: 16 }}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="已通过"
               value={statsData?.approved ?? 0}
-              valueStyle={{ color: '#52c41a' }}
+              valueStyle={{ color: '#52c41a', fontSize: 16 }}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card size="small">
             <Statistic
               title="已驳回"
               value={statsData?.rejected ?? 0}
-              valueStyle={{ color: '#ff4d4f' }}
+              valueStyle={{ color: '#ff4d4f', fontSize: 16 }}
             />
           </Card>
         </Col>
@@ -368,22 +486,36 @@ export const ModelList: React.FC = () => {
       </Card>
 
       {/* 数据表格 */}
-      <Card>
-        <Table
-          rowKey="id"
-          columns={columns}
-          dataSource={data}
-          loading={isLoading}
-          pagination={{
-            current: 1,
-            pageSize: 10,
-            total: total,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 条`,
-          }}
-          scroll={{ x: 1200 }}
-        />
+      <Card
+        styles={{ body: { padding: 0 } }}
+        style={{
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          <Table
+            rowKey="id"
+            columns={columns}
+            dataSource={data}
+            loading={isLoading}
+            pagination={{
+              current,
+              pageSize,
+              total,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total) => `共 ${total} 条`,
+              onChange: (page, size) => {
+                setCurrent(page);
+                setPageSize(size);
+              },
+            }}
+            scroll={{ y: 'calc(100vh - 440px)', x: 1200 }}
+          />
+        </div>
       </Card>
 
       {/* 3D模型预览弹窗 */}

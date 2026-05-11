@@ -3,5 +3,5 @@
  */
 
 export { ExperimentalGeneration } from './pages/GenerationPage';
-export { SparkEditorPage } from './pages/SparkEditorPage';
+export { ThreepipeEditorPage } from './pages/ThreepipeEditorPage';
 export { SuperSplatPage } from './pages/SuperSplatPage';

@@ -1,0 +1,378 @@
+/**
+ * NewArchitectureTest 样式
+ */
+
+/**
+ * NewArchitectureTest 新架构测试页面样式
+ */
+
+.new-architecture-test {
+  padding: 20px;
+  max-width: 1600px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+/* 头部 */
+.test-header {
+  text-align: center;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  color: white;
+}
+
+.test-header h1 {
+  margin: 0 0 6px 0;
+  font-size: 28px;
+}
+
+.test-header p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* ===== 左右布局 ===== */
+.test-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* 左侧控制面板 */
+.test-sidebar {
+  width: 280px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 右侧视图器 */
+.test-viewer-area {
+  flex: 1;
+  min-height: 600px;
+}
+
+/* 控制面板分组 */
+.control-section {
+  background: white;
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.control-section h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #333;
+  font-weight: 700;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.control-section.results {
+  background: #f8f9fa;
+}
+
+/* 导航 */
+.test-nav-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nav-btn {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.nav-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+.nav-btn.active {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+/* 模型选择 */
+.model-list-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.model-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #eee;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.model-btn:hover {
+  border-color: #667eea;
+}
+
+.model-btn.active {
+  background: #eef2ff;
+  border-color: #667eea;
+}
+
+.model-icon {
+  font-size: 18px;
+}
+
+.model-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.model-format {
+  font-size: 11px;
+  color: #999;
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* 开关 */
+.switch-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.switch-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.switch-label {
+  color: #444;
+}
+
+/* 控制行 */
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 13px;
+  color: #444;
+}
+
+.toggle-btn {
+  padding: 4px 10px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+}
+
+/* 布局选择 */
+.layout-select {
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 12px;
+  background: white;
+  cursor: pointer;
+  min-width: 100px;
+}
+
+/* 颜色 */
+.color-group {
+  display: flex;
+  gap: 4px;
+}
+
+.color-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.color-dot:hover {
+  transform: scale(1.15);
+}
+
+.color-dot.active {
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px white, 0 0 0 4px #667eea;
+}
+
+/* 相机操作 */
+.cam-ops {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cam-btn {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 5px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1;
+  text-align: center;
+  min-width: 60px;
+}
+
+.cam-btn:hover {
+  border-color: #667eea;
+  color: #667eea;
+  background: #f0f4ff;
+}
+
+.cam-msg {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #22c55e;
+  padding: 4px 8px;
+  background: #f0fdf4;
+  border-radius: 4px;
+}
+
+/* 测试统计 */
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.no-results {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+  padding: 10px;
+}
+
+.result-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.result-item.success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.result-item.fail {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.result-summary {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #eef2ff;
+  border-radius: 5px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #667eea;
+}
+
+/* ===== 视图器 ===== */
+.test-viewer {
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0a0a0f;
+}
+
+/* 画廊 */
+.test-gallery {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 1024px) {
+  .test-layout {
+    flex-direction: column;
+  }
+  .test-sidebar {
+    width: 100%;
+    min-width: auto;
+  }
+  .test-viewer {
+    min-height: 400px;
+  }
+  .test-viewer-area {
+    min-height: 400px;
+  }
+}
+
+@media (max-width: 640px) {
+  .new-architecture-test {
+    padding: 10px;
+  }
+  .test-header h1 {
+    font-size: 22px;
+  }
+  .cam-ops {
+    flex-direction: column;
+  }
+  .gallery-grid {
+    grid-template-columns: 1fr;
+  }
+}

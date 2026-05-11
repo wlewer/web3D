@@ -198,4 +198,31 @@ export default {
     maxLength: '{field}长度不能超过{max}个字符',
     pattern: '{field}格式不正确',
   },
+
+  // AI生成实验模块
+  experimental: {
+    title: 'AI生成实验',
+    generation: {
+      title: '3D生成',
+      subtitle: '使用 AI 从图片生成 3D 模型',
+    },
+    threepipeEditor: {
+      title: 'Threepipe 3D编辑器',
+      subtitle: '基于 threepipe 的全功能 3D 编辑器，支持多格式拖拽导入',
+      initLoading: '初始化 3D 编辑器...',
+      switchLangToEn: '切换到英文',
+      switchLangToZh: '切换到中文',
+    },
+    supersplat: {
+      title: 'SuperSplat 编辑器',
+      subtitle: '3D 高斯泼溅点云编辑器',
+      loading: '正在加载 SuperSplat 编辑器...',
+      loadError: '编辑器加载失败，请确保后端服务运行在 http://localhost:8000',
+      loadErrorTitle: '加载错误',
+    },
+    officialModel: {
+      title: '3D官方模型',
+      subtitle: '浏览和管理官方提供的 3D 模型资源',
+    },
+  },
 };

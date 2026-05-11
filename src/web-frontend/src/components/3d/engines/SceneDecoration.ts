@@ -146,9 +146,9 @@ export class SceneDecoration implements SceneDecorationAPI {
 
     const {
       count = 3000,
-      size = 0.05,
+      size = 0.1,
       opacity = 0.6,
-      spread = 30,
+      spread = 15,
       colorRange = {
         r: [0.4, 0.7],
         g: [0.3, 0.5],
@@ -218,7 +218,6 @@ export class SceneDecoration implements SceneDecorationAPI {
       platformY = -1
     } = config;
 
-    // ✅ 对齐V2：平台和环作为独立对象添加到scene
     // 平台主体（圆柱体）
     const platformGeometry = new THREE.CylinderGeometry(0.8, 1, 0.3, 32);
     const platformMaterial = new THREE.MeshStandardMaterial({
@@ -228,8 +227,7 @@ export class SceneDecoration implements SceneDecorationAPI {
     });
     const platform = new THREE.Mesh(platformGeometry, platformMaterial);
     platform.position.y = platformY;
-    platform.name = 'platform';  // ✅ 对齐V2
-    this.scene.add(platform);
+    platform.name = 'platform';
 
     // 装饰环
     const ringGeometry = new THREE.RingGeometry(0.9, 0.95, 64);
@@ -241,15 +239,15 @@ export class SceneDecoration implements SceneDecorationAPI {
     });
     const ring = new THREE.Mesh(ringGeometry, ringMaterial);
     ring.rotation.x = Math.PI / 2;
-    ring.position.y = platformY + 0.15;  // ✅ 对齐V2：-1 + 0.15 = -0.85
-    ring.name = 'ring';  // ✅ 对齐V2
-    this.scene.add(ring);
+    ring.position.y = platformY + 0.15;
+    ring.name = 'ring';
     
-    // 保存引用以便清理
+    // 放到同一个Group，然后将Group添加到场景
     this.platformGroup = new THREE.Group();
     this.platformGroup.add(platform);
     this.platformGroup.add(ring);
     this.platformGroup.name = 'scene-decoration-platform';
+    this.scene.add(this.platformGroup);
     console.log('🏛️ 展示台已创建');
   }
 
@@ -258,10 +256,9 @@ export class SceneDecoration implements SceneDecorationAPI {
    */
   private removePlatform(): void {
     if (this.platformGroup) {
-      // ✅ 对齐V2：平台和环是独立添加到scene的，需要分别移除
+      this.scene.remove(this.platformGroup);
       this.platformGroup.traverse((child) => {
         if (child instanceof THREE.Mesh) {
-          this.scene.remove(child);
           child.geometry.dispose();
           if (Array.isArray(child.material)) {
             child.material.forEach(m => m.dispose());
@@ -287,7 +284,8 @@ export class SceneDecoration implements SceneDecorationAPI {
 
     this.labelsGroup = new THREE.Group();
     this.labelsGroup.name = 'scene-decoration-labels';
-    this.labelsGroup.visible = false; // 初始隐藏，加载完成后显示
+    // ★ 修复：标签创建后默认可见（原为隐藏等待模型加载后显示，但 Spark 错误时会永久隐藏）
+    this.labelsGroup.visible = true;
     this.scene.add(this.labelsGroup);
 
     // 为每个产品创建标签

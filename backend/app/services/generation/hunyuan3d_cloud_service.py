@@ -21,7 +21,7 @@ import base64
 import asyncio
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, List
 import logging
 import aiohttp
 from PIL import Image
@@ -128,8 +128,10 @@ class Hunyuan3DCloudService:
         image_path: str,
         output_path: str,
         prompt: str = None,
-        result_format: str = "glb",
-        progress_callback: Optional[callable] = None  # 进度回调函数，参数为 progress 0-100
+        result_format: str = "GLB",
+        progress_callback: Optional[callable] = None,  # 进度回调函数，参数为 progress 0-100
+        multi_view_images: Optional[Dict[str, str]] = None,  # {view_type: base64_data}
+        enable_pbr: Optional[bool] = None  # 是否开启PBR材质
     ) -> Dict[str, Any]:
         """
         从图片生成3D模型
@@ -139,6 +141,9 @@ class Hunyuan3DCloudService:
             output_path: 输出GLB文件路径
             prompt: 可选的文本提示
             result_format: 输出格式（glb/obj）
+            multi_view_images: 多视角图片base64字典（仅专业版3.1支持）；
+                                键: 'left', 'right', 'back'；值: base64编码
+            enable_pbr: 是否开启PBR材质（仅专业版3.1支持）
             
         Returns:
             dict: {
@@ -162,7 +167,10 @@ class Hunyuan3DCloudService:
             # 2. 提交生成任务
             task_id = await self._submit_task(
                 image_base64=image_base64,
-                prompt=prompt
+                prompt=prompt,
+                result_format=result_format,
+                multi_view_images=multi_view_images,
+                enable_pbr=enable_pbr
             )
             
             logger.info(f"[Hunyuan3D Cloud] 任务已提交: {task_id}")
@@ -232,7 +240,10 @@ class Hunyuan3DCloudService:
     async def _submit_task(
         self,
         image_base64: str,
-        prompt: str = None
+        prompt: str = None,
+        result_format: str = "GLB",
+        multi_view_images: Optional[Dict[str, str]] = None,
+        enable_pbr: Optional[bool] = None
     ) -> str:
         """提交3D生成任务（使用腾讯云官方SDK）
         
@@ -241,6 +252,14 @@ class Hunyuan3DCloudService:
         - Prompt和ImageBase64/ImageUrl不能同时存在
         - 图片格式：jpg, png, jpeg, webp
         - 图片大小：单边分辨率128-5000，≤6MB（base64编码后约8MB）
+        
+        Args:
+            image_base64: 图片base64编码
+            prompt: 文本提示
+            result_format: 输出格式（glb/obj），默认glb
+            multi_view_images: 多视角图片base64字典（仅专业版3.1支持）
+                                键: 'left', 'right', 'back'；值: base64编码
+            enable_pbr: 是否开启PBR材质（仅专业版3.1支持）
         """
         try:
             # 根据版本选择请求模型
@@ -259,6 +278,32 @@ class Hunyuan3DCloudService:
                 req.Prompt = prompt
             else:
                 raise ValueError("必须提供ImageBase64或Prompt其中之一")
+            
+            # 明确指定输出格式（国际站默认返回OBJ，必须显式指定GLB）
+            if result_format:
+                req.ResultFormat = result_format
+            
+            # ---- 以下为多视角图片支持（仅专业版3.1） ----
+            if multi_view_images and self.version == "pro":
+                # 设置模型版本为3.1（多视角仅3.1支持）
+                req.Model = "3.1"
+                
+                # 构建MultiViewImages列表
+                view_images = []
+                for view_type, view_base64 in multi_view_images.items():
+                    if view_base64:
+                        view_image = models.ViewImage()
+                        view_image.ViewType = view_type  # 'left', 'right', 'back'
+                        view_image.ViewImageBase64 = view_base64
+                        view_images.append(view_image)
+                        logger.info(f"[Hunyuan3D Cloud] 添加多视角图片: {view_type}")
+                
+                if view_images:
+                    req.MultiViewImages = view_images
+            
+            # 设置PBR材质（仅专业版3.1支持）
+            if enable_pbr is not None and self.version == "pro":
+                req.EnablePBR = enable_pbr
             
             # 调用API（在线程池中执行，避免阻塞事件循环）
             if self.version == "pro":

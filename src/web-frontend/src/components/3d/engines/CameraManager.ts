@@ -283,7 +283,7 @@ export class CameraManager {
    * @param controls 控制器（可选）
    */
   static dispose(
-    camera: THREE.PerspectiveCamera,
+    _camera: THREE.PerspectiveCamera,
     controls: OrbitControls | null
   ): void {
     if (controls) {

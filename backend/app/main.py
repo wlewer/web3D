@@ -94,6 +94,15 @@ def create_application() -> FastAPI:
         else:
             logger.warning(f"Static directory not found")
     
+    # 挂载生成模型的静态文件目录（用于浏览器直接访问自动保存的生成模型）
+    gen_models_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads", "generation")
+    gen_models_dir_abs = os.path.abspath(gen_models_dir)
+    if os.path.exists(gen_models_dir_abs):
+        application.mount("/generation-models", StaticFiles(directory=gen_models_dir_abs), name="generation-models")
+        logger.info(f"Generation models mounted from: {gen_models_dir_abs}")
+    else:
+        logger.warning(f"Generation models directory not found: {gen_models_dir_abs}")
+    
     # 启动事件
     @application.on_event("startup")
     async def startup_event():

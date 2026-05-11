@@ -1,5 +1,20 @@
 {
-  "dependencies": {
-    "@tweenjs/tween.js": "^25.0.0"
-  }
+  "name": "web3d",
+  "version": "1.0.0",
+  "description": "基于 **React + Spark.js (Three.js-based 3DGS)** 的3D Gaussian Splatting技术官网，实现真实3DGS模型流畅渲染和手机拍照建模功能。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://gitee.com/kk357924266/web3D.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
 }

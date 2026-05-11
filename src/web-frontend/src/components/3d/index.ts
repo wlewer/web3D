@@ -34,7 +34,6 @@ export {
   createDisplayPlatform, 
   updateDisplayPlatform, 
   disposeDisplayPlatform,
-  DisplayPlatformComponent,
   ProductLabels,
   createLabelMarker,
   createLabelMarkers

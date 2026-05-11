@@ -6,4 +6,3 @@ export { UploadPage } from './Upload';
 export { SparkShowcase } from './Showcase/SparkShowcase';
 export { BookViewerPage } from './BookViewer';
 export { BookGalleryPage } from './BookGallery';
-export { GenerationPage } from './Generation';

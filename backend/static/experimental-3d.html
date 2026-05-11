@@ -474,6 +474,8 @@
                         auto-rotate-delay="0"
                         rotation-per-second="30deg"
                         interaction-prompt="auto"
+                        loading="eager"
+                        reveal="auto"
                         ar>
                     </model-viewer>
                 </div>
@@ -481,7 +483,8 @@
         </div>
     </div>
     
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@3.1.1/dist/model-viewer.min.js"></script>
+    <!-- 离线模式：使用本地model-viewer库（不依赖CDN） -->
+    <script type="module" src="/app/model-viewer.min.js"></script>
     
     <script>
         const API_BASE = '/api/v1';
@@ -795,30 +798,56 @@
             const modelViewer = document.getElementById('modelViewer');
             const emptyState = document.getElementById('emptyState');
             const downloadBtn = document.getElementById('downloadBtn');
-            
             const modelUrl = `${API_BASE}/experimental/download/${currentTaskId}`;
-            console.log('[Experimental] Loading model from:', modelUrl);
             
-            // 设置src并显示
+            console.log('[Experimental] Loading model from:', modelUrl);
+            updateProgress(95, '正在加载3D模型...');
+            
             modelViewer.src = modelUrl;
             modelViewer.style.display = 'block';
             emptyState.style.display = 'none';
             
-            // 监听加载事件
-            modelViewer.addEventListener('load', () => {
-                console.log('[Experimental] Model loaded successfully');
+            let loadingAttempts = 0;
+            const maxAttempts = 3;
+            
+            // 加载进度
+            modelViewer.addEventListener('progress', (e) => {
+                if (e.detail && e.detail.totalProgress) {
+                    const pct = Math.round(e.detail.totalProgress * 100);
+                    updateProgress(95, `正在加载3D模型... ${pct}%`);
+                }
             });
             
-            modelViewer.addEventListener('error', (e) => {
-                console.error('[Experimental] Model load error:', e);
-                showError('模型加载失败，请检查控制台');
+            // 加载成功
+            modelViewer.addEventListener('load', () => {
+                console.log('[Experimental] Model loaded successfully');
+                updateProgress(100, '生成完成！');
+            }, { once: true });
+            
+            // 加载失败 - 自动重试
+            modelViewer.addEventListener('error', function onError(e) {
+                loadingAttempts++;
+                const errMsg = e.detail ? (e.detail.message || JSON.stringify(e.detail)) : '未知错误';
+                console.error('[Experimental] Model load error:', errMsg);
+                
+                if (loadingAttempts < maxAttempts) {
+                    updateProgress(90, `加载失败(${loadingAttempts}/${maxAttempts})，重试中...`);
+                    setTimeout(() => {
+                        modelViewer.src = '';
+                        setTimeout(() => { modelViewer.src = modelUrl; }, 500);
+                    }, 1000);
+                } else {
+                    // 重试耗尽，移除自身监听防止死循环
+                    modelViewer.removeEventListener('error', onError);
+                    updateProgress(100, '生成完成！');
+                    showError('模型加载失败，您可以点击"下载GLB"按钮下载模型文件后在本地查看');
+                }
             });
             
             downloadBtn.href = modelUrl;
             downloadBtn.style.display = 'inline-block';
             
             showSuccess('🎉 3D模型生成成功！');
-            
             resetUI();
         }
         

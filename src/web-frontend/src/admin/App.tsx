@@ -11,7 +11,7 @@ import { AdminLayout } from './layout';
 import Dashboard from './modules/dashboard/DashboardPage';
 import { UserList, UserCreate, UserEdit } from './modules/user';
 import { ModelList, ModelDetail } from './modules/model';
-import { ExperimentalGeneration, SparkEditorPage, SuperSplatPage } from './modules/experimental';
+import { ExperimentalGeneration, ThreepipeEditorPage, SuperSplatPage } from './modules/experimental';
 import { ProfessionalGenerationPage } from './modules/professional';
 
 // 资源定义（暂未使用，保留以便将来扩展）
@@ -71,7 +71,8 @@ const routeComponents: Record<string, React.FC> = {
   '/models': ModelList,
   '/models/show': ModelDetail,
   '/experimental/generation': ExperimentalGeneration,
-  '/experimental/spark-editor': SparkEditorPage,
+  '/experimental/threepipe-editor': ThreepipeEditorPage,
+  '/experimental/spark-editor': ThreepipeEditorPage,
   '/experimental/supersplat': SuperSplatPage,
   '/professional/generation': ProfessionalGenerationPage,
 };

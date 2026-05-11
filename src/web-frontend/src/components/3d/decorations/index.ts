@@ -10,7 +10,6 @@ export {
   createDisplayPlatform, 
   updateDisplayPlatform, 
   disposeDisplayPlatform,
-  DisplayPlatformComponent,
   type DisplayPlatformProps 
 } from './DisplayPlatform';
 

@@ -1,10 +1,11 @@
 """
-Web3D Backend - 用户额度数据模型
-User quota database models for Tencent Hunyuan3D API usage tracking
+Web3D Backend - 用户使用统计模型
+User usage statistics for Tencent Hunyuan3D API (额度由腾讯云直接管理)
 """
 from sqlalchemy import Column, String, BigInteger, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from datetime import datetime, timezone
 import uuid
 
 from app.database import Base
@@ -12,13 +13,11 @@ from app.database import Base
 
 class UserQuota(Base):
     """
-    用户额度表
-    Tracks user quota for Tencent Hunyuan3D API usage
+    用户使用统计表（不再管理本地额度，额度由腾讯云API直接管理）
     
-    每个用户可以有不同的资源包配置：
-    - 总额度 (total_quota)
-    - 已使用额度 (used_quota)
-    - 有效期 (expires_at)
+    仅用于：
+    - 统计调用次数（供前端显示"已使用 X 次"）
+    - 记录成功/失败次数
     """
     __tablename__ = "user_quotas"
     
@@ -28,18 +27,8 @@ class UserQuota(Base):
     # 外键关联用户 / Foreign key to users table
     user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True, unique=True)
     
-    # 腾讯混元3D资源包信息 / Tencent Hunyuan3D resource package info
-    total_quota = Column(BigInteger, nullable=False, default=200)  # 总额度（积分）
-    used_quota = Column(BigInteger, nullable=False, default=0)     # 已使用额度
-    remaining_quota = Column(BigInteger, nullable=False, default=200)  # 剩余额度（计算字段，但存储以提高性能）
-    
-    # 资源包类型 / Resource package type
-    package_type = Column(String(50), nullable=False, default='standard')  # standard/pro/enterprise
-    package_name = Column(String(100), nullable=True)  # 资源包名称
-    
-    # 有效期 / Validity period
-    starts_at = Column(DateTime(timezone=True), server_default=func.now())
-    expires_at = Column(DateTime(timezone=True), nullable=True)  # NULL表示永久有效
+    # 使用统计（纯统计，不用于额度判断）
+    used_quota = Column(BigInteger, nullable=False, default=0)     # 已使用次数
     
     # 统计信息 / Statistics
     total_generations = Column(Integer, nullable=False, default=0)  # 总生成次数
@@ -55,57 +44,18 @@ class UserQuota(Base):
     user = relationship("User", back_populates="quota")
     
     def __repr__(self):
-        return f"<UserQuota(user_id={self.user_id}, remaining={self.remaining_quota}/{self.total_quota})>"
+        return f"<UserQuota(user_id={self.user_id}, used={self.used_quota}次)>"
     
-    @property
-    def is_expired(self) -> bool:
-        """检查额度是否过期"""
-        if self.expires_at is None:
-            return False
-        from datetime import datetime, timezone
-        # 确保时区一致：如果expires_at没有时区信息，添加UTC时区
-        expires_at = self.expires_at
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
-        return datetime.now(timezone.utc) > expires_at
-    
-    @property
-    def usage_percentage(self) -> float:
-        """计算使用百分比"""
-        if self.total_quota == 0:
-            return 100.0
-        return min(100.0, (self.used_quota / self.total_quota) * 100)
-    
-    def can_afford(self, cost: int) -> bool:
-        """检查是否有足够额度"""
-        return not self.is_expired and self.remaining_quota >= cost
-    
-    def deduct(self, amount: int) -> bool:
-        """
-        扣除额度（原子操作）
-        Returns True if deduction successful, False otherwise
-        """
-        if not self.can_afford(amount):
-            return False
-        
-        self.used_quota += amount
-        self.remaining_quota -= amount
-        self.total_generations += 1
-        
-        from datetime import datetime, timezone
+    def record_usage(self):
+        """记录一次API调用（不论成功失败）"""
+        self.used_quota = (self.used_quota or 0) + 1
+        self.total_generations = (self.total_generations or 0) + 1
         self.last_used_at = datetime.now(timezone.utc)
-        
-        return True
-    
-    def refund(self, amount: int):
-        """退还额度（任务失败时调用）"""
-        if amount <= 0:
-            return
-        
-        self.used_quota = max(0, self.used_quota - amount)
-        self.remaining_quota = min(self.total_quota, self.remaining_quota + amount)
-        self.failed_generations += 1
     
     def record_success(self):
         """记录成功生成"""
-        self.successful_generations += 1
+        self.successful_generations = (self.successful_generations or 0) + 1
+    
+    def record_failure(self):
+        """记录失败生成"""
+        self.failed_generations = (self.failed_generations or 0) + 1

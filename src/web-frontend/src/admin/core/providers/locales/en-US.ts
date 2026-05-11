@@ -198,4 +198,31 @@ export default {
     maxLength: '{field} must be at most {max} characters',
     pattern: '{field} format is invalid',
   },
+
+  // AI Generation Lab Module
+  experimental: {
+    title: 'AI Generation Lab',
+    generation: {
+      title: '3D Generation',
+      subtitle: 'Generate 3D models from images using AI',
+    },
+    threepipeEditor: {
+      title: 'Threepipe 3D Editor',
+      subtitle: 'Full-featured 3D editor based on threepipe, supports multi-format drag & drop import',
+      initLoading: 'Initializing 3D Editor...',
+      switchLangToEn: 'Switch to English',
+      switchLangToZh: 'Switch to Chinese',
+    },
+    supersplat: {
+      title: 'SuperSplat Editor',
+      subtitle: '3D Gaussian Splatting point cloud editor',
+      loading: 'Loading SuperSplat Editor...',
+      loadError: 'Editor failed to load, please ensure backend is running at http://localhost:8000',
+      loadErrorTitle: 'Load Error',
+    },
+    officialModel: {
+      title: '3D Official Models',
+      subtitle: 'Browse and manage official 3D model resources',
+    },
+  },
 };

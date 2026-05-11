@@ -92,8 +92,8 @@ const menuItems = [
         label: '3D官方模型',
       },
       {
-        key: '/admin/experimental/spark-editor',
-        label: 'Spark编辑器',
+        key: '/admin/experimental/threepipe-editor',
+        label: 'Threepipe 3D编辑器',
       },
       {
         key: '/admin/experimental/supersplat',

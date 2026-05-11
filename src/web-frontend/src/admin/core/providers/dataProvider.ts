@@ -16,6 +16,32 @@ interface ApiResponse<T = any> {
 }
 
 /**
+ * snake_case 转 camelCase
+ * 将后端API返回的下划线命名转换为前端使用的驼峰命名
+ */
+function toCamelCase(str: string): string {
+  return str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+}
+
+/**
+ * 递归转换对象的所有键名为 camelCase
+ */
+function transformKeys(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(transformKeys);
+  }
+  if (obj !== null && obj !== undefined && typeof obj === 'object' && !(obj instanceof Date)) {
+    const result: Record<string, any> = {};
+    for (const key of Object.keys(obj)) {
+      const camelKey = toCamelCase(key);
+      result[camelKey] = transformKeys(obj[key]);
+    }
+    return result;
+  }
+  return obj;
+}
+
+/**
  * 创建 Data Provider
  */
 export const dataProvider: DataProvider = {
@@ -50,11 +76,14 @@ export const dataProvider: DataProvider = {
       params,
     });
 
-    const apiData = response.data.data as any;
+    // 后端返回格式: { data: [...items], total: N, page: N, page_size: N, total_pages: N }
+    const responseBody = response.data as any;
+    const apiDataArray = responseBody.data || [];
+    const total = responseBody.total || 0;
 
     return {
-      data: apiData.items || apiData.data || [],
-      total: apiData.total || 0,
+      data: transformKeys(apiDataArray),
+      total: total,
     };
   },
 
@@ -63,7 +92,7 @@ export const dataProvider: DataProvider = {
     const response: AxiosResponse<ApiResponse> = await axiosInstance.get(`/${resource}/${id}`);
     
     return {
-      data: response.data.data,
+      data: transformKeys(response.data.data),
     };
   },
 
@@ -72,7 +101,7 @@ export const dataProvider: DataProvider = {
     const response: AxiosResponse<ApiResponse> = await axiosInstance.post(`/${resource}`, variables);
     
     return {
-      data: response.data.data,
+      data: transformKeys(response.data.data),
     };
   },
 
@@ -81,7 +110,7 @@ export const dataProvider: DataProvider = {
     const response: AxiosResponse<ApiResponse> = await axiosInstance.put(`/${resource}/${id}`, variables);
     
     return {
-      data: response.data.data,
+      data: transformKeys(response.data.data),
     };
   },
 
@@ -93,7 +122,7 @@ export const dataProvider: DataProvider = {
     });
     
     return {
-      data: response.data.data,
+      data: transformKeys(response.data.data),
     };
   },
 
@@ -150,7 +179,7 @@ export const dataProvider: DataProvider = {
 
     const { data } = axiosResponse;
 
-    return Promise.resolve({ data });
+    return Promise.resolve({ data: transformKeys(data) });
   },
 };
 

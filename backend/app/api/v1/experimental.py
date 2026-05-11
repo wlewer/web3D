@@ -8,6 +8,8 @@ import uuid
 import asyncio
 from pathlib import Path
 import logging
+import base64
+from typing import Optional, Dict
 from dotenv import load_dotenv
 import os
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -331,7 +333,16 @@ async def upload_triposr_cpu(
 @router.post("/huggingface/upload")
 async def upload_huggingface(
     file: UploadFile = File(...),
-    version: str = Form(default="hy-3d-3.0", alias="model_version"),  # 使用version避免Pydantic警告
+    version: str = Form(default="hy-3d-3.0", alias="model_version"),
+    # ---- 多视角图片支持（仅专业版3.1） ----
+    multi_view_left: Optional[UploadFile] = File(None, alias="multi_view_images[left]"),
+    multi_view_right: Optional[UploadFile] = File(None, alias="multi_view_images[right]"),
+    multi_view_back: Optional[UploadFile] = File(None, alias="multi_view_images[back]"),
+    multi_view_top: Optional[UploadFile] = File(None, alias="multi_view_images[top]"),
+    multi_view_bottom: Optional[UploadFile] = File(None, alias="multi_view_images[bottom]"),
+    multi_view_left_front: Optional[UploadFile] = File(None, alias="multi_view_images[left_front]"),
+    multi_view_right_front: Optional[UploadFile] = File(None, alias="multi_view_images[right_front]"),
+    enable_pbr: Optional[bool] = Form(None),
     background_tasks: BackgroundTasks = None,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
@@ -347,15 +358,37 @@ async def upload_huggingface(
     
     特点：云端GPU推理，无需本地GPU，按量付费
     
-    【新增】额度管理：
-    - 提交任务前检查并扣除额度
-    - 任务失败时退还额度
+    多视角图片支持（hy-3d-3.1专业版）：
+    - front（主图）：通过 file 参数上传
+    - left/right/back/top/bottom/left_front/right_front（多视角）：通过 multi_view_images[view_key] 参数上传
+    - 需设置 enable_pbr=true 开启PBR材质
+    - top/bottom/left_front/right_front 仅专业版3.1支持
     """
     import os
     from app.services.generation.hunyuan3d_cloud_service import get_hunyuan3d_cloud
     from app.services.quota_service import QuotaService
     
     task_id = f"hunyuan_cloud_{uuid.uuid4().hex[:8]}"
+    
+    # 收集多视角图片（支持8个视角）
+    multi_view_files = {}
+    if multi_view_left:
+        multi_view_files['left'] = multi_view_left
+    if multi_view_right:
+        multi_view_files['right'] = multi_view_right
+    if multi_view_back:
+        multi_view_files['back'] = multi_view_back
+    if multi_view_top:
+        multi_view_files['top'] = multi_view_top
+    if multi_view_bottom:
+        multi_view_files['bottom'] = multi_view_bottom
+    if multi_view_left_front:
+        multi_view_files['left_front'] = multi_view_left_front
+    if multi_view_right_front:
+        multi_view_files['right_front'] = multi_view_right_front
+    
+    if multi_view_files:
+        logger.info(f"[EXPERIMENTAL] 检测到多视角图片: {list(multi_view_files.keys())}")
     
     # 从配置驱动模块读取版本模式（支持逐版本覆盖）
     generation_mode = model_versions.get_mode(version)
@@ -366,7 +399,11 @@ async def upload_huggingface(
         return await _handle_mock_generation(task_id, file, version, current_user, db)
     
     # Cloud模式：调用腾讯混元3D API
-    return await _handle_cloud_generation(task_id, file, version, current_user, db, background_tasks)
+    return await _handle_cloud_generation(
+        task_id, file, version, current_user, db, background_tasks,
+        multi_view_files=multi_view_files,
+        enable_pbr=enable_pbr
+    )
 
 
 @router.get("/task/{task_id}")
@@ -489,9 +526,16 @@ async def _handle_cloud_generation(
     version: str,
     current_user,
     db: AsyncSession,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    multi_view_files: Optional[Dict[str, UploadFile]] = None,
+    enable_pbr: Optional[bool] = None
 ):
-    """Cloud模式：调用腾讯混元3D API（额度由腾讯云直接管理）"""
+    """Cloud模式：调用腾讯混元3D API（额度由腾讯云直接管理）
+    
+    Args:
+        multi_view_files: 多视角图片文件字典，键为视角类型（left/right/back/top/bottom/left_front/right_front）
+        enable_pbr: 是否开启PBR材质
+    """
     from app.services.generation.hunyuan3d_cloud_service import get_hunyuan3d_cloud
     from app.services.quota_service import QuotaService
 
@@ -512,6 +556,17 @@ async def _handle_cloud_generation(
     image_path = upload_dir / f"{task_id}_input.png"
     with open(image_path, 'wb') as f:
         f.write(await file.read())
+
+    # 保存多视角图片
+    multi_view_base64 = {}
+    if multi_view_files:
+        for view_type, view_file in multi_view_files.items():
+            view_path = upload_dir / f"{task_id}_{view_type}.png"
+            with open(view_path, 'wb') as f:
+                f.write(await view_file.read())
+            with open(view_path, 'rb') as f:
+                multi_view_base64[view_type] = base64.b64encode(f.read()).decode('utf-8')
+            logger.info(f"[EXPERIMENTAL] 保存多视角图片: {view_type} -> {view_path}")
 
     logger.info(f"[EXPERIMENTAL] Cloud mode: received image {image_path}")
 
@@ -560,7 +615,9 @@ async def _handle_cloud_generation(
             result = await engine.generate(
                 image_path=str(image_path),
                 output_path=str(output_path),
-                progress_callback=update_progress
+                progress_callback=update_progress,
+                multi_view_images=multi_view_base64 if multi_view_base64 else None,
+                enable_pbr=enable_pbr
             )
 
             if result['success']:

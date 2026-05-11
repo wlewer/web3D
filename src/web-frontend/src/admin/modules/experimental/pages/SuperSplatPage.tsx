@@ -6,10 +6,24 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Spin, Alert } from 'antd';
 
+// 语言文字
+function getLocaleText() {
+  const locale = localStorage.getItem('editor_locale') || 'zh-CN';
+  const isZH = locale !== 'en-US';
+  return {
+    loading: isZH ? '正在加载 SuperSplat 编辑器...' : 'Loading SuperSplat Editor...',
+    loadErrorTitle: isZH ? '加载错误' : 'Load Error',
+    loadError: isZH
+      ? '编辑器加载失败，请确保后端服务运行在 http://localhost:8000'
+      : 'Editor failed to load, please ensure backend is running at http://localhost:8000',
+  };
+}
+
 export const SuperSplatPage: React.FC = () => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const T = getLocaleText();
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -28,7 +42,7 @@ export const SuperSplatPage: React.FC = () => {
 
   const handleIframeError = () => {
     setLoading(false);
-    setError('编辑器加载失败，请确保后端服务运行在 http://localhost:8000');
+    setError(T.loadError);
   };
 
   return (
@@ -48,13 +62,13 @@ export const SuperSplatPage: React.FC = () => {
             zIndex: 10,
           }}
         >
-          <Spin size="large" tip="正在加载 SuperSplat 编辑器..." />
+          <Spin size="large" tip={T.loading} />
         </div>
       )}
       
       {error && (
         <Alert
-          message="加载错误"
+          message={T.loadErrorTitle}
           description={error}
           type="error"
           showIcon

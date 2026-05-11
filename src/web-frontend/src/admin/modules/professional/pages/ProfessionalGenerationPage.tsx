@@ -9,14 +9,12 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Button, Alert, Spin, Drawer, Select, Progress, Tag, Popover, message } from 'antd';
-const { Option } = Select;
+import { Upload, Button, Alert, Spin, Drawer, Progress, Tag, Popover, message, Modal } from 'antd';
 import {
   CloudUploadOutlined,
   PlayCircleOutlined,
   PictureOutlined,
   DownloadOutlined,
-  LockOutlined,
   ThunderboltOutlined,
   SafetyCertificateOutlined,
   InfoCircleOutlined,
@@ -132,23 +130,23 @@ const PROFESSIONAL_MODELS: ProfessionalModel[] = [
     },
   },
   {
-    id: 'HY-3D-Express',
+    id: 'hy-3d-express',
     icon: '⚡',
     label: 'HY-3D-Express 极速版',
-    desc: '官方支持但SDK暂未开放，敬请期待',
+    desc: '🇺🇳 国际站 - 消耗免费资源包200积分',
     version: 'HY-3D-Express',
     badges: [
-      { text: '即将开放', color: 'default' },
-      { text: '云端', color: 'blue' },
+      { text: '极速', color: 'cyan' },
+      { text: '国际站', color: 'purple' },
     ],
     endpoint: '/api/v1/experimental/huggingface/upload',
-    costPerUse: 5, // 每次消耗5积分
+    costPerUse: 1, // 国际站免费资源包，计价方式不同
     estimatedTime: '10-20秒',
     tokenCost: '~25,000 Tokens/次',
-    disabled: true, // 标记为停用状态
-    disableReason: '腾讯云SDK暂未开放极速版API接口，预计后续版本支持',
+    disabled: false, // 已启用，走国际站Endpoint
+    disableReason: '',
     details: {
-      title: '⚡ HY-3D-Express 极速版（即将开放）',
+      title: '⚡ HY-3D-Express 极速版（国际站）',
       mainUse: '快速原型验证与批量生成',
       scenarios: [
         '✅ 产品概念快速验证',
@@ -162,12 +160,12 @@ const PROFESSIONAL_MODELS: ProfessionalModel[] = [
         '🎨 模型质量：中（85分）',
         '📐 面数：3000-5000面',
         '💾 输出格式：GLB',
-        '💰 消耗：5积分/次（约25,000 Tokens）',
+        '💰 消耗：1次（国际站免费资源包）',
         '🚀 吞吐量：最高',
-        '📊 预计可用：40次',
-        '⚠️ 当前状态：等待腾讯开放SDK接口',
+        '📊 预计可用：200次（剩余免费资源）',
+        '🌐 接入站点：国际站 ai3d.intl.tencentcloudapi.com',
       ],
-      recommended: '🔜 官方已发布该版本，我们正在等待腾讯云SDK支持，敬请期待！',
+      recommended: '🇺🇳 国际站免费资源包入口，与国内站标准版/专业版资源独立，互不干扰',
     },
   },
 ];
@@ -296,6 +294,33 @@ export const ProfessionalGenerationPage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string>('');
   const [showUploadArea, setShowUploadArea] = useState(true); // 控制上传区域显示
+  
+  // ---- 多视角图片状态 ----
+  const [imageMode, setImageMode] = useState<'single' | 'multi'>('single');
+  const MAIN_VIEWS = [
+    { key: 'front', label: '正面视图', required: true, desc: '主图（正面）' },
+    { key: 'back', label: '背面视图', required: false, desc: '背面' },
+    { key: 'left', label: '左侧视图', required: false, desc: '左侧' },
+    { key: 'right', label: '右侧视图', required: false, desc: '右侧' },
+  ] as const;
+  const EXTRA_VIEWS = [
+    { key: 'top', label: '顶视图', required: false, desc: '顶视图（仅3.1版支持）' },
+    { key: 'bottom', label: '底视图', required: false, desc: '底视图（仅3.1版支持）' },
+    { key: 'left_front', label: '左前45°', required: false, desc: '左前45°视图（仅3.1版支持）' },
+    { key: 'right_front', label: '右前45°', required: false, desc: '右前45°视图（仅3.1版支持）' },
+  ] as const;
+  type ViewKey = typeof MAIN_VIEWS[number]['key'] | typeof EXTRA_VIEWS[number]['key'];
+  const ALL_VIEW_TYPES = [...MAIN_VIEWS, ...EXTRA_VIEWS];
+  const [multiViewFiles, setMultiViewFiles] = useState<Record<string, File | null>>({
+    front: null, back: null, left: null, right: null,
+    top: null, bottom: null, left_front: null, right_front: null
+  });
+  const [multiViewPreviews, setMultiViewPreviews] = useState<Record<string, string>>({
+    front: '', back: '', left: '', right: '',
+    top: '', bottom: '', left_front: '', right_front: ''
+  });
+  const [extraViewsModalVisible, setExtraViewsModalVisible] = useState(false);
+  
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('');
@@ -305,18 +330,16 @@ export const ProfessionalGenerationPage: React.FC = () => {
   const uploadRef = useRef<any>(null);
   const pollTimerRef = useRef<any>(null);
   
-  // 额度管理 - 从后端API获取
-  const [totalQuota, setTotalQuota] = useState<number>(200); // 默认200积分
+  // 使用统计 - 从后端API获取（额度由腾讯云API直接管理）
   const [usedQuota, setUsedQuota] = useState<number>(0);
-  const remainingQuota = totalQuota - usedQuota;
   // quotaLoading 状态暂未在UI中使用，保留setQuotaLoading调用以便将来扩展
   
   // 示例图片抽屉
   const [examplesDrawerVisible, setExamplesDrawerVisible] = useState(false);
 
   useEffect(() => {
-    // 页面加载时获取真实额度
-    fetchQuotaBalance();
+    // 页面加载时获取真实使用统计
+    fetchUsageStats();
     
     return () => {
       if (pollTimerRef.current) {
@@ -325,16 +348,15 @@ export const ProfessionalGenerationPage: React.FC = () => {
     };
   }, []);
 
-  // 从后端获取额度信息
-  const fetchQuotaBalance = async () => {
+  // 从后端获取使用统计
+  const fetchUsageStats = async () => {
     // setQuotaLoading(true);  // 暂未在UI中使用加载状态
     try {
       const token = localStorage.getItem('access_token');
       
       // 检查是否已登录
       if (!token) {
-        console.warn('User not logged in, skipping quota fetch');
-        setTotalQuota(200); // 默认额度
+        console.warn('User not logged in, skipping stats fetch');
         setUsedQuota(0);
         return;
       }
@@ -366,22 +388,12 @@ export const ProfessionalGenerationPage: React.FC = () => {
       const result = await response.json();
       
       if (result.success && result.data) {
-        // 如果后端返回0，保持默认值200（后端可能未重启使用新配置）
-        if (result.data.total_quota > 0) {
-          setTotalQuota(result.data.total_quota);
-          setUsedQuota(result.data.used_quota || 0);
-          console.log(`[Quota] 从后端加载: 总额=${result.data.total_quota}, 已用=${result.data.used_quota || 0}`);
-        } else {
-          console.warn('[Quota] 后端返回0，使用默认值200（请重启后端服务）');
-        }
-      } else {
-        // API返回失败，保持默认值
-        console.warn('[Quota] API返回异常，保持默认值200');
+        setUsedQuota(result.data.used_quota || 0);
+        console.log(`[Quota] 从后端加载: 已使用=${result.data.used_quota || 0} 次`);
       }
     } catch (err: any) {
-      console.error('Failed to fetch quota balance:', err);
-      // 不显示错误提示，使用默认额度
-      setTotalQuota(200);
+      console.error('Failed to fetch usage stats:', err);
+      // 不显示错误提示，使用默认值
       setUsedQuota(0);
     } finally {
       // setQuotaLoading(false);  // 暂未在UI中使用加载状态
@@ -423,6 +435,48 @@ export const ProfessionalGenerationPage: React.FC = () => {
     setSuccess('');
   };
 
+  // ---- 多视角图片上传处理 ----
+  const handleMultiViewUpload = (viewKey: string) => {
+    // 创建一个隐藏的file input
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e: any) => {
+      const file = e.target?.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setMultiViewFiles(prev => ({ ...prev, [viewKey]: file }));
+          setMultiViewPreviews(prev => ({ ...prev, [viewKey]: event.target?.result as string }));
+          
+          // 如果是front视图，同步到selectedFile（兼容生成逻辑）
+          if (viewKey === 'front') {
+            setSelectedFile(file);
+            setPreviewImage(event.target?.result as string);
+            setShowUploadArea(false);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
+
+  // 移除多视角图片
+  const handleRemoveMultiView = (viewKey: string) => {
+    setMultiViewFiles(prev => ({ ...prev, [viewKey]: null }));
+    setMultiViewPreviews(prev => ({ ...prev, [viewKey]: '' }));
+    if (viewKey === 'front') {
+      setSelectedFile(null);
+      setPreviewImage('');
+      // 检查是否还有其他视图保留
+      const hasOther = Object.entries(multiViewFiles).some(([k, v]) => k !== 'front' && v);
+      if (!hasOther) {
+        setShowUploadArea(true);
+      }
+    }
+  };
+
   const handleExampleClick = async (imageName: string) => {
     try {
       const imagePath = `/app/example_images/${imageName}`;
@@ -452,20 +506,22 @@ export const ProfessionalGenerationPage: React.FC = () => {
   };
 
   const startGeneration = async () => {
-    if (!selectedFile) {
-      setError('请先选择图片');
-      return;
+    if (imageMode === 'single') {
+      if (!selectedFile) {
+        setError('请先选择图片');
+        return;
+      }
+    } else {
+      // 多图模式：front必须上传
+      if (!multiViewFiles.front) {
+        setError('请至少上传正面视图图片');
+        return;
+      }
     }
 
     const model = PROFESSIONAL_MODELS.find(m => m.id === currentModel);
     if (!model) {
       setError('无效的模型选择');
-      return;
-    }
-
-    // 检查额度
-    if (remainingQuota < model.costPerUse) {
-      setError(`额度不足！当前剩余额度：${remainingQuota}，需要：${model.costPerUse}`);
       return;
     }
 
@@ -478,7 +534,26 @@ export const ProfessionalGenerationPage: React.FC = () => {
 
     try {
       const formData = new FormData();
-      formData.append('file', selectedFile);
+      
+      // 单图模式：发送主图
+      if (imageMode === 'single') {
+        formData.append('file', selectedFile!);
+      } else {
+        // 多图模式：发送所有图片
+        formData.append('file', multiViewFiles.front!);
+        
+        // 附加多视角图片（全部8视角）
+        const extraViewKeys = ['left', 'right', 'back', 'top', 'bottom', 'left_front', 'right_front'] as const;
+        for (const viewKey of extraViewKeys) {
+          if (multiViewFiles[viewKey]) {
+            formData.append(`multi_view_images[${viewKey}]`, multiViewFiles[viewKey]!);
+          }
+        }
+        
+        // 开启PBR材质
+        formData.append('enable_pbr', 'true');
+      }
+      
       formData.append('model_version', model.version);
 
       const response = await fetch('http://localhost:8000/api/v1/experimental/huggingface/upload', {
@@ -509,9 +584,9 @@ export const ProfessionalGenerationPage: React.FC = () => {
       const taskId = result.task_id;
       setSuccess('任务已提交，正在生成3D模型...');
       
-      // 不再前端扣费，后端已经扣除
-      // 刷新额度显示
-      fetchQuotaBalance();
+      // 不再前端扣费，额度由腾讯云API直接管理
+      // 刷新使用统计显示
+      fetchUsageStats();
       
       pollTaskStatus(taskId);
 
@@ -660,39 +735,12 @@ export const ProfessionalGenerationPage: React.FC = () => {
         
         <div style={styles.quotaStats}>
           <div style={styles.quotaItem}>
-            <span style={styles.quotaLabel}>资源包总额：</span>
-            <span style={styles.quotaValue}>{totalQuota} 积分</span>
-          </div>
-          <div style={styles.quotaItem}>
             <span style={styles.quotaLabel}>已使用：</span>
-            <span style={{ ...styles.quotaValue, color: '#ff4d4f' }}>{usedQuota} 积分</span>
+            <span style={{ ...styles.quotaValue, color: '#1890ff', fontWeight: 700 }}>{usedQuota} 次</span>
           </div>
           <div style={styles.quotaItem}>
-            <span style={styles.quotaLabel}>剩余：</span>
-            <span style={{ 
-              ...styles.quotaValue, 
-              color: remainingQuota > 40 ? '#52c41a' : remainingQuota > 10 ? '#faad14' : '#ff4d4f',
-              fontWeight: 700
-            }}>
-              {remainingQuota} 积分
-            </span>
+            <Tag color="blue" icon={<SafetyCertificateOutlined />}>由腾讯云API直接计费</Tag>
           </div>
-          <div style={{ ...styles.quotaItem, marginLeft: 16 }}>
-            <span style={{ fontSize: 12, color: '#999' }}>
-              📅 有效期至：2027-04-22
-            </span>
-          </div>
-          
-          <Progress 
-            percent={Math.round((remainingQuota / totalQuota) * 100)} 
-            size="small" 
-            style={{ width: 120 }}
-            strokeColor={{
-              '0%': '#ff4d4f',
-              '50%': '#faad14',
-              '100%': '#52c41a',
-            }}
-          />
         </div>
       </div>
 
@@ -700,7 +748,6 @@ export const ProfessionalGenerationPage: React.FC = () => {
       <div style={styles.topModesBar}>
         <div style={styles.modesRow}>
           {PROFESSIONAL_MODELS.map(model => {
-            const isLocked = remainingQuota < model.costPerUse;
             const isDisabled = model.disabled === true; // 检查是否停用
             
             return (
@@ -709,24 +756,16 @@ export const ProfessionalGenerationPage: React.FC = () => {
                 style={{
                   ...styles.modeChip,
                   ...(currentModel === model.id ? styles.modeChipActive : {}),
-                  ...(isLocked ? styles.modeChipLocked : {}),
                   ...(isDisabled ? styles.modeChipDisabled : {}), // 停用样式
-                  cursor: isDisabled || isLocked ? 'not-allowed' : 'pointer',
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
                   opacity: isDisabled ? 0.6 : 1, // 降低透明度表示停用
                 }}
-                onClick={() => !isDisabled && !isLocked && selectModel(model.id)}
+                onClick={() => !isDisabled && selectModel(model.id)}
               >
                 {/* 停用标识 */}
                 {isDisabled && (
                   <div style={styles.disabledBadge}>
                     即将开放
-                  </div>
-                )}
-                
-                {/* 额度不足锁图标 */}
-                {isLocked && !isDisabled && (
-                  <div style={styles.lockIcon}>
-                    <LockOutlined />
                   </div>
                 )}
                 
@@ -798,13 +837,9 @@ export const ProfessionalGenerationPage: React.FC = () => {
                         </Tag>
                       ))}
                     </div>
-                    <div style={styles.costInfo}>
-                      <span style={styles.costLabel}>消耗：</span>
-                      <span style={styles.costValue}>{model.costPerUse}</span>
-                    </div>
                   </div>
                   
-                  <div style={styles.timeInfo}>
+                  <div style={{ fontSize: 10, color: '#999', textAlign: 'center' }}>
                     ⏱️ {model.estimatedTime}
                   </div>
                 </div>
@@ -820,7 +855,6 @@ export const ProfessionalGenerationPage: React.FC = () => {
       <div style={styles.contentArea}>
         {/* 左侧面板 */}
         <div style={styles.leftPanel}>
-          <div style={styles.panelTitle}>⚙️ 生成配置</div>
 
           {error && (
             <Alert message={error} type="error" showIcon style={{ marginBottom: 8 }} />
@@ -829,37 +863,250 @@ export const ProfessionalGenerationPage: React.FC = () => {
             <Alert message={success} type="success" showIcon style={{ marginBottom: 8 }} />
           )}
 
-          {/* 上传区域 */}
+          {/* ---- 图片上传区域 ---- */}
           {showUploadArea ? (
             <div style={styles.uploadSection}>
-              <div style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>上传图片：</div>
-              <Upload
-                ref={uploadRef}
-                listType="picture-card"
-                fileList={previewImage ? [{ uid: '1', name: 'image', status: 'done', url: previewImage }] : []}
-                onChange={handleUploadChange}
-                beforeUpload={() => false}
-                accept="image/*"
-                maxCount={1}
-                style={{ width: '100%' }}
-              >
-                <div>
-                  <CloudUploadOutlined />
-                  <div style={{ marginTop: 8 }}>拖拽图片到此处，或点击上传</div>
+              {/* 单图/多图切换按钮（仅专业版3.1显示） */}
+              {currentModel === 'hy-3d-3.1' && (
+                <div style={{
+                  display: 'flex',
+                  gap: 6,
+                  marginBottom: 10,
+                  background: '#f5f5f5',
+                  borderRadius: 6,
+                  padding: 3,
+                }}>
+                  <div
+                    onClick={() => {
+                      setImageMode('single');
+                      // 清除多视图状态
+                      setMultiViewFiles({ front: null, back: null, left: null, right: null, top: null, bottom: null, left_front: null, right_front: null });
+                      setMultiViewPreviews({ front: '', back: '', left: '', right: '', top: '', bottom: '', left_front: '', right_front: '' });
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: '5px 10px',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      transition: 'all 0.2s',
+                      background: imageMode === 'single' ? '#667eea' : 'transparent',
+                      color: imageMode === 'single' ? '#fff' : '#666',
+                    }}
+                  >
+                    📷 单张图片
+                  </div>
+                  <div
+                    onClick={() => setImageMode('multi')}
+                    style={{
+                      flex: 1,
+                      padding: '5px 10px',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      transition: 'all 0.2s',
+                      background: imageMode === 'multi' ? '#667eea' : 'transparent',
+                      color: imageMode === 'multi' ? '#fff' : '#666',
+                    }}
+                  >
+                    🖼️ 多张图片
+                  </div>
                 </div>
-              </Upload>
+              )}
+
+              {imageMode === 'single' ? (
+                <>
+                  <div style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>上传图片：</div>
+                  <Upload
+                    ref={uploadRef}
+                    listType="picture-card"
+                    fileList={previewImage ? [{ uid: '1', name: 'image', status: 'done', url: previewImage }] : []}
+                    onChange={handleUploadChange}
+                    beforeUpload={() => false}
+                    accept="image/*"
+                    maxCount={1}
+                    style={{ width: '100%' }}
+                  >
+                    <div>
+                      <CloudUploadOutlined />
+                      <div style={{ marginTop: 8 }}>拖拽图片到此处，或点击上传</div>
+                    </div>
+                  </Upload>
+                </>
+              ) : (
+                <>
+                  {/* 多视角上传网格 */}
+                  <div style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>
+                    多视角上传 <span style={{ color: '#999', fontWeight: 400, fontSize: 11 }}>（多图生成更高品质，仅专业版3.1支持）</span>
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 8,
+                  }}>
+                    {MAIN_VIEWS.map(v => {
+                      const hasFile = !!multiViewFiles[v.key];
+                      const preview = multiViewPreviews[v.key];
+                      return (
+                        <div
+                          key={v.key}
+                          onClick={() => !hasFile && handleMultiViewUpload(v.key)}
+                          style={{
+                            aspectRatio: '1',
+                            borderRadius: 8,
+                            border: hasFile
+                              ? '2px solid #667eea'
+                              : '1.5px dashed #d9d9d9',
+                            background: hasFile ? 'transparent' : '#fafafa',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: hasFile ? 'default' : 'pointer',
+                            transition: 'all 0.2s',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            minHeight: 100,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!hasFile) {
+                              (e.currentTarget as HTMLElement).style.borderColor = '#667eea';
+                              (e.currentTarget as HTMLElement).style.background = '#f0f0ff';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!hasFile) {
+                              (e.currentTarget as HTMLElement).style.borderColor = '#d9d9d9';
+                              (e.currentTarget as HTMLElement).style.background = '#fafafa';
+                            }
+                          }}
+                        >
+                          {hasFile && preview ? (
+                            <>
+                              <img
+                                src={preview}
+                                alt={v.label}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover',
+                                  display: 'block',
+                                }}
+                              />
+                              {/* 移除按钮 */}
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveMultiView(v.key);
+                                }}
+                                style={{
+                                  position: 'absolute',
+                                  top: 3,
+                                  right: 3,
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: '50%',
+                                  background: 'rgba(0,0,0,0.5)',
+                                  color: '#fff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: 12,
+                                  cursor: 'pointer',
+                                  lineHeight: 1,
+                                }}
+                              >
+                                ×
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{ textAlign: 'center', padding: 4 }}>
+                              <PictureOutlined style={{ fontSize: 22, color: '#bbb' }} />
+                              <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{v.label}</div>
+                              {v.required && <span style={{ color: '#ff4d4f', fontSize: 11 }}>（必填）</span>}
+                            </div>
+                          )}
+                          {/* 视图标签 */}
+                          <div style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            padding: '2px 4px',
+                            background: 'rgba(0,0,0,0.45)',
+                            color: '#fff',
+                            fontSize: 10,
+                            textAlign: 'center',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}>
+                            {hasFile ? v.label : ''}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* 更多视角按钮 */}
+                  <div style={{
+                    marginTop: 8,
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}>
+                    <Button
+                      size="small"
+                      icon={<PictureOutlined />}
+                      onClick={() => setExtraViewsModalVisible(true)}
+                      style={{
+                        fontSize: 12,
+                      }}
+                    >
+                      更多视角（{['top', 'bottom', 'left_front', 'right_front'].filter(k => multiViewFiles[k]).length}/4）
+                    </Button>
+                    <span style={{ fontSize: 11, color: '#52c41a' }}>
+                      已上传 {Object.values(multiViewFiles).filter(Boolean).length}/8 张
+                    </span>
+                  </div>
+                  {/* 提示信息 */}
+                  <div style={{
+                    marginTop: 8,
+                    padding: '6px 10px',
+                    background: '#fff7e6',
+                    borderRadius: 4,
+                    borderLeft: '3px solid #faad14',
+                    fontSize: 11,
+                    color: '#666',
+                    lineHeight: 1.5,
+                  }}>
+                    上传多个视角图片可获得更好的3D重建效果。
+                    <span style={{ color: '#ff4d4f' }}>正面视图是必需的</span>。
+                    建议同时上传左/右/背面视图以获得最佳效果。
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             // 已选择图片后显示预览和重新选择按钮
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ fontSize: 13, color: '#666' }}>已选择图片：</div>
+                <div style={{ fontSize: 13, color: '#666' }}>
+                  {imageMode === 'multi' ? '已选择图片（多视角）：' : '已选择图片：'}
+                </div>
                 <Button 
                   size="small" 
                   type="link"
                   onClick={() => {
                     setSelectedFile(null);
                     setPreviewImage('');
+                    // 清除多视图状态
+                    setMultiViewFiles({ front: null, back: null, left: null, right: null });
+                    setMultiViewPreviews({ front: '', back: '', left: '', right: '' });
                     setShowUploadArea(true);
                     setGeneratedUrl('');
                     setError('');
@@ -870,28 +1117,158 @@ export const ProfessionalGenerationPage: React.FC = () => {
                   🔄 重新选择
                 </Button>
               </div>
-              <div style={{
-                width: '100%',
-                height: 120,
-                borderRadius: 8,
-                overflow: 'hidden',
-                border: '2px solid #667eea',
-                boxShadow: '0 2px 8px rgba(102, 126, 234, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: '#f5f5f5'
-              }}>
-                <img 
-                  src={previewImage} 
-                  alt="preview" 
-                  style={{ 
-                    maxWidth: '100%', 
-                    maxHeight: '100%', 
-                    objectFit: 'contain' 
-                  }} 
-                />
-              </div>
+              
+              {imageMode === 'single' ? (
+                <div style={{
+                  width: '100%',
+                  height: 120,
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  border: '2px solid #667eea',
+                  boxShadow: '0 2px 8px rgba(102, 126, 234, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: '#f5f5f5'
+                }}>
+                  <img 
+                    src={previewImage} 
+                    alt="preview" 
+                    style={{ 
+                      maxWidth: '100%', 
+                      maxHeight: '100%', 
+                      objectFit: 'contain' 
+                    }} 
+                  />
+                </div>
+              ) : (
+                <>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 6,
+                  }}>
+                    {MAIN_VIEWS.map(v => {
+                      const preview = multiViewPreviews[v.key];
+                      const hasFile = !!multiViewFiles[v.key];
+                      return (
+                        <div
+                          key={v.key}
+                          onClick={() => !hasFile && handleMultiViewUpload(v.key)}
+                          style={{
+                            aspectRatio: '1',
+                            borderRadius: 8,
+                            border: hasFile
+                              ? '2px solid #667eea'
+                              : '1.5px dashed #d9d9d9',
+                            background: hasFile ? 'transparent' : '#fafafa',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: hasFile ? 'default' : 'pointer',
+                            transition: 'all 0.2s',
+                            position: 'relative',
+                            overflow: 'hidden',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!hasFile) {
+                              (e.currentTarget as HTMLElement).style.borderColor = '#667eea';
+                              (e.currentTarget as HTMLElement).style.background = '#f0f0ff';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!hasFile) {
+                              (e.currentTarget as HTMLElement).style.borderColor = '#d9d9d9';
+                              (e.currentTarget as HTMLElement).style.background = '#fafafa';
+                            }
+                          }}
+                        >
+                          {hasFile && preview ? (
+                            <>
+                              <img
+                                src={preview}
+                                alt={v.label}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: 'cover',
+                                  display: 'block',
+                                }}
+                              />
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveMultiView(v.key);
+                                }}
+                                style={{
+                                  position: 'absolute',
+                                  top: 3,
+                                  right: 3,
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: '50%',
+                                  background: 'rgba(0,0,0,0.5)',
+                                  color: '#fff',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: 12,
+                                  cursor: 'pointer',
+                                  lineHeight: 1,
+                                }}
+                              >
+                                ×
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{ textAlign: 'center', padding: 4 }}>
+                              <PictureOutlined style={{ fontSize: 22, color: '#bbb' }} />
+                              <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{v.label}</div>
+                              {v.required && <span style={{ color: '#ff4d4f', fontSize: 11 }}>（必填）</span>}
+                              <div style={{ fontSize: 10, color: '#667eea', marginTop: 2 }}>点击上传</div>
+                            </div>
+                          )}
+                          <div style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            padding: '2px 4px',
+                            background: 'rgba(0,0,0,0.45)',
+                            color: '#fff',
+                            fontSize: 10,
+                            textAlign: 'center',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}>
+                            {v.label}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* 更多视角按钮 */}
+                  <div style={{
+                    marginTop: 6,
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: 8,
+                    alignItems: 'center',
+                  }}>
+                    <Button
+                      size="small"
+                      icon={<PictureOutlined />}
+                      onClick={() => setExtraViewsModalVisible(true)}
+                      style={{ fontSize: 12 }}
+                    >
+                      更多视角（{['top', 'bottom', 'left_front', 'right_front'].filter(k => multiViewFiles[k]).length}/4）
+                    </Button>
+                  </div>
+                </>
+              )}
+              
               <div style={{ 
                 marginTop: 6, 
                 fontSize: 12, 
@@ -901,44 +1278,10 @@ export const ProfessionalGenerationPage: React.FC = () => {
                 gap: 4
               }}>
                 <span>✓</span>
-                <span>图片已就绪，可以开始生成</span>
+                <span>{imageMode === 'multi' ? `${Object.values(multiViewFiles).filter(Boolean).length} 张图片已就绪，可以开始生成` : '图片已就绪，可以开始生成'}</span>
               </div>
             </div>
           )}
-
-          {/* 模型版本选择 */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>选择模型版本：</div>
-            <Select
-              value={currentModel}
-              onChange={setCurrentModel}
-              style={{ width: '100%' }}
-              size="large"
-            >
-              {PROFESSIONAL_MODELS.map(model => {
-                const isDisabled = model.disabled === true;
-                return (
-                  <Option 
-                    key={model.id} 
-                    value={model.id}
-                    disabled={isDisabled} // 停用则禁用选项
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>
-                        {model.icon} {model.label}
-                        {isDisabled && (
-                          <Tag color="default" style={{ marginLeft: 8, fontSize: 11 }}>
-                            即将开放
-                          </Tag>
-                        )}
-                      </span>
-                      <span style={{ fontSize: 12, color: '#999' }}>消耗 {model.costPerUse} 额度</span>
-                    </div>
-                  </Option>
-                );
-              })}
-            </Select>
-          </div>
 
           {/* 开始按钮 */}
           <Button
@@ -946,20 +1289,16 @@ export const ProfessionalGenerationPage: React.FC = () => {
             block
             size="large"
             loading={loading}
-            disabled={!selectedFile || remainingQuota < (currentModelConfig?.costPerUse || 0) || currentModelConfig?.disabled === true}
+            disabled={imageMode === 'single' ? (!selectedFile || currentModelConfig?.disabled === true) : (!multiViewFiles.front || currentModelConfig?.disabled === true)}
             onClick={startGeneration}
             icon={
               currentModelConfig?.disabled === true
                 ? <InfoCircleOutlined />
-                : remainingQuota < (currentModelConfig?.costPerUse || 0) 
-                ? <LockOutlined /> 
                 : <PlayCircleOutlined />
             }
             style={{
               background: currentModelConfig?.disabled === true
                 ? '#f0f0f0'
-                : remainingQuota < (currentModelConfig?.costPerUse || 0)
-                ? '#d9d9d9'
                 : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               border: 'none',
               height: 44,
@@ -969,7 +1308,6 @@ export const ProfessionalGenerationPage: React.FC = () => {
           >
             {loading ? '🔄 生成中...' : 
              currentModelConfig?.disabled === true ? '🔜 即将开放' :
-             remainingQuota < (currentModelConfig?.costPerUse || 0) ? '🔒 额度不足' : 
              '🚀 开始生成'}
           </Button>
 
@@ -1068,6 +1406,141 @@ export const ProfessionalGenerationPage: React.FC = () => {
           </div>
         </div>
       </Drawer>
+
+      {/* 更多视角弹框 */}
+      <Modal
+        title="📐 更多视角图片上传"
+        open={extraViewsModalVisible}
+        onCancel={() => setExtraViewsModalVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setExtraViewsModalVisible(false)}>
+            关闭
+          </Button>,
+        ]}
+        width={500}
+        destroyOnClose
+      >
+        <div style={{
+          fontSize: 13,
+          color: '#666',
+          marginBottom: 14,
+          padding: '10px 12px',
+          background: '#fff7e6',
+          borderRadius: 6,
+          borderLeft: '3px solid #faad14',
+          lineHeight: 1.6,
+        }}>
+          上传更多视角图片可获得更精准的3D重建效果。
+          <span style={{ color: '#ff4d4f' }}>以下视角仅专业版3.1支持</span>。
+          选填，上传越多视图，模型细节越精确。
+        </div>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 12,
+        }}>
+          {EXTRA_VIEWS.map(v => {
+            const hasFile = !!multiViewFiles[v.key];
+            const preview = multiViewPreviews[v.key];
+            return (
+              <div
+                key={v.key}
+                onClick={() => !hasFile && handleMultiViewUpload(v.key)}
+                style={{
+                  aspectRatio: '1',
+                  borderRadius: 8,
+                  border: hasFile
+                    ? '2px solid #667eea'
+                    : '1.5px dashed #d9d9d9',
+                  background: hasFile ? 'transparent' : '#fafafa',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: hasFile ? 'default' : 'pointer',
+                  transition: 'all 0.2s',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  minHeight: 100,
+                }}
+                onMouseEnter={(e) => {
+                  if (!hasFile) {
+                    (e.currentTarget as HTMLElement).style.borderColor = '#667eea';
+                    (e.currentTarget as HTMLElement).style.background = '#f0f0ff';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!hasFile) {
+                    (e.currentTarget as HTMLElement).style.borderColor = '#d9d9d9';
+                    (e.currentTarget as HTMLElement).style.background = '#fafafa';
+                  }
+                }}
+              >
+                {hasFile && preview ? (
+                  <>
+                    <img
+                      src={preview}
+                      alt={v.label}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        display: 'block',
+                      }}
+                    />
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveMultiView(v.key);
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: 3,
+                        right: 3,
+                        width: 20,
+                        height: 20,
+                        borderRadius: '50%',
+                        background: 'rgba(0,0,0,0.5)',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 12,
+                        cursor: 'pointer',
+                        lineHeight: 1,
+                      }}
+                    >
+                      ×
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: 4 }}>
+                    <PictureOutlined style={{ fontSize: 22, color: '#bbb' }} />
+                    <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{v.label}</div>
+                    <div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>选填</div>
+                  </div>
+                )}
+                <div style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: '2px 4px',
+                  background: 'rgba(0,0,0,0.45)',
+                  color: '#fff',
+                  fontSize: 10,
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}>
+                  {v.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -1120,17 +1593,17 @@ const styles: Record<string, React.CSSProperties> & Record<string, any> = {
   topModesBar: {
     background: 'white',
     borderRadius: 8,
-    padding: '10px 12px',
+    padding: '6px 10px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
     flexShrink: 0,
   },
   modesRow: {
     display: 'grid',
     gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: 12,
+    gap: 8,
   },
   modeChip: {
-    padding: '12px 14px',
+    padding: '8px 10px',
     borderWidth: 2,
     borderStyle: 'solid',
     borderColor: '#e0e0e0',
@@ -1140,9 +1613,9 @@ const styles: Record<string, React.CSSProperties> & Record<string, any> = {
     background: 'white',
     display: 'flex',
     flexDirection: 'column',
-    gap: 6,
+    gap: 4,
     position: 'relative',
-    minHeight: 100,
+    minHeight: 80,
   },
   modeChipLocked: {
     opacity: 0.6,
@@ -1232,39 +1705,20 @@ const styles: Record<string, React.CSSProperties> & Record<string, any> = {
     gap: 4,
     flexWrap: 'wrap',
   },
-  costInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 4,
-  },
-  costLabel: {
-    fontSize: 10,
-    color: '#999',
-  },
-  costValue: {
-    fontSize: 12,
-    fontWeight: 700,
-    color: '#ff4d4f',
-  },
-  timeInfo: {
-    fontSize: 10,
-    color: '#999',
-    textAlign: 'center',
-  },
   contentArea: {
     flex: 1,
     display: 'grid',
     gridTemplateColumns: '400px 1fr',
-    gap: 12,
+    gap: 8,
     overflow: 'hidden',
   },
   leftPanel: {
     background: 'white',
     borderRadius: 12,
-    padding: 20,
+    padding: '12px 14px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 12,
+    gap: 8,
     boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
     overflow: 'auto',
   },
