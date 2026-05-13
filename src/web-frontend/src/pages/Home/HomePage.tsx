@@ -39,6 +39,9 @@ export function HomePage({ onNavigate, showWorkshop3D, onWorkshopClose }: HomePa
   const [showWorkshop, setShowWorkshop] = useState(showWorkshop3D || false);
   const workshopRef = useRef<HTMLDivElement>(null);
   
+  // ★ 轮播间隔（秒），从后端配置获取
+  const carouselIntervalRef = useRef(15);  // 默认15秒
+  
   // ★ 追踪首页 3D 模型加载状态（避免加载中切换）
   const [isHeroLoading, setIsHeroLoading] = useState(true);
   const isHeroLoadingRef = useRef(isHeroLoading);
@@ -66,8 +69,16 @@ export function HomePage({ onNavigate, showWorkshop3D, onWorkshopClose }: HomePa
     fetch('/api/v1/settings/render-defaults')
       .then(r => r.json())
       .then(data => {
-        if (data && data.value && Object.keys(data.value).length > 0) {
-          setGlobalRenderDefaults(data.value as RenderConfig);
+        if (data && data.value) {
+          // 支持新旧两种存储格式：
+          // 旧: value = { camera:..., decorations:... }
+          // 新: value = { renderConfig: {...}, products: [...] }
+          const savedValue = data.value;
+          if (savedValue.renderConfig) {
+            setGlobalRenderDefaults(savedValue.renderConfig as RenderConfig);
+          } else if (Object.keys(savedValue).length > 0) {
+            setGlobalRenderDefaults(savedValue as RenderConfig);
+          }
         }
       })
       .catch(() => {/* 静默失败，使用组件默认值 */});
@@ -134,7 +145,7 @@ export function HomePage({ onNavigate, showWorkshop3D, onWorkshopClose }: HomePa
         setCurrentIndex((prev) => (prev + 1) % homepageModels.length);
         setIsTransitioning(false);
       }, 500);
-    }, 8000);
+    }, carouselIntervalRef.current * 1000);
       
     return () => clearInterval(interval);
   }, [autoPlay, homepageModels.length]);
@@ -316,6 +327,7 @@ export function HomePage({ onNavigate, showWorkshop3D, onWorkshopClose }: HomePa
           <UniversalGaussianCardV3
             ref={cardRef}
             modelUrl={currentModel.modelUrl || currentModel.splatUrl!}
+            modelFormat={currentModel.format}
             layout="featured"
             autoRotate={true}
             showParticles={true}

@@ -45,7 +45,7 @@ export function GalleryPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchPublicModels({ page_size: 24 });
+      const res = await fetchPublicModels({ page_size: 100 });
       setModels(res.data);
       setTotalCount(res.total || res.data.length);
     } catch (err: any) {
@@ -219,6 +219,7 @@ export function GalleryPage() {
                   <div className="gallery-card-3d" onClick={e => e.stopPropagation()}>
                     <UniversalGaussianCardV3
                       modelUrl={model.model_url}
+                      modelFormat={model.format}
                       layout="compact"
                       autoCenter={true}
                       margin={1.8}
@@ -319,6 +320,7 @@ export function GalleryPage() {
             <div className="gallery-modal-viewer">
               <UniversalGaussianCardV3
                 modelUrl={detailModel.model_url}
+                modelFormat={detailModel.format}
                 autoCenter={true}
                 margin={2.5}
                 layout="featured"

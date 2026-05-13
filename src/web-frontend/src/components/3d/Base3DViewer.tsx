@@ -258,6 +258,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   
   // ★ 标记模型切换前环绕是否正在运行（用于加载完成后恢复）
   const savedOrbitActiveRef = useRef(false);
+  
+  // ★ 标记相机配置动画停止前环绕是否在运行（用于动画完成后恢复）
+  const wasOrbitActiveBeforeCameraRef = useRef(false);
 
   // ★ 追踪上一轮的 orbitEnabled，用于 cleanup 判断是否需要 stop
   const prevOrbitEnabledRef = useRef(orbitEnabled);
@@ -372,6 +375,17 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     orbitControllerRef.current.setParams(orbitModeParams);
   }, [orbitModeParams]);
 
+  // ★ Prop 驱动环绕预设切换（模型切换时重新应用预设）
+  useEffect(() => {
+    const ctrl = orbitControllerRef.current;
+    if (!ctrl || !orbitPresetProp) return;
+    const preset = findPresetById(orbitPresetProp);
+    if (preset) {
+      ctrl.setMode(preset.modeId);
+      ctrl.setParams(preset.params);
+    }
+  }, [orbitPresetProp]);
+
   // ★ Prop 驱动中心垂直偏移（实时更新环绕轨道高度）
   useEffect(() => {
     const ctrl = orbitControllerRef.current;
@@ -393,12 +407,17 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       preferAxis: 'auto',
       autoCenter: true
     });
+    console.log(`[Orbit/MarginEffect] 🔍 margin变化: margin=${margin}, modelLoaded=${modelLoaded}, hasCtrl=${!!orbitControllerRef.current}, isActive=${orbitControllerRef.current?.isActive}`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [margin]);
   
   // ★ 模型加载完成后：如果切换前环绕正在运行，自动重启（以新相机位置重建上下文）
   useEffect(() => {
-    if (!modelLoaded) return;
+    if (!modelLoaded) {
+      console.log('[Orbit/Restore] ⏳ 模型未加载完成，跳过恢复');
+      return;
+    }
+    console.log(`[Orbit/Restore] 🔍 检测恢复条件: savedOrbitActiveRef=${savedOrbitActiveRef.current}, ctrlExists=${!!orbitControllerRef.current}, ctrlActive=${orbitControllerRef.current?.isActive ?? 'N/A'}`);
     if (!savedOrbitActiveRef.current) return;
     
     savedOrbitActiveRef.current = false;
@@ -409,7 +428,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       currentTweenRef.current = null;
     }
     
+    console.log('[Orbit/Restore] 🟢 模型加载完成，准备恢复环绕动画');
     orbitControllerRef.current?.start(orbitDurationRef.current);
+    console.log('[Orbit/Restore] ✅ 环绕动画恢复完成');
   }, [modelLoaded]);
   
   // Spark渲染状态管理
@@ -1176,7 +1197,10 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       frameCountRef.current++;
       const isOrbitRunning = orbitControllerRef.current?.isActive ?? false;
       if (frameCountRef.current % 300 === 0) {
-        console.log(`[animate] ✅ 动画循环运行中 (帧#${frameCountRef.current})${isOrbitRunning ? ', 环绕状态: active' : ''}`);
+        console.log(`[animate] ✅ 动画循环运行中 (帧#${frameCountRef.current})${isOrbitRunning ? ', 环绕状态: active' : ', ❌ 环绕未运行'}`);
+      } else if (frameCountRef.current % 60 === 0 && !isOrbitRunning && orbitControllerRef.current) {
+        // 每秒检查：如果控制器存在但不在运行，输出警告
+        console.warn(`[animate] ⚠️ 帧#${frameCountRef.current}: OrbitController存在但不在运行状态`);
       }
 
       // ★ [fix] 环绕卡死检测与自动恢复：检查相机位置是否变化
@@ -1200,6 +1224,15 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       } else {
         orbitStallFrameCountRef.current = 0;
         lastOrbitCamPosRef.current = '';
+      }
+
+      // ★ 自愈监控：环绕应该运行但未运行，且没有活跃的相机Tween时，自动恢复
+      if (frameCountRef.current % 120 === 0) {
+        if (!isOrbitRunning && orbitControllerRef.current && prevOrbitEnabledRef.current && !currentTweenRef.current) {
+          console.warn(`[animate] 🚨 自愈监控: 环绕应运行但停止，尝试自动恢复 (帧#${frameCountRef.current})`);
+          orbitControllerRef.current.start(orbitDurationRef.current);
+          console.log('[animate] ✅ 自愈恢复完成');
+        }
       }
 
       // ★ 使用 ref 获取实时环绕状态，避免闭包过期
@@ -1448,6 +1481,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     
     // ★ 暂停环绕动画（避免两套Tween争夺相机控制权，平滑过渡完成后恢复）
     const wasOrbitActive = orbitControllerRef.current?.isActive ?? false;
+    wasOrbitActiveBeforeCameraRef.current = wasOrbitActive;  // ★ 持久化跟踪
     if (wasOrbitActive) {
       orbitControllerRef.current?.stop();
       console.log('📹 [相机配置] 已暂停环绕动画');
@@ -1540,10 +1574,17 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         console.log('✅ [相机配置] 自定义相机配置平滑过渡完成:', config);
         prevConfigRef.current = config;
 
-        // ★ 恢复环绕动画（覆盖范围包含 wasOrbitActive）
-        if (wasOrbitActive && orbitControllerRef.current) {
+        // ★ 恢复环绕动画：优先用持久化ref，再检查prevOrbitEnabled做强制恢复
+        const shouldRestart =
+          wasOrbitActiveBeforeCameraRef.current ||   // 相机动画前环绕正在运行
+          (!wasOrbitActiveBeforeCameraRef.current && prevOrbitEnabledRef.current); // 或 prop 要求环绕开启
+        if (shouldRestart && orbitControllerRef.current) {
           orbitControllerRef.current.start(orbitDurationRef.current);
           console.log('📹 [相机配置] 已恢复环绕动画');
+        } else if (prevOrbitEnabledRef.current && orbitControllerRef.current) {
+          // ★ 强制恢复：兜底，确保环绕实际运行
+          orbitControllerRef.current.start(orbitDurationRef.current);
+          console.log('📹 [相机配置] 强制恢复环绕动画（兜底）');
         }
       })
       .start();
@@ -1708,11 +1749,13 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     // ★ 模型切换：停止所有相机Tween动画（平滑过渡 + 环绕），保存环绕状态以便加载完成后恢复
     // ★ [fix] 不覆盖已保存的环绕状态，防止加载失败重试时丢失
     if (!savedOrbitActiveRef.current) {
-      savedOrbitActiveRef.current = orbitControllerRef.current?.isActive ?? false;
+      const wasActive = orbitControllerRef.current?.isActive ?? false;
+      savedOrbitActiveRef.current = wasActive;
+      console.log(`[Orbit/ModelLoad] 🎯 捕获模型加载前环绕状态: isActive=${wasActive}`);
     }
     if (savedOrbitActiveRef.current) {
       orbitControllerRef.current?.stop();
-      console.log('🔄 模型切换：已停止环绕动画');
+      console.log('[Orbit/ModelLoad] 🔴 模型加载：已停止环绕动画');
     }
     if (currentTweenRef.current) {
       currentTweenRef.current.stop();

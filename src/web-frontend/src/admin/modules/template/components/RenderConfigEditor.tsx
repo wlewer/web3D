@@ -8,7 +8,8 @@
  * 内部以四组 Tab 组织：相机、环绕、装饰、视觉
  */
 import React, { useState, useCallback, useMemo } from 'react';
-import { Tabs, Slider, Switch, Select, Row, Col, InputNumber, Tooltip, Badge, Collapse, Radio } from 'antd';
+import { Tabs, Slider, Switch, Select, Row, Col, InputNumber, Tooltip, Badge, Collapse, Radio, Button, Space, Popconfirm, message } from 'antd';
+import { PlusOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { RenderConfig, CameraConfigParams, OrbitConfigParams, DecorationConfigParams, VisualConfigParams } from '@/types/render-config';
 
 // ==================== 内置色板 ====================
@@ -18,18 +19,130 @@ const MODEL_COLORS = ['#0a0a0f', '#0f0f23', '#1a0f2e', '#0a1628', '#1c1c1c', '#2
 // ==================== 环绕预设选项 ====================
 
 const ORBIT_PRESET_OPTIONS = [
-  { value: 'full-showcase', label: '全景展示', desc: '水平360° + 前后180° 全方位观赏' },
-  { value: 'quick-spin', label: '快速浏览', desc: '快速水平旋转，快速掌握全貌' },
-  { value: 'product-tour', label: '产品环视', desc: '平稳水平环绕，突出产品细节' },
-  { value: 'product-spiral', label: '产品螺旋', desc: '从下到上螺旋展示立体感' },
-  { value: 'art-vertical', label: '艺术垂直弧', desc: '沿垂直弧线正面→头顶→背面移动' },
-  { value: 'art-figure8', label: '艺术8字', desc: '8字形轨迹环绕，展示全方位美感' },
-  { value: 'architecture-spiral', label: '建筑螺旋', desc: '多圈螺旋上升展示建筑全貌' },
-  { value: 'architecture-horizontal', label: '建筑平转', desc: '低速水平环绕展示外立面' },
-  { value: 'mobile-horizontal', label: '手机水平', desc: '轻量水平环绕，适合移动端' },
+  { value: 'full-showcase', label: '全景展示', desc: '水平360° + 前后180° 全方位无死角观赏', detail: '半球形轨迹 · 12s周期 · 正面降速停留' },
+  { value: 'quick-spin', label: '快速浏览', desc: '快速水平旋转，快速掌握作品全貌', detail: '纯水平旋转 · 6s周期 · 无脉动无倾斜' },
+  { value: 'product-tour', label: '产品环视', desc: '平稳水平环绕，带轻微上下脉动，突出产品细节', detail: '水平+脉动 · 15s周期 · 视线上仰5°' },
+  { value: 'product-spiral', label: '产品螺旋', desc: '从下到上螺旋展示，突出产品立体感', detail: '螺旋上升2圈 · 16s周期' },
+  { value: 'art-vertical', label: '艺术垂直弧', desc: '沿垂直弧线正面→头顶→背面缓慢移动', detail: '垂直弧线 · 18s周期 · 适合作品细节观赏' },
+  { value: 'art-figure8', label: '艺术8字', desc: '8字形轨迹环绕，展示作品的全方位美感', detail: '8字轨迹+垂直波浪 · 16s周期' },
+  { value: 'architecture-spiral', label: '建筑螺旋', desc: '多圈螺旋上升，展示建筑全貌和高度', detail: '螺旋上升3圈 · 24s周期 · 高空俯瞰' },
+  { value: 'architecture-horizontal', label: '建筑平转', desc: '低速水平环绕，展示建筑外立面', detail: '纯水平旋转 · 20s周期 · 平视角度' },
+  { value: 'mobile-horizontal', label: '手机水平', desc: '轻量水平环绕，适合移动端性能优化', detail: '纯水平旋转 · 10s周期 · 无脉动无倾斜' },
 ];
 
 // ==================== Props ====================
+
+// ==================== 产品标签类型 ====================
+
+interface TagItem {
+  id: string;
+  name: string;
+  nameEn?: string;
+  description: string;
+  descriptionEn?: string;
+  color?: string;
+}
+
+// ==================== 分类标签建议模板 ====================
+
+const CATEGORY_TAG_TEMPLATES: Record<string, Array<{ name: string; nameEn: string; description: string; descriptionEn: string; color: string }>> = {
+  '自然生物': [
+    { name: '🦋 生态研究', nameEn: 'Ecology Research', description: '用于自然生态研究', descriptionEn: 'For ecology research', color: '#22c55e' },
+    { name: '📸 艺术摄影', nameEn: 'Art Photography', description: '生物艺术创作参考', descriptionEn: 'Bio-art creation reference', color: '#f97316' },
+    { name: '🎓 教学标本', nameEn: 'Teaching Specimen', description: '生物学教学辅助', descriptionEn: 'Biology teaching aid', color: '#3b82f6' },
+  ],
+  '可爱动物': [
+    { name: '🐱 宠物医疗', nameEn: 'Pet Healthcare', description: '宠物健康检测参考', descriptionEn: 'Pet health check reference', color: '#ec4899' },
+    { name: '🎮 游戏开发', nameEn: 'Game Development', description: '游戏角色建模参考', descriptionEn: 'Game character modeling', color: '#8b5cf6' },
+  ],
+  '美食料理': [
+    { name: '🍔 餐饮展示', nameEn: 'Food Display', description: '餐厅菜品3D展示', descriptionEn: 'Restaurant 3D food display', color: '#eab308' },
+    { name: '📱 菜单设计', nameEn: 'Menu Design', description: '数字菜单应用', descriptionEn: 'Digital menu application', color: '#f97316' },
+    { name: '🎬 广告制作', nameEn: 'Commercial Production', description: '美食广告3D特效', descriptionEn: 'Food commercial 3D effects', color: '#ef4444' },
+  ],
+  '科技产品': [
+    { name: '🤖 机械工程', nameEn: 'Mechanical Engineering', description: '机器人设计参考', descriptionEn: 'Robot design reference', color: '#06b6d4' },
+    { name: '🎮 游戏角色', nameEn: 'Game Character', description: '科幻游戏角色建模', descriptionEn: 'Sci-fi game character modeling', color: '#8b5cf6' },
+    { name: '🎬 影视特效', nameEn: 'Film VFX', description: '科幻电影特效制作', descriptionEn: 'Sci-fi movie VFX production', color: '#3b82f6' },
+  ],
+  '极地动物': [
+    { name: '🐧 极地研究', nameEn: 'Polar Research', description: '企鹅生态研究辅助', descriptionEn: 'Penguin ecology research', color: '#06b6d4' },
+    { name: '🏛️ 博物馆展品', nameEn: 'Museum Exhibit', description: '数字化展览展示', descriptionEn: 'Digital exhibition display', color: '#22c55e' },
+  ],
+  '甜品糕点': [
+    { name: '🍰 烘焙教学', nameEn: 'Baking Tutorial', description: '甜点制作教学参考', descriptionEn: 'Dessert making tutorial', color: '#ec4899' },
+    { name: '🎂 定制设计', nameEn: 'Custom Design', description: '蛋糕定制设计服务', descriptionEn: 'Custom cake design service', color: '#f472b6' },
+    { name: '📸 产品拍摄', nameEn: 'Product Photography', description: '电商产品摄影参考', descriptionEn: 'E-commerce product reference', color: '#fb923c' },
+  ],
+  'AI生成': [
+    { name: '🤖 AI生成', nameEn: 'AI Generated', description: '混元3D云端API生成', descriptionEn: 'Generated by Tencent Hunyuan3D Cloud API', color: '#10b981' },
+    { name: '⚡ 专业版', nameEn: 'Pro Version', description: '使用专业版API生成', descriptionEn: 'Generated using Pro API', color: '#8b5cf6' },
+    { name: '✅ 已验证', nameEn: 'Verified', description: '真实生成并验证成功', descriptionEn: 'Real generated and verified', color: '#22c55e' },
+  ],
+  '经典模型': [
+    { name: '🐉 3D建模', nameEn: '3D Modeling', description: '高质量3D模型参考', descriptionEn: 'High-quality 3D model reference', color: '#dc2626' },
+    { name: '🎮 游戏资产', nameEn: 'Game Assets', description: '游戏角色模型资源', descriptionEn: 'Game character model assets', color: '#8b5cf6' },
+  ],
+  '环境场景': [
+    { name: '🏛️ 建筑可视化', nameEn: 'Arch Visualization', description: '建筑场景数字化展示', descriptionEn: 'Architectural scene digitization', color: '#059669' },
+    { name: '🎬 影视场景', nameEn: 'Film Scene', description: '影视场景3D重建', descriptionEn: 'Film scene 3D reconstruction', color: '#f59e0b' },
+    { name: '🗺️ 虚拟漫游', nameEn: 'Virtual Tour', description: '沉浸式场景体验', descriptionEn: 'Immersive scene experience', color: '#3b82f6' },
+  ],
+  '通用': [
+    { name: '📷 产品展示', nameEn: 'Product Display', description: '高质量3D模型展示', descriptionEn: 'High-quality 3D display', color: '#667eea' },
+    { name: '🎨 艺术创作', nameEn: 'Art Creation', description: '3D艺术创作参考', descriptionEn: '3D art creation reference', color: '#8b5cf6' },
+  ],
+};
+
+/** DB 模型分类值 → 标签分类中文名映射 */
+const DB_CATEGORY_TO_TAG_CATEGORY: Record<string, string> = {
+  animal: '可爱动物',
+  nature: '自然生物',
+  food: '美食料理',
+  character: '科技产品',
+  scene: '环境场景',
+  architecture: '环境场景',
+  vehicle: '科技产品',
+  art: '经典模型',
+};
+
+function inferCategoryFromModelName(modelName: string): string {
+  const lower = modelName.toLowerCase();
+  if (lower.includes('蝴蝶') || lower.includes('butterfly')) return '自然生物';
+  if (lower.includes('猫') || lower.includes('cat')) return '可爱动物';
+  if (lower.includes('汉堡') || lower.includes('burger') || lower.includes('food')) return '美食料理';
+  if (lower.includes('机器人') || lower.includes('robot') || lower.includes('tech')) return '科技产品';
+  if (lower.includes('企鹅') || lower.includes('penguin')) return '极地动物';
+  if (lower.includes('甜点') || lower.includes('dessert') || lower.includes('cake')) return '甜品糕点';
+  if (lower.includes('龙') || lower.includes('dragon')) return '经典模型';
+  if (lower.includes('场景') || lower.includes('scene') || lower.includes('环境')) return '环境场景';
+  if (lower.includes('混元') || lower.includes('ai') || lower.includes('生成')) return 'AI生成';
+  return '';
+}
+
+function generateSuggestedTags(modelName: string, category: string): TagItem[] {
+  // 优先级: 1. 直接匹配中文分类名 2. DB 分类值映射 3. 从模型名推断 4. 通用回退
+  let key = CATEGORY_TAG_TEMPLATES[category] ? category : '';
+  if (!key) {
+    const mapped = DB_CATEGORY_TO_TAG_CATEGORY[category];
+    key = mapped && CATEGORY_TAG_TEMPLATES[mapped] ? mapped : '';
+  }
+  if (!key) {
+    key = inferCategoryFromModelName(modelName);
+  }
+  if (!key || !CATEGORY_TAG_TEMPLATES[key]) {
+    key = '通用';
+  }
+  const template = CATEGORY_TAG_TEMPLATES[key];
+  return template.map((t, i) => ({
+    id: `auto_${Date.now()}_${i}`,
+    name: t.name,
+    nameEn: t.nameEn,
+    description: t.description,
+    descriptionEn: t.descriptionEn,
+    color: t.color,
+  }));
+}
 
 export interface RenderConfigEditorProps {
   /** 当前配置值 */
@@ -42,6 +155,12 @@ export interface RenderConfigEditorProps {
   globalDefaults?: RenderConfig | null;
   /** 模型名称（仅模型模式） */
   modelName?: string;
+  /** 模型分类（用于自动生成标签建议） */
+  modelCategory?: string;
+  /** 产品标签列表（model模式内嵌编辑） */
+  products?: TagItem[];
+  /** 产品标签变化回调 */
+  onProductsChange?: (products: TagItem[]) => void;
 }
 
 // ==================== 工具函数 ====================
@@ -127,6 +246,9 @@ export const RenderConfigEditor: React.FC<RenderConfigEditorProps> = ({
   mode,
   globalDefaults,
   modelName,
+  modelCategory,
+  products,
+  onProductsChange,
 }) => {
   // 内部 Tab
   const [tab, setTab] = useState<string>('camera');
@@ -248,8 +370,19 @@ export const RenderConfigEditor: React.FC<RenderConfigEditorProps> = ({
           />
         </ParamRow>
         {selectedPreset && (
-          <div style={{ fontSize: 11, color: '#888', margin: '-4px 0 12px 0', paddingLeft: '25%' }}>
-            {selectedPreset.desc}
+          <div style={{
+            fontSize: 12,
+            color: '#ccc',
+            margin: '4px 0 12px 0',
+            padding: '6px 10px',
+            borderLeft: '2px solid #556677',
+            borderRadius: 4,
+            background: 'rgba(255,255,255,0.04)',
+          }}>
+            <div style={{ lineHeight: 1.5 }}>{selectedPreset.desc}</div>
+            <div style={{ fontSize: 11, color: '#888', marginTop: 3, fontFamily: 'monospace' }}>
+              {(selectedPreset as any).detail || ''}
+            </div>
           </div>
         )}
         <ParamRow label="速度倍率" inherited={isInheritedFromGlobal('orbit', 'speed')} onReset={() => resetToGlobal('orbit', 'speed')}>
@@ -301,6 +434,186 @@ export const RenderConfigEditor: React.FC<RenderConfigEditorProps> = ({
             />
             <span style={{ marginLeft: 8, fontSize: 11, color: '#888' }}>自动环绕均布</span>
           </ParamRow>
+        )}
+        {(d.showLabels ?? false) && products !== undefined && onProductsChange && (
+          <div style={{ marginTop: 8, borderTop: '1px solid #333', paddingTop: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#ccc', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>🏷️ 标签内容</span>
+              <Space size="small">
+                <Button size="small" icon={<ReloadOutlined />} onClick={() => {
+                  const suggested = generateSuggestedTags(modelName || '', modelCategory || '');
+                  if (suggested.length === 0) {
+                    message.info('未找到匹配的标签模板，请手动添加');
+                    return;
+                  }
+                  onProductsChange(suggested);
+                  message.success(`已自动生成 ${suggested.length} 个标签`);
+                }}>
+                  自动生成
+                </Button>
+                <Button size="small" icon={<PlusOutlined />} onClick={() => {
+                  const newTag: TagItem = {
+                    id: `tag_${Date.now()}`,
+                    name: '',
+                    nameEn: '',
+                    description: '',
+                    descriptionEn: '',
+                    color: '#667eea',
+                  };
+                  onProductsChange([...products, newTag]);
+                }}>
+                  添加
+                </Button>
+              </Space>
+            </div>
+            {products.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '16px 0', color: '#666', fontSize: 12, border: '1px dashed #333', borderRadius: 6 }}>
+                暂无标签，点击「自动生成」或「添加」创建
+              </div>
+            ) : (
+              products.map((tag, index) => (
+                <div
+                  key={tag.id}
+                  style={{
+                    background: '#1a1a2e',
+                    borderRadius: 6,
+                    padding: '8px 10px',
+                    marginBottom: 6,
+                    borderLeft: `3px solid ${tag.color || '#667eea'}`,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, color: '#888' }}>标签 #{index + 1}</span>
+                    <Popconfirm title="删除此标签？" onConfirm={() => {
+                      const next = products.filter((_, i) => i !== index);
+                      onProductsChange(next);
+                    }}>
+                      <Button size="small" type="text" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+                    <input
+                      type="text"
+                      value={tag.name}
+                      onChange={e => {
+                        const next = [...products];
+                        next[index] = { ...next[index], name: e.target.value };
+                        onProductsChange(next);
+                      }}
+                      placeholder="中文名称"
+                      style={{
+                        flex: 1,
+                        background: '#0f0f23',
+                        border: '1px solid #333',
+                        borderRadius: 4,
+                        padding: '3px 6px',
+                        fontSize: 12,
+                        color: '#fff',
+                        outline: 'none',
+                      }}
+                    />
+                    <input
+                      type="text"
+                      value={tag.nameEn || ''}
+                      onChange={e => {
+                        const next = [...products];
+                        next[index] = { ...next[index], nameEn: e.target.value };
+                        onProductsChange(next);
+                      }}
+                      placeholder="English"
+                      style={{
+                        flex: 1,
+                        background: '#0f0f23',
+                        border: '1px solid #333',
+                        borderRadius: 4,
+                        padding: '3px 6px',
+                        fontSize: 12,
+                        color: '#fff',
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
+                    <input
+                      type="text"
+                      value={tag.description}
+                      onChange={e => {
+                        const next = [...products];
+                        next[index] = { ...next[index], description: e.target.value };
+                        onProductsChange(next);
+                      }}
+                      placeholder="中文描述"
+                      style={{
+                        flex: 1,
+                        background: '#0f0f23',
+                        border: '1px solid #333',
+                        borderRadius: 4,
+                        padding: '3px 6px',
+                        fontSize: 12,
+                        color: '#fff',
+                        outline: 'none',
+                      }}
+                    />
+                    <input
+                      type="text"
+                      value={tag.descriptionEn || ''}
+                      onChange={e => {
+                        const next = [...products];
+                        next[index] = { ...next[index], descriptionEn: e.target.value };
+                        onProductsChange(next);
+                      }}
+                      placeholder="English Desc"
+                      style={{
+                        flex: 1,
+                        background: '#0f0f23',
+                        border: '1px solid #333',
+                        borderRadius: 4,
+                        padding: '3px 6px',
+                        fontSize: 12,
+                        color: '#fff',
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <input
+                      type="color"
+                      value={tag.color || '#667eea'}
+                      onChange={e => {
+                        const next = [...products];
+                        next[index] = { ...next[index], color: e.target.value };
+                        onProductsChange(next);
+                      }}
+                      style={{ width: 24, height: 20, border: 'none', padding: 0, cursor: 'pointer', background: 'transparent' }}
+                    />
+                    <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#666' }}>{tag.color || '#667eea'}</span>
+                    {['#22c55e','#f97316','#3b82f6','#ec4899','#8b5cf6','#06b6d4','#eab308','#ef4444','#10b981'].map(c => (
+                      <span
+                        key={c}
+                        onClick={() => {
+                          const next = [...products];
+                          next[index] = { ...next[index], color: c };
+                          onProductsChange(next);
+                        }}
+                        style={{
+                          display: 'inline-block',
+                          width: 16,
+                          height: 16,
+                          borderRadius: 3,
+                          background: c,
+                          cursor: 'pointer',
+                          border: (tag.color || '#667eea') === c ? '2px solid #fff' : '1px solid #555',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+            <div style={{ fontSize: 11, color: '#555', marginTop: 4 }}>
+              💡 标签内容会随当前配置一并保存
+            </div>
+          </div>
         )}
         <ParamRow label="语言">
           <Select
@@ -364,7 +677,7 @@ export const RenderConfigEditor: React.FC<RenderConfigEditorProps> = ({
     { key: 'orbit', label: '🔄 环绕', children: renderOrbitPanel() },
     { key: 'decoration', label: '🎨 装饰', children: renderDecorationPanel() },
     { key: 'visual', label: '👁️ 视觉', children: renderVisualPanel() },
-  ], [value, globalDefaults, mode]);
+  ], [value, globalDefaults, mode, modelName, modelCategory, products, onProductsChange]);
 
   return (
     <div>

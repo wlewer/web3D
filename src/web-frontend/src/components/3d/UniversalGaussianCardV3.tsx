@@ -87,6 +87,7 @@ export const UniversalGaussianCardV3 = forwardRef<Base3DViewerRef, UniversalGaus
   orbitModeParams,
   orbitSpeed,
   orbitCenterYOffset,
+  orbitPreset,
   onOrbitStateChange,
   onOrbitCycleComplete,
   // 事件回调
@@ -188,6 +189,7 @@ export const UniversalGaussianCardV3 = forwardRef<Base3DViewerRef, UniversalGaus
           orbitModeParams={orbitModeParams}
           orbitSpeed={orbitSpeed}
           orbitCenterYOffset={orbitCenterYOffset}
+          orbitPreset={orbitPreset}
           onOrbitStateChange={onOrbitStateChange}
           onOrbitCycleComplete={onOrbitCycleComplete}
           customCameraConfig={customCameraConfig}

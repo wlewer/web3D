@@ -2,16 +2,85 @@
  * Web3D Admin - 仪表盘页面
  */
 
-import React from 'react';
-import { Card, Row, Col, Statistic, Tag } from 'antd';
+import React, { useEffect, useState } from 'react';
+import {
+  Card, Row, Col, Statistic, Tag, message,
+  InputNumber, Switch, Button, Space, Typography, Divider
+} from 'antd';
 import UnifiedTable from '@/admin/components/UnifiedTable';
 import {
   UserOutlined,
   BoxPlotOutlined,
   AppstoreOutlined,
   RiseOutlined,
+  ClockCircleOutlined,
+  SaveOutlined,
 } from '@ant-design/icons';
+
+const { Text } = Typography;
+
+interface CarouselConfig {
+  interval: number;
+  enabled: boolean;
+}
+
 const Dashboard: React.FC = () => {
+
+  // 轮播配置状态
+  const [carouselConfig, setCarouselConfig] = useState<CarouselConfig>({
+    interval: 15,
+    enabled: true,
+  });
+  const [carouselLoading, setCarouselLoading] = useState(false);
+  const [carouselSaving, setCarouselSaving] = useState(false);
+
+  // 获取轮播配置
+  const fetchCarouselConfig = async () => {
+    setCarouselLoading(true);
+    try {
+      const res = await fetch('/api/v1/settings/carousel');
+      const data = await res.json();
+      if (data.value) {
+        setCarouselConfig({
+          interval: data.value.interval ?? 15,
+          enabled: data.value.enabled ?? true,
+        });
+      }
+    } catch (err) {
+      console.error('获取轮播配置失败:', err);
+    } finally {
+      setCarouselLoading(false);
+    }
+  };
+
+  // 保存轮播配置
+  const saveCarouselConfig = async () => {
+    setCarouselSaving(true);
+    try {
+      const token = localStorage.getItem('admin_token');
+      const res = await fetch('/api/v1/settings/carousel', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ value: carouselConfig }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.detail || '保存失败');
+      }
+      message.success('轮播配置已保存');
+    } catch (err: any) {
+      message.error(err.message || '保存失败');
+    } finally {
+      setCarouselSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCarouselConfig();
+  }, []);
 
   // 统计数据
   const statsData = [
@@ -137,6 +206,67 @@ const Dashboard: React.FC = () => {
           </Col>
         ))}
       </Row>
+
+      {/* 首页轮播配置 */}
+      <Card
+        title={
+          <Space>
+            <ClockCircleOutlined />
+            <span>首页轮播配置</span>
+          </Space>
+        }
+        variant="borderless"
+        loading={carouselLoading}
+        style={{ marginBottom: 24 }}
+      >
+        <Row gutter={[24, 16]} align="middle">
+          <Col xs={24} sm={8}>
+            <Space direction="vertical" size={4}>
+              <Text strong>自动轮播</Text>
+              <Text type="secondary">启用后首页模型自动切换</Text>
+            </Space>
+            <div style={{ marginTop: 8 }}>
+              <Switch
+                checked={carouselConfig.enabled}
+                onChange={(checked) => setCarouselConfig(prev => ({ ...prev, enabled: checked }))}
+              />
+            </div>
+          </Col>
+          <Col xs={24} sm={10}>
+            <Space direction="vertical" size={4}>
+              <Text strong>切换间隔（秒）</Text>
+              <Text type="secondary">每个模型展示时长，3~120秒</Text>
+            </Space>
+            <div style={{ marginTop: 8 }}>
+              <InputNumber
+                min={3}
+                max={120}
+                value={carouselConfig.interval}
+                onChange={(val) => setCarouselConfig(prev => ({ ...prev, interval: val ?? 15 }))}
+                addonAfter="秒"
+                style={{ width: 150 }}
+              />
+            </div>
+          </Col>
+          <Col xs={24} sm={6}>
+            <div style={{ marginTop: 24 }}>
+              <Button
+                type="primary"
+                icon={<SaveOutlined />}
+                loading={carouselSaving}
+                onClick={saveCarouselConfig}
+              >
+                保存
+              </Button>
+            </div>
+          </Col>
+        </Row>
+        <Divider />
+        <Text type="secondary" style={{ fontSize: 13 }}>
+          当前配置将在下次首页加载时生效。间隔设为 {carouselConfig.interval} 秒，
+          {carouselConfig.enabled ? '✅ 自动轮播已开启' : '⏸️ 自动轮播已暂停'}
+        </Text>
+      </Card>
 
       {/* 最近活动 */}
       <Card title="最近活动" variant="borderless">

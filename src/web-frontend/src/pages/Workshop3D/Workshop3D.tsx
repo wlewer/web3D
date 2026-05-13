@@ -40,23 +40,8 @@ export function Workshop3D({ onNavigate, embedded = false, onClose, panoramaUrl 
         });
       }
 
-      // 加载importmap
-      const importmap = document.createElement('script');
-      importmap.type = 'importmap';
-      importmap.textContent = JSON.stringify({
-        imports: {
-          "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
-          "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/",
-          "tween": "https://unpkg.com/@tweenjs/tween.js@23.1.1/dist/tween.esm.js"
-        }
-      });
-      document.head.appendChild(importmap);
-
-      // 等待importmap加载
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // 动态导入Three.js模块
-      const THREE = await import('three');
+      // ★ [fix] 不再创建 import map（Vite dev server 会自动管理模块解析）
+      // 使用项目的 three.js 模块直接动态导入
       const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
       // 不再使用CSS2DRenderer，改用CanvasTexture Sprite
       

@@ -170,6 +170,8 @@ export const OfficialTemplateManagement: React.FC = () => {
   const [renderDrawerModel, setRenderDrawerModel] = useState<any>(null);
   const [renderDrawerConfig, setRenderDrawerConfig] = useState<RenderConfig>({});
   const [renderDrawerSaving, setRenderDrawerSaving] = useState(false);
+  // 单模型 Drawer 内嵌产品标签
+  const [drawerProducts, setDrawerProducts] = useState<ProductTagItem[]>([]);
 
   // 渲染控制内嵌页签
   const [renderModelTab, setRenderModelTab] = useState('hero');
@@ -231,8 +233,16 @@ export const OfficialTemplateManagement: React.FC = () => {
     axiosInstance.get('/settings/render-defaults')
       .then(res => {
         const data = res.data;
-        if (data && data.value && Object.keys(data.value).length > 0) {
-          setGlobalRenderDefaults(data.value as RenderConfig);
+        if (data && data.value) {
+          // 支持新旧两种存储格式：
+          // 旧: value = { camera:..., decorations:... }（裸 RenderConfig）
+          // 新: value = { renderConfig: {...}, products: [...] }
+          const savedValue = data.value;
+          if (savedValue.renderConfig) {
+            setGlobalRenderDefaults(savedValue.renderConfig as RenderConfig);
+          } else if (Object.keys(savedValue).length > 0) {
+            setGlobalRenderDefaults(savedValue as RenderConfig);
+          }
         }
       })
       .catch(err => console.error('加载渲染全局默认值失败:', err))
@@ -376,7 +386,11 @@ export const OfficialTemplateManagement: React.FC = () => {
   const handleSaveRenderDefaults = async (config: RenderConfig) => {
     setRenderDefaultsSaving(true);
     try {
-      await axiosInstance.put('/settings/render-defaults', { value: config });
+      await axiosInstance.put('/settings/render-defaults', {
+        value: {
+          renderConfig: config,
+        },
+      });
       setGlobalRenderDefaults(config);
       message.success('全局渲染默认值已保存');
     } catch {
@@ -392,6 +406,9 @@ export const OfficialTemplateManagement: React.FC = () => {
     // 从已有 metadata_json 或空对象开始
     const existingConfig: RenderConfig = (record as any).renderConfig || {};
     setRenderDrawerConfig(existingConfig);
+    // 加载已有的产品标签
+    const existingProducts: ProductTagItem[] = (record as any).products || [];
+    setDrawerProducts(existingProducts.length > 0 ? JSON.parse(JSON.stringify(existingProducts)) : []);
     setRenderDrawerVisible(true);
   };
 
@@ -403,7 +420,12 @@ export const OfficialTemplateManagement: React.FC = () => {
       // ★ 先 GET 当前模型 metadata_json，合并后再 PUT
       const getRes = await axiosInstance.get(`/models/${renderDrawerModel.id}`);
       const currentMeta = (getRes.data as any).metadata_json || {};
-      const mergedMeta = { ...currentMeta, renderConfig: renderDrawerConfig };
+      const mergedMeta = {
+        ...currentMeta,
+        renderConfig: renderDrawerConfig,
+        // 同步保存产品标签（过滤掉空名称的）
+        products: drawerProducts.filter(p => p.name.trim().length > 0),
+      };
 
       await axiosInstance.put(`/models/${renderDrawerModel.id}`, {
         metadata_json: mergedMeta,
@@ -1136,6 +1158,9 @@ export const OfficialTemplateManagement: React.FC = () => {
             mode="model"
             globalDefaults={globalRenderDefaults}
             modelName={renderDrawerModel.display_name || renderDrawerModel.name}
+            modelCategory={renderDrawerModel.category || ''}
+            products={drawerProducts}
+            onProductsChange={setDrawerProducts}
           />
         )}
       </Drawer>

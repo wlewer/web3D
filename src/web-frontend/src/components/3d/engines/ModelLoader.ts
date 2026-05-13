@@ -12,15 +12,14 @@
  */
 
 import * as THREE from 'three';
-import { SplatMesh } from '@sparkjsdev/spark';
+import { SplatMesh, SplatFileType } from '@sparkjsdev/spark';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
 
-export type ModelFormat = 'spz' | 'glb' | 'gltf' | 'ply' | 'stl' | 'obj';
-
+export type ModelFormat = 'spz' | 'splat' | 'glb' | 'gltf' | 'ply' | 'stl' | 'obj' | 'fbx';
 export interface LoadProgress {
   progress: number;      // 进度百分比（0-100）
   stage: 'initializing' | 'loading' | 'processing' | 'rendering';  // 加载阶段
@@ -51,15 +50,17 @@ export class ModelLoader {
    */
   static async load(
     url: string,
-    onProgress?: (progress: LoadProgress) => void
+    onProgress?: (progress: LoadProgress) => void,
+    format?: ModelFormat  // ★ 可选：数据库格式，优先于URL检测
   ): Promise<LoadResult> {
-    const format = this.detectFormat(url);
+    const detectedFormat = format || this.detectFormat(url);
     
-    console.log(`📦 开始加载模型: ${url} (格式: ${format})`);
+    console.log(`📦 开始加载模型: ${url} (格式: ${detectedFormat})`);
     
     try {
-      switch (format) {
+      switch (detectedFormat) {
         case 'spz':
+        case 'splat':
           return await this.loadSPZ(url, onProgress);
         case 'glb':
         case 'gltf':
@@ -71,8 +72,10 @@ export class ModelLoader {
           return await this.loadSTL(url, onProgress);
         case 'obj':
           return await this.loadOBJ(url, onProgress);
+        case 'fbx':
+          throw new Error('FBX格式暂不支持在线预览，请使用GLB/SPZ格式');
         default:
-          throw new Error(`不支持的格式: ${format}`);
+          throw new Error(`不支持的格式: ${detectedFormat}，支持的格式: spz/splat/glb/gltf/ply/stl/obj`);
       }
     } catch (error) {
       console.error(`❌ 模型加载失败: ${url}`, error);
@@ -89,12 +92,13 @@ export class ModelLoader {
   private static detectFormat(url: string): ModelFormat {
     const ext = url.split('.').pop()?.toLowerCase();
     
-    if (ext === 'spz') return 'spz';
+    if (ext === 'spz' || ext === 'splat') return ext as ModelFormat;
     if (ext === 'glb') return 'glb';
     if (ext === 'gltf') return 'gltf';
     if (ext === 'ply') return 'ply';
     if (ext === 'stl') return 'stl';
     if (ext === 'obj') return 'obj';
+    if (ext === 'fbx') return 'fbx';
 
     // 默认返回spz
     console.warn(`⚠️ 无法检测格式，默认使用spz: ${url}`);
@@ -114,13 +118,34 @@ export class ModelLoader {
   ): Promise<LoadResult> {
     onProgress?.({ progress: 0, stage: 'initializing' });
     
+    // ★ [fix] 先尝试直接 URL 加载（含 fileType 显式提示）
+    try {
+      onProgress?.({ progress: 10, stage: 'loading' });
+      
+      // 尝试方案1: URL 加载 + fileType 显式提示
+      const splat = await this.tryLoadSPZByUrl(url, onProgress);
+      return splat;
+    } catch (urlError) {
+      console.warn('⚠️ SPZ URL加载失败，尝试文件字节加载:', urlError);
+    }
+    
+    // ★ 方案2: 下载原始字节后通过 fileBytes 加载（绕过 worker URL 检测限制）
+    onProgress?.({ progress: 10, stage: 'loading' });
+    return this.tryLoadSPZByBytes(url, onProgress);
+  }
+
+  /**
+   * 方案1: 通过 URL 直接加载 SplatMesh（含 fileType 提示）
+   */
+  private static tryLoadSPZByUrl(
+    url: string,
+    onProgress?: (progress: LoadProgress) => void
+  ): Promise<LoadResult> {
     return new Promise((resolve, reject) => {
       try {
-        onProgress?.({ progress: 10, stage: 'loading' });
-        
-        // 创建SplatMesh（构造函数会自动加载）
         const splat = new SplatMesh({
           url,
+          fileType: SplatFileType.SPZ,  // ★ 显式传递文件类型提示，帮助 worker 识别
           onProgress: (event) => {
             if (event.lengthComputable) {
               const progress = 10 + Math.round((event.loaded / event.total) * 80);
@@ -129,24 +154,87 @@ export class ModelLoader {
           }
         });
         
-        // 等待初始化完成
         splat.initialized.then(() => {
           onProgress?.({ progress: 100, stage: 'rendering' });
-          
-          // ★ 关键修复：SplatMesh默认可能是倒立的，需要翻转
-          // 绕X轴旋转180度（π弧度）使其正向显示
           splat.rotation.x = Math.PI;
           console.log('🔄 SplatMesh已翻转（绕X轴180度）');
-          
-          console.log(`✅ SPZ模型加载成功`);
-          
-          resolve({
-            model: splat,
-            format: 'spz'
-          });
+          console.log('✅ SPZ模型加载成功（方案1: URL）');
+          resolve({ model: splat, format: 'spz' });
         }).catch(reject);
       } catch (error) {
-        console.error('❌ SPZ加载失败:', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * 方案2: 下载原始字节后通过 fileBytes 加载
+   * 先下载完整文件，再以 ArrayBuffer 形式传给 SplatMesh，
+   * 避免 worker 内部 fetch + 类型检测失败的问题
+   */
+  private static async tryLoadSPZByBytes(
+    url: string,
+    onProgress?: (progress: LoadProgress) => void
+  ): Promise<LoadResult> {
+    onProgress?.({ progress: 20, stage: 'loading' });
+    
+    console.log('📥 下载SPZ文件原始字节...');
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`SPZ下载失败: HTTP ${response.status} ${response.statusText}`);
+    }
+    
+    const contentLength = response.headers.get('content-length');
+    const total = contentLength ? parseInt(contentLength) : 0;
+    
+    // 流式下载，支持进度
+    const reader = response.body?.getReader();
+    const chunks: Uint8Array[] = [];
+    let received = 0;
+    
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        if (total > 0) {
+          onProgress?.({ progress: 20 + Math.round((received / total) * 60), stage: 'loading' });
+        }
+      }
+    } else {
+      // 降级：直接获取全部
+      const arrayBuffer = await response.arrayBuffer();
+      chunks.push(new Uint8Array(arrayBuffer));
+    }
+    
+    // 合并所有 chunk
+    const allBytes = new Uint8Array(received);
+    let offset = 0;
+    for (const chunk of chunks) {
+      allBytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+    
+    onProgress?.({ progress: 85, stage: 'processing' });
+    console.log('✅ SPZ文件下载完成，大小:', received, 'bytes');
+    
+    // ★ 使用 fileBytes 创建 SplatMesh（浏览器端字节检测更可靠）
+    return new Promise((resolve, reject) => {
+      try {
+        const splat = new SplatMesh({ fileBytes: allBytes.buffer });
+        
+        splat.initialized.then(() => {
+          onProgress?.({ progress: 100, stage: 'rendering' });
+          splat.rotation.x = Math.PI;
+          console.log('🔄 SplatMesh已翻转（绕X轴180度）');
+          console.log('✅ SPZ模型加载成功（方案2: 字节）');
+          resolve({ model: splat, format: 'spz' });
+        }).catch((err) => {
+          console.error('❌ SPZ字节加载失败:', err);
+          reject(err);
+        });
+      } catch (error) {
         reject(error);
       }
     });

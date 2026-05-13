@@ -17,6 +17,7 @@ from loguru import logger
 router = APIRouter()
 
 RENDER_DEFAULTS_KEY = "render_defaults"
+CAROUSEL_CONFIG_KEY = "carousel_config"
 
 
 @router.get("/render-defaults")
@@ -96,4 +97,91 @@ async def update_render_defaults(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update render defaults: {str(e)}"
+        )
+
+
+@router.get("/carousel")
+async def get_carousel_config(
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    获取首页轮播配置
+    Get homepage carousel configuration
+    """
+    try:
+        result = await db.execute(
+            select(HomepageSettings).where(HomepageSettings.key == CAROUSEL_CONFIG_KEY)
+        )
+        setting = result.scalar_one_or_none()
+
+        if setting is None:
+            # 未有配置时返回默认值，interval为秒
+            return {"key": CAROUSEL_CONFIG_KEY, "value": {"interval": 15, "enabled": True}}
+
+        return {"key": setting.key, "value": setting.value}
+    except Exception as e:
+        logger.error(f"Failed to get carousel config: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get carousel config: {str(e)}"
+        )
+
+
+@router.put("/carousel")
+async def update_carousel_config(
+    body: Dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """
+    更新首页轮播配置（管理员）
+    Update homepage carousel configuration (admin only)
+
+    Body: {"value": {"interval": 15, "enabled": true}}
+    interval: 切换间隔（秒），enabled: 是否启用自动轮播
+    """
+    try:
+        value = body.get("value")
+        if value is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing 'value' field in request body"
+            )
+
+        # 验证参数
+        interval = value.get("interval", 15)
+        if not isinstance(interval, (int, float)) or interval < 3 or interval > 120:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="interval must be between 3 and 120 seconds"
+            )
+
+        # 查询或创建
+        result = await db.execute(
+            select(HomepageSettings).where(HomepageSettings.key == CAROUSEL_CONFIG_KEY)
+        )
+        setting = result.scalar_one_or_none()
+
+        if setting is None:
+            setting = HomepageSettings(
+                key=CAROUSEL_CONFIG_KEY,
+                value=value,
+            )
+            db.add(setting)
+        else:
+            setting.value = value
+            setting.updated_at = datetime.utcnow()
+
+        await db.commit()
+        await db.refresh(setting)
+
+        logger.info(f"Carousel config updated by {current_user.username}: {value}")
+        return {"key": setting.key, "value": setting.value, "updated_at": str(setting.updated_at)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update carousel config: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update carousel config: {str(e)}"
         )

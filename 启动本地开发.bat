@@ -55,9 +55,9 @@ echo ✅ Python: %PYTHON_CMD%
 
 REM ─── 检查并创建虚拟环境 ───
 cd /d "%ROOT%backend"
-if not exist ".venv312\Scripts\python.exe" (
+if not exist "%ROOT%.venv312\Scripts\python.exe" (
     echo ⚠️  虚拟环境不存在，正在创建...
-    %PYTHON_CMD% -m venv .venv312
+    %PYTHON_CMD% -m venv "%ROOT%.venv312"
     if !errorlevel! neq 0 (
         echo ❌ 虚拟环境创建失败
         pause
@@ -66,7 +66,7 @@ if not exist ".venv312\Scripts\python.exe" (
     echo ✅ 虚拟环境创建成功
 
     echo ⏳ 安装Python依赖（首次运行可能需要几分钟）...
-    .venv312\Scripts\pip install -r requirements.txt
+    "%ROOT%.venv312\Scripts\pip" install -r "%ROOT%backend\requirements.txt"
     if !errorlevel! neq 0 (
         echo ❌ 依赖安装失败
         pause
@@ -93,7 +93,7 @@ REM ─── 启动后端（后台运行，输出到日志文件） ───
 echo.
 echo [3/4] 启动后端API服务...
 cd /d "%ROOT%backend"
-start /b "" .venv312\Scripts\python.exe -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > "%ROOT%backend\uvicorn.log" 2>&1
+start /b "" "%ROOT%.venv312\Scripts\python.exe" -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload > "%ROOT%backend\uvicorn.log" 2>&1
 echo ℹ️  后端日志: backend\uvicorn.log
 
 REM 等待后端就绪（最多 10 秒）

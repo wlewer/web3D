@@ -53,7 +53,7 @@ export const ModelPreviewModal: React.FC<ModelPreviewModalProps> = ({
   const modelUrl = resolveModelUrl(model.modelUrl);
   const format = (model.format || '').toLowerCase();
   // 支持的格式列表
-  const supportedFormats = ['glb', 'gltf', 'ply', 'splat', 'spz'];
+  const supportedFormats = ['glb', 'gltf', 'ply', 'splat', 'spz', 'stl', 'obj'];
   const isSupported = supportedFormats.includes(format);
 
   // 下载模型

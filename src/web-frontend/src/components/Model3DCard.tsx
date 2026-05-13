@@ -2,7 +2,7 @@
 // 模型数据全局缓存+防白板+自动适配相机+画框聚焦效果
 import { useEffect, useRef, useState, memo, useCallback } from 'react';
 import * as THREE from 'three';
-import { SplatMesh, SparkRenderer } from '@sparkjsdev/spark';
+import { SplatMesh, SparkRenderer, SplatFileType } from '@sparkjsdev/spark';
 import './Model3DCard.css';
 
 // 全局模型数据缓存：URL -> ArrayBuffer（翻页切换时不重复下载）
@@ -140,25 +140,35 @@ export const Model3DCard = memo(function Model3DCard({
         try {
           const cachedData = modelDataCache.get(modelUrl);
           if (cachedData) {
+            console.log('📦 Model3DCard命中缓存:', modelUrl);
             splatMesh = new SplatMesh({
               fileBytes: cachedData.slice(0),
             });
           } else {
+            // ★ [fix] 先下载原始字节，再通过 fileBytes 传给 SplatMesh
+            // 避免直接传 url 导致内部 worker 类型检测失败（Unknown file type）
+            console.log('📥 Model3DCard下载文件:', modelUrl);
+            const response = await fetch(modelUrl);
+            if (!response.ok) {
+              throw new Error(`下载失败: HTTP ${response.status}`);
+            }
+            const buffer = await response.arrayBuffer();
+            
+            console.log('✅ Model3DCard文件下载完成，大小:', buffer.byteLength, 'bytes');
+            
+            // 创建 SplatMesh，使用 fileBytes + 显式 fileType 提示
             splatMesh = new SplatMesh({
-              url: modelUrl,
+              fileBytes: buffer,
+              fileType: SplatFileType.SPZ,  // ★ 显式传递文件类型，帮助 worker 识别
               onProgress: (event: ProgressEvent) => {
                 if (event.lengthComputable && mountedRef.current) {
                   setLoadProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
                 }
               }
             });
-
-            // 下载完成后缓存
-            try {
-              const response = await fetch(modelUrl);
-              const buffer = await response.arrayBuffer();
-              modelDataCache.set(modelUrl, buffer);
-            } catch { /* 缓存非关键 */ }
+            
+            // 缓存 bytes 供后续使用
+            modelDataCache.set(modelUrl, buffer);
           }
 
           if (!splatMesh) return;
