@@ -9,8 +9,8 @@
  */
 
 import React, { useState } from 'react';
+import UnifiedTable from '@/admin/components/UnifiedTable';
 import {
-  Table,
   Button,
   Space,
   Tag,
@@ -378,7 +378,8 @@ export const UserList: React.FC = () => {
 
       {/* 数据表格 */}
       <Card>
-        <Table
+        <UnifiedTable
+          storageKey="admin_user_list"
           rowKey="id"
           columns={columns}
           dataSource={data || []}
@@ -388,9 +389,6 @@ export const UserList: React.FC = () => {
             current: 1,
             pageSize: 10,
             total: total,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 条`,
           }}
           scroll={{ x: 1200 }}
         />

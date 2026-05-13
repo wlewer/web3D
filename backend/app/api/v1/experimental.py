@@ -12,6 +12,7 @@ import base64
 from typing import Optional, Dict
 from dotenv import load_dotenv
 import os
+import shutil
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -597,14 +598,19 @@ async def _handle_cloud_generation(
                     task_status[task_id]['message'] = '即将完成，正在下载模型文件...'
 
             # 从配置驱动模块读取版本信息
-            dir_prefix = vc.prefix if vc else 'hy3d-rapid'
             display_name = vc.display if vc else '标准版'
-            dir_name = f"{dir_prefix}_{task_id[:8]}"
 
-            # 标准化目录：uploads/generation/{版本前缀}_{task_id[:8]}/model.glb
-            model_dir = Path(f"uploads/generation/{dir_name}")
-            model_dir.mkdir(parents=True, exist_ok=True)
-            output_path = model_dir / "model.glb"
+            # 直接保存到 models/generated/{uuid}.glb（统一管理）
+            gen_model_id = str(uuid.uuid4())
+            static_filename = f"{gen_model_id}.glb"
+
+            # experimental.py → api → app → backend → 项目根 → models/generated/
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
+            static_models_dir = os.path.join(project_root, "models", "generated")
+            os.makedirs(static_models_dir, exist_ok=True)
+
+            output_path = Path(static_models_dir) / static_filename
 
             # 从配置驱动模块读取云端处理消息（支持逐版本配置）
             cloud_msg_template = model_versions.get_cloud_message(version)
@@ -631,7 +637,7 @@ async def _handle_cloud_generation(
                 quota_service = QuotaService(db)
                 await quota_service.record_api_call(current_user.id, success=True)
 
-                # 模型已直接保存到标准化目录：uploads/generation/{dir_name}/model.glb
+                # 模型已直接保存到 models/generated/
                 logger.info(f"[Cloud] Model saved to: {output_path}")
 
                 # 保存模型记录到数据库（自动保存到后台模型管理列表）
@@ -641,8 +647,8 @@ async def _handle_cloud_generation(
 
                     file_size = output_path.stat().st_size
 
-                    # 构造可通过浏览器直接访问的URL路径
-                    model_url_path = f"http://localhost:8000/generation-models/{dir_name}/model.glb"
+                    # 使用统一的 /static-models/ 路径
+                    model_url_path = f"/static-models/generated/{static_filename}"
 
                     async with async_session_maker() as db_session:
                         # 创建模型记录

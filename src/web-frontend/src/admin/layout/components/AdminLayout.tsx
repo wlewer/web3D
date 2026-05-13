@@ -10,6 +10,7 @@ import {
   DashboardOutlined,
   UserOutlined,
   BoxPlotOutlined,
+  HomeOutlined,
   AppstoreOutlined,
   SettingOutlined,
   LogoutOutlined,
@@ -52,6 +53,7 @@ const menuItems = [
         key: '/admin/models',
         label: '模型列表',
       },
+
       {
         key: '/admin/models/review',
         label: (
@@ -73,8 +75,8 @@ const menuItems = [
         label: '模板列表',
       },
       {
-        key: '/admin/templates/editor',
-        label: '模板编辑器',
+        key: '/admin/templates/official',
+        label: '官网模板',
       },
     ],
   },

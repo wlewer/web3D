@@ -26,8 +26,24 @@ import { SmartCenteringEngine, type FitConfig } from './engines/SmartCenteringEn
 import { ModelLoader } from './engines/ModelLoader';
 import { CameraManager, type CameraConfig } from './engines/CameraManager';
 import { SceneDecoration, type DecorationConfig } from './engines/SceneDecoration';
+import { globalModelCache } from './engines/GlobalModelCache';
 import { type DecorationControlProps, buildDecorationConfig } from './types/decorations';
 import { OrbitController, findPresetById } from './orbits';
+
+// ★ 重试工具：模型加载失败时自动重试（指数退避）
+async function withRetry<T>(fn: () => Promise<T>, retries = 3): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      const delay = Math.min(1000 * Math.pow(2, i), 10000);
+      console.warn(`\u91cd\u8bd5 ${i + 1}/${retries}，${delay}ms\u540e\u91cd\u8bd5...`);
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  throw new Error('\u6240\u6709\u91cd\u8bd5\u5747\u5931\u8d25');
+}
 
 export type LayoutMode = 
   | 'featured'    // 首页：全屏展示
@@ -42,6 +58,8 @@ export type LayoutMode =
 export interface Base3DViewerProps {
   // ========== 核心必选 ==========
   modelUrl: string;  // 模型URL
+  /** 模型格式（来自数据库，如 'spz'/'glb'/'ply'/'stl'/'obj'，优先于URL检测） */
+  modelFormat?: string;
   /** 模型类型（默认 auto 自动检测） */
   modelType?: 'auto' | 'splat' | 'ply-mesh' | 'glb';
   
@@ -132,6 +150,7 @@ export interface Base3DViewerRef {
  */
 export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   modelUrl,
+  modelFormat,
   autoCenter = true,
   margin = 2.5,
   layout = 'featured' as LayoutMode,
@@ -191,8 +210,11 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   const decorationRef = useRef<SceneDecoration | null>(null);
   
   // ★ 模型缓存：加速2次切换相同模型
-  const modelCacheRef = useRef<Map<string, SplatMesh | THREE.Mesh | THREE.Points | THREE.Group>>(new Map());
+  const modelCacheRef = useRef<Map<string, THREE.Object3D | SplatMesh>>(new Map());
   
+  // ★ 存储dispose函数，用于组件卸载时自动释放资源
+  const cleanupRef = useRef<(() => void) | null>(null);
+
   // 环绕控制器实例
   const orbitControllerRef = useRef<import('./orbits').OrbitController | null>(null);
 
@@ -601,10 +623,19 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
   const loadSplatModel = useCallback(async () => {
     if (!sparkRef.current) return;
     
-    // ★ 检查模型缓存（加速重复切换，6模型轮播时效果显著）
-    const cachedModel = modelCacheRef.current.get(modelUrl);
+    // ★ 先查全局缓存，再查局部缓存
+    let cachedModel = globalModelCache.get(modelUrl);
     if (cachedModel && cachedModel instanceof SplatMesh) {
-      console.log('📦 命中缓存，复用模型:', modelUrl);
+      console.log('📦 命中全局缓存，复用模型:', modelUrl);
+      modelCacheRef.current.set(modelUrl, cachedModel); // 同步到局部缓存
+    } else {
+      const localCached = modelCacheRef.current.get(modelUrl);
+      if (localCached && localCached instanceof SplatMesh) {
+        console.log('📦 命中局部缓存，复用模型:', modelUrl);
+        cachedModel = localCached;
+      }
+    }
+    if (cachedModel && cachedModel instanceof SplatMesh) {
       setError(null);
       setLoading(true);
       setModelLoaded(false);
@@ -692,7 +723,8 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
 
       let splat: SplatMesh;
 
-      if (modelUrl.endsWith('.ply')) {
+      const plyFormat = (modelFormat || '').toLowerCase() === 'ply' || modelUrl.endsWith('.ply');
+      if (plyFormat) {
         // ★ 关键修复：高斯泼溅PLY使用原生SplatMesh（ModelLoader.loadPLY返回THREE.Points）
         console.log('🌟 使用原生SplatMesh加载高斯PLY文件');
         splat = new SplatMesh({ url: modelUrl });
@@ -702,12 +734,12 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         // SplatMesh默认倒立，需要翻转
         splat.rotation.x = Math.PI;
       } else {
-        const loadPromise = ModelLoader.load(modelUrl, (progress) => {
+        const loadResult = await withRetry(() => ModelLoader.load(modelUrl, (progress) => {
           if (loadingTimedOut) return;
           setProgress(progress.progress);
           if (progress.stage === 'loading') progressReceived = true;
-        });
-        const loadResult = await loadPromise;
+        }, modelFormat as any));
+
         splat = loadResult.model as SplatMesh;
       }
 
@@ -726,6 +758,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
 
       // ★ 加入缓存（下次切换回此模型直接复用，无需重新下载解析）
       modelCacheRef.current.set(modelUrl, splat);
+      globalModelCache.set(modelUrl, splat);  // 同步到全局缓存
 
       // ★ 关键修复：如果有自定义相机配置，跳过智能居中
       if (autoCenter && cameraRef.current && canvasRef.current && !customCameraConfig) {
@@ -775,14 +808,48 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         setLoading(false);
         onError?.(err as Error);
       }
+      // ★ 对于PLY文件，向上传播错误以便 loadSplatWithFallback 降级到标准PLY
+      if (modelUrl.endsWith('.ply')) throw err;
     }
-  }, [modelUrl, autoCenter, margin, smartFitCameraToObject, customCameraConfig, onLoadComplete, onError, effectiveDecorations]);
+  }, [modelUrl, modelFormat, autoCenter, margin, smartFitCameraToObject, customCameraConfig, onLoadComplete, onError, effectiveDecorations]);
 
   /**
    * 加载GLB模型 - 完全对齐V2第1009-1113行
    */
   const loadGLBModel = useCallback(async () => {
     if (!sceneRef.current || !rendererRef.current) return;
+
+    // ★ 先查局部缓存（GLB/OBJ/STL模型）
+    const cachedModel = modelCacheRef.current.get(modelUrl);
+    if (cachedModel && !(cachedModel instanceof SplatMesh)) {
+      console.log('📦 命中局部缓存，复用GLB模型:', modelUrl);
+      modelRef.current = cachedModel;
+      sceneRef.current.add(cachedModel);
+
+      setLoadingStage('processing');
+      if (autoCenter && cameraRef.current && canvasRef.current && !customCameraConfig) {
+        smartFitCameraToObject(cachedModel, cameraRef.current, canvasRef.current, {
+          margin, trimThreshold: 0.05, preferAxis: 'auto', autoCenter: true
+        });
+      } else if (customCameraConfig) {
+        console.log('⏭️ 跳过智能居中：存在自定义相机配置');
+      }
+      setLoadingStage('rendering');
+      if (controlsRef.current) controlsRef.current.enabled = true;
+      if (effectiveDecorations?.labels?.enabled && effectiveDecorations.labels.products?.length) {
+        decorationRef.current?.showLabels();
+      }
+      setProgress(100);
+      setIsFadingOut(true);
+      setTimeout(() => {
+        setLoading(false);
+        setModelLoaded(true);
+        setIsFadingOut(false);
+        setStateMachine(prev => ({ ...prev, state: 'LOADED' }));
+        onLoadComplete?.();
+      }, 500);
+      return;
+    }
 
     try {
       setError(null);
@@ -797,14 +864,15 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         console.log('🔒 加载开始：禁用控制器');
       }
 
-      // 使用 ModelLoader 加载 GLB 模型
-      const loadResult = await ModelLoader.load(modelUrl, (progress) => {
+      // 使用 ModelLoader 加载 GLB 模型（带重试）
+      const loadResult = await withRetry(() => ModelLoader.load(modelUrl, (progress) => {
         setProgress(Math.round(progress.progress));
-      });
-
+      }, modelFormat as any));
       const model = loadResult.model;
       modelRef.current = model;
       sceneRef.current?.add(model);
+      // ★ 加入局部缓存（下次切换回此模型直接复用）
+      modelCacheRef.current.set(modelUrl, model);
 
       setLoadingStage('processing');  // 阶段2: 处理中
 
@@ -850,7 +918,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       setLoading(false);
       onError?.(err as Error);
     }
-  }, [modelUrl, autoCenter, margin, smartFitCameraToObject, customCameraConfig, onLoadComplete, onError, effectiveDecorations]);
+  }, [modelUrl, modelFormat, autoCenter, margin, smartFitCameraToObject, customCameraConfig, onLoadComplete, onError, effectiveDecorations]);
 
   /**
    * 加载PLY模型（完全对齐V2第1116-1320行）
@@ -858,10 +926,39 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
    */
   const loadPLYModel = useCallback(async () => {
     if (!sceneRef.current || !rendererRef.current || !cameraRef.current) return;
-    
+
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
+    // ★ 先查局部缓存
+    const cachedModel = modelCacheRef.current.get(modelUrl);
+    if (cachedModel && !(cachedModel instanceof SplatMesh)) {
+      console.log('📦 命中局部缓存，复用PLY模型:', modelUrl);
+      modelRef.current = cachedModel;
+      sceneRef.current.add(cachedModel);
+
+      if (autoCenter && cameraRef.current && canvasRef.current && !customCameraConfig) {
+        smartFitCameraToObject(cachedModel, cameraRef.current, canvasRef.current, {
+          margin, trimThreshold: 0.05, preferAxis: 'auto', autoCenter: true
+        });
+      }
+      setLoadingStage('rendering');
+      if (controlsRef.current) controlsRef.current.enabled = true;
+      if (effectiveDecorations?.labels?.enabled && effectiveDecorations.labels.products?.length) {
+        decorationRef.current?.showLabels();
+      }
+      setProgress(100);
+      setIsFadingOut(true);
+      setTimeout(() => {
+        setLoading(false);
+        setModelLoaded(true);
+        setIsFadingOut(false);
+        setStateMachine(prev => ({ ...prev, state: 'LOADED' }));
+        onLoadComplete?.();
+      }, 500);
+      return;
+    }
+
     setStateMachine(prev => ({ ...prev, state: 'LOADING' }));
     setLoading(true);
     setProgress(0);
@@ -961,7 +1058,9 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       
       sceneRef.current.add(object3D);
       modelRef.current = object3D;
-      
+      // ★ 加入局部缓存（下次切换回此模型直接复用）
+      modelCacheRef.current.set(modelUrl, object3D);
+
       // ✅ 对齐V2：智能居中
       if (autoCenter && cameraRef.current && canvasRef.current && !customCameraConfig) {
         smartFitCameraToObject(object3D, cameraRef.current, canvasRef.current, {
@@ -999,33 +1098,60 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         onError?.(err as Error);
       }
     }
-  }, [modelUrl, autoCenter, margin, smartFitCameraToObject, customCameraConfig, onLoadComplete, onError, effectiveDecorations]);
+  }, [modelUrl, modelFormat, autoCenter, margin, smartFitCameraToObject, customCameraConfig, onLoadComplete, onError, effectiveDecorations]);
+
+  /**
+   * ★ 加载PLY模型：先尝试高斯SplatMesh，失败后自动降级为标准PLY点云
+   */
+  const loadSplatWithFallback = useCallback(async () => {
+    if (!sparkRef.current) return;
+    // 先尝试高斯SplatMesh加载
+    try {
+      console.log('🌟 尝试以高斯SplatMesh加载PLY文件');
+      await loadSplatModel();
+      return;
+    } catch (_splatErr) {
+      console.warn('⚠️ 高斯SplatMesh加载失败，降级为标准PLY加载:', _splatErr);
+    }
+    // 降级：标准PLY加载
+    console.log('⬇️ 降级为标准PLY网格/点云加载');
+    // 重置错误状态后尝试标准PLY
+    setStateMachine(prev => ({ ...prev, state: 'LOADING' }));
+    setError(null);
+    setLoading(true);
+    await loadPLYModel();
+  }, [loadSplatModel, loadPLYModel]);
+
+  /**
+   * 从URL检测模型格式（降级方案）
+   */
+  const detectFormat = useCallback((url: string): string => {
+    if (url.endsWith('.spz')) return 'spz';
+    if (url.endsWith('.splat')) return 'splat';
+    if (url.endsWith('.ply')) return 'ply';
+    if (url.endsWith('.glb')) return 'glb';
+    if (url.endsWith('.gltf')) return 'gltf';
+    if (url.endsWith('.stl')) return 'stl';
+    if (url.endsWith('.obj')) return 'obj';
+    return 'spz';
+  }, []);
 
   /**
    * 加载模型（根据URL后缀判断类型）- 完全对齐V2第1323-1343行
    */
   const loadModel = useCallback(() => {
-    const isSplat = modelUrl.endsWith('.spz') || modelUrl.endsWith('.splat');
-    const isGaussianSplatPLY = modelUrl.endsWith('.ply') && (
-      modelUrl.includes('butterfly') ||
-      modelUrl.includes('dragon') ||
-      modelUrl.includes('scene')
-    );
+    const fmt = (modelFormat || '').toLowerCase() || detectFormat(modelUrl);
     
-    if (isSplat) {
+    if (fmt === 'spz' || fmt === 'splat') {
       loadSplatModel();
-    } else if (isGaussianSplatPLY) {
-      // ★ 关键修复：3D高斯泼溅格式的PLY文件使用SparkRenderer渲染
-      console.log('🌟 检测到3D高斯泼溅PLY文件，使用SparkRenderer渲染');
-      loadSplatModel();
-    } else if (modelUrl.endsWith('.ply')) {
-      // ✅ 对齐V2：标准PLY网格/点云文件
-      loadPLYModel();
+    } else if (fmt === 'ply') {
+      // ★ 修复：先尝试SplatMesh，失败自动降级标准PLY
+      loadSplatWithFallback();
     } else {
-      // 默认使用GLB加载
+      // GLB/GLTF/STL/OBJ等使用Three.js场景加载
       loadGLBModel();
     }
-  }, [modelUrl, loadSplatModel, loadGLBModel, loadPLYModel]);
+  }, [modelUrl, modelFormat, loadSplatModel, loadSplatWithFallback, loadGLBModel]);
 
   /**
    * 动画循环（集成SparkRenderer渲染）
@@ -1616,6 +1742,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         sparkRef.current.remove(modelRef.current);
         if (oldUrl) {
           modelCacheRef.current.set(oldUrl, modelRef.current as SplatMesh);
+          globalModelCache.set(oldUrl, modelRef.current as SplatMesh);  // 同步到全局缓存
           // ★ LRU：缓存超过20条时淘汰最早的一条
           if (modelCacheRef.current.size >= 20) {
             const firstKey = modelCacheRef.current.keys().next().value;
@@ -1629,16 +1756,35 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
           console.log('📦 缓存模型:', oldUrl);
         }
       }
-      // 从场景中移除（非SplatMesh对象）
-      if (!(modelRef.current instanceof SplatMesh) && sceneRef.current) {
-        sceneRef.current.remove(modelRef.current);
-      }
-      // 非SplatMesh才释放（SplatMesh已缓存，保留GPU资源）
+      // ★ 非SplatMesh → 从场景移除并缓存（保留GPU资源供复用）
       if (!(modelRef.current instanceof SplatMesh)) {
-        try {
-          (modelRef.current as any).dispose?.();
-        } catch (e) {
-          console.warn('模型清理警告:', e);
+        const oldUrl = stateMachine.currentModelUrl;
+        if (sceneRef.current) {
+          sceneRef.current.remove(modelRef.current);
+        }
+        // ★ 缓存到局部缓存（避免重复下载）
+        if (oldUrl) {
+          modelCacheRef.current.set(oldUrl, modelRef.current);
+          // ★ LRU：超过20条时淘汰最早的一条
+          if (modelCacheRef.current.size >= 20) {
+            const firstKey = modelCacheRef.current.keys().next().value;
+            if (firstKey) {
+              const evicted = modelCacheRef.current.get(firstKey);
+              if (evicted && !(evicted instanceof SplatMesh)) {
+                try {
+                  (evicted as any).traverse?.((child: any) => {
+                    if (child.geometry) child.geometry.dispose();
+                    if (child.material) {
+                      if (Array.isArray(child.material)) child.material.forEach((m: any) => m.dispose());
+                      else child.material.dispose();
+                    }
+                  });
+                } catch (e) { /* ignore */ }
+              }
+              modelCacheRef.current.delete(firstKey);
+              console.log('🗑️ LRU淘汰GLB/PLY缓存:', firstKey);
+            }
+          }
         }
       }
       modelRef.current = null;
@@ -1650,21 +1796,16 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
     loadModel();
   }, [modelUrl, loadModel, stateMachine.state, stateMachine.currentModelUrl, modelLoaded]);  // ✅ 完全对齐V2：不删除任何依赖项
 
+  // ★ 组件卸载时自动释放所有资源（防止GPU内存泄漏）
+  useEffect(() => {
+    return () => {
+      cleanupRef.current?.();
+    };
+  }, []);
+
   // 暴露方法给父组件
-  useImperativeHandle(ref, () => ({
-    getModel: () => modelRef.current,
-    
-    // ✅ 对齐V2：getStats方法（第189-195行）
-    getStats: () => ({
-      pointCount: 0,  // TODO: 从SplatMesh获取真实点数
-      loaded: modelLoaded,
-      loading,
-      progress,
-      fps,
-    }),
-    
-    // ✅ 对齐V2：dispose方法（第219-246行）
-    dispose: () => {
+  useImperativeHandle(ref, () => {
+    const dispose = () => {
       cancelAnimationFrame(frameIdRef.current);
       // ★ 停止所有Tween动画
       if (currentTweenRef.current) {
@@ -1709,123 +1850,131 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
         decorationRef.current.dispose();
         decorationRef.current = null;
       }
+      // ★ 清理局部缓存中的GPU资源
+      if (modelCacheRef.current) {
+        modelCacheRef.current.forEach((model, url) => {
+          if (model instanceof SplatMesh) {
+            try { (model as any).dispose?.(); } catch { /* ignore */ }
+          } else {
+            try {
+              (model as THREE.Object3D).traverse((child: any) => {
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) {
+                  if (Array.isArray(child.material)) child.material.forEach((m: any) => m.dispose());
+                  else child.material.dispose();
+                }
+              });
+            } catch { /* ignore */ }
+          }
+          // ★ 同步清理全局缓存（防止重挂载后使用已释放的GPU资源）
+          globalModelCache.delete(url);
+        });
+        modelCacheRef.current.clear();
+      }
       console.log('🗑️ Base3DViewer资源已释放');
-    },
-    
-    reload: () => {
-      if (modelRef.current) {
-        const currentUrl = stateMachine.currentModelUrl;
-        // ★ 清除缓存，强制重新下载
-        if (currentUrl) {
-          modelCacheRef.current.delete(currentUrl);
-        }
-        if (modelRef.current instanceof SplatMesh && sparkRef.current) {
-          sparkRef.current.remove(modelRef.current);
-          try {
-            (modelRef.current as any).dispose?.();
-          } catch (e) {
-            console.warn('SplatMesh清理警告:', e);
+    };
+
+    cleanupRef.current = dispose;
+
+    return {
+      getModel: () => modelRef.current,
+      getStats: () => ({
+        pointCount: 0,
+        loaded: modelLoaded,
+        loading,
+        progress,
+        fps,
+      }),
+      dispose,
+
+      reload: () => {
+        if (modelRef.current) {
+          const currentUrl = stateMachine.currentModelUrl;
+          if (currentUrl) {
+            modelCacheRef.current.delete(currentUrl);
+            globalModelCache.delete(currentUrl);
           }
-        } else if (sceneRef.current) {
-          sceneRef.current.remove(modelRef.current);
-          try {
-            (modelRef.current as any).dispose?.();
-          } catch (e) {
-            console.warn('模型清理警告:', e);
+          if (modelRef.current instanceof SplatMesh && sparkRef.current) {
+            sparkRef.current.remove(modelRef.current);
+            try { (modelRef.current as any).dispose?.(); } catch {}
+          } else if (sceneRef.current) {
+            sceneRef.current.remove(modelRef.current);
+            try { (modelRef.current as any).dispose?.(); } catch {}
           }
+          modelRef.current = null;
         }
-        modelRef.current = null;
-      }
-      // ★ 重置状态机到READY + 重置Spark状态
-      sparkFailedRef.current = false;
-      setStateMachine({ state: 'READY', currentModelUrl: '' });
-      setModelLoaded(false);
-      // ★ 确保SparkRenderer在场景中
-      if (sparkRef.current && sceneRef.current) {
-        const isInScene = sceneRef.current.children.includes(sparkRef.current);
-        if (!isInScene) {
-          sceneRef.current.add(sparkRef.current);
+        sparkFailedRef.current = false;
+        setStateMachine({ state: 'READY', currentModelUrl: '' });
+        setModelLoaded(false);
+        if (sparkRef.current && sceneRef.current) {
+          const isInScene = sceneRef.current.children.includes(sparkRef.current);
+          if (!isInScene) { sceneRef.current.add(sparkRef.current); }
         }
-      }
-      loadModel();
-    },
-    
-    toggleAutoRotate: () => {
-      if (controlsRef.current) {
-        controlsRef.current.autoRotate = !controlsRef.current.autoRotate;
-      }
-    },
-    
-    screenshot: () => {
-      if (rendererRef.current && sceneRef.current && cameraRef.current) {
-        rendererRef.current.render(sceneRef.current, cameraRef.current);
-        return rendererRef.current.domElement.toDataURL('image/png');
-      }
-      return '';
-    },
-    
-    saveCameraConfig: (): CameraConfig => {
-      if (!cameraRef.current || !controlsRef.current) {
-        throw new Error('相机或控制器未初始化');
-      }
-      const config = CameraManager.saveConfig(cameraRef.current, controlsRef.current);
-      onCameraConfigSave?.(config);
-      return config;
-    },
-    
-    loadCameraConfig: (config: CameraConfig) => {
-      if (!cameraRef.current) {
-        throw new Error('相机未初始化');
-      }
-      // 使用平滑过渡动画（对齐V2的applyCameraConfig）
-      applyCameraConfig(config);
-    },
-    
-    stopOrbit: () => {
-      orbitControllerRef.current?.stop();
-    },
-    
-    startOrbit: (duration) => {
-      orbitControllerRef.current?.start(duration);
-    },
-    
-    getOrbitController: () => orbitControllerRef.current,
-    
-    resetCamera: () => {
-      // ★ 停止环绕动画
-      if (orbitControllerRef.current) {
-        orbitControllerRef.current.stop();
-      }
-      if (!cameraRef.current || !controlsRef.current) {
-        throw new Error('相机或控制器未初始化');
-      }
-      const model = modelRef.current;
-      const canvas = canvasRef.current;
-      if (model && canvas) {
-        // 使用智能居中算法重新计算适合模型的相机位置
-        try {
-          const result = SmartCenteringEngine.calculateFit(
-            model,
-            canvas,
-            { margin: margin, trimThreshold: 0.05, preferAxis: 'auto', autoCenter: true }
-          );
-          const config: CameraConfig = {
-            position: [result.cameraPosition.x, result.cameraPosition.y, result.cameraPosition.z],
-            target: [result.modelCenter.x, result.modelCenter.y, result.modelCenter.z],
-            zoom: 1,
-          };
+        loadModel();
+      },
+
+      toggleAutoRotate: () => {
+        if (controlsRef.current) controlsRef.current.autoRotate = !controlsRef.current.autoRotate;
+      },
+
+      screenshot: () => {
+        if (rendererRef.current && sceneRef.current && cameraRef.current) {
+          rendererRef.current.render(sceneRef.current, cameraRef.current);
+          return rendererRef.current.domElement.toDataURL('image/png');
+        }
+        return '';
+      },
+
+      saveCameraConfig: (): CameraConfig => {
+        if (!cameraRef.current || !controlsRef.current) throw new Error('相机或控制器未初始化');
+        const config = CameraManager.saveConfig(cameraRef.current, controlsRef.current);
+        onCameraConfigSave?.(config);
+        return config;
+      },
+
+      loadCameraConfig: (config: CameraConfig) => {
+        if (cameraRef.current) {
           applyCameraConfig(config);
-        } catch (e) {
-          // 计算失败时使用默认位置
-          console.warn('智能居中计算失败，使用默认位置', e);
-          applyCameraConfig({ position: [0, 0, 5], target: [0, 0, 0], zoom: 1 });
+          return;
         }
-      } else {
-        // 无模型时使用默认位置
-        applyCameraConfig({ position: [0, 0, 5], target: [0, 0, 0], zoom: 1 });
-      }
-    }
-  }));
+        console.warn('⚠️ [相机配置] 相机未就绪，延迟500ms后重试');
+        // ★ 相机尚未初始化（可能因 StrictMode 双挂载或时序问题），延迟重试
+        const retryTimer = setTimeout(() => {
+          if (cameraRef.current) {
+            console.log('✅ [相机配置] 延迟重试成功，应用配置');
+            applyCameraConfig(config);
+          } else {
+            console.warn('⚠️ [相机配置] 延迟重试后相机仍未就绪，配置丢弃');
+          }
+        }, 500);
+        // ★ 将 timer 存入 cleanupRef 以便组件卸载时清理
+        const prevCleanup = cleanupRef.current;
+        cleanupRef.current = () => {
+          clearTimeout(retryTimer);
+          prevCleanup?.();
+        };
+      },
+
+      stopOrbit: () => { orbitControllerRef.current?.stop(); },
+
+      startOrbit: (duration) => { orbitControllerRef.current?.start(duration); },
+
+      getOrbitController: () => orbitControllerRef.current,
+
+      resetCamera: () => {
+        if (orbitControllerRef.current) orbitControllerRef.current.stop();
+        if (!cameraRef.current || !controlsRef.current) throw new Error('相机或控制器未初始化');
+        const model = modelRef.current;
+        const canvas = canvasRef.current;
+        if (model && canvas) {
+          try {
+            const result = SmartCenteringEngine.calculateFit(model, canvas, { margin, trimThreshold: 0.05, preferAxis: 'auto', autoCenter: true });
+            applyCameraConfig({ position: [result.cameraPosition.x, result.cameraPosition.y, result.cameraPosition.z], target: [result.modelCenter.x, result.modelCenter.y, result.modelCenter.z], zoom: 1 });
+          } catch { applyCameraConfig({ position: [0, 0, 5], target: [0, 0, 0], zoom: 1 }); }
+        } else { applyCameraConfig({ position: [0, 0, 5], target: [0, 0, 0], zoom: 1 }); }
+      },
+    };
+  });
 
   // 样式
   const containerStyle: React.CSSProperties = {

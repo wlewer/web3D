@@ -55,6 +55,7 @@ export interface UniversalGaussianCardV3Props extends
 export const UniversalGaussianCardV3 = forwardRef<Base3DViewerRef, UniversalGaussianCardV3Props>(({
   // 核心
   modelUrl,
+  modelFormat,
   // 相机控制
   autoCenter = true,
   margin = 2.5,
@@ -73,6 +74,7 @@ export const UniversalGaussianCardV3 = forwardRef<Base3DViewerRef, UniversalGaus
   showParticles,
   showPlatform,
   showLabels,
+  labelCount,
   products,
   language,
   particleSize,
@@ -153,10 +155,11 @@ export const UniversalGaussianCardV3 = forwardRef<Base3DViewerRef, UniversalGaus
     showParticles,
     showPlatform,
     showLabels,
+    labelCount,
     products,
     language,
     particleSize,
-  }), [showParticles, showPlatform, showLabels, products, language, particleSize]);
+  }), [showParticles, showPlatform, showLabels, labelCount, products, language, particleSize]);
 
   return (
     <div className={`universal-gaussian-card-v3 ${className}`}>
@@ -165,6 +168,7 @@ export const UniversalGaussianCardV3 = forwardRef<Base3DViewerRef, UniversalGaus
         <Base3DViewer
           ref={viewerRef}
           modelUrl={modelUrl}
+          modelFormat={modelFormat}
           autoCenter={autoCenter}
           margin={margin}
           layout={layout}

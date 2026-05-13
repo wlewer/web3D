@@ -13,6 +13,7 @@ import { UserList, UserCreate, UserEdit } from './modules/user';
 import { ModelList, ModelDetail } from './modules/model';
 import { ExperimentalGeneration, ThreepipeEditorPage, SuperSplatPage } from './modules/experimental';
 import { ProfessionalGenerationPage } from './modules/professional';
+import { OfficialTemplateManagement } from './modules/template';
 
 // 资源定义（暂未使用，保留以便将来扩展）
 // const resources = [
@@ -75,6 +76,7 @@ const routeComponents: Record<string, React.FC> = {
   '/experimental/spark-editor': ThreepipeEditorPage,
   '/experimental/supersplat': SuperSplatPage,
   '/professional/generation': ProfessionalGenerationPage,
+  '/templates/official': OfficialTemplateManagement,
 };
 
 export const AdminApp: React.FC = () => {

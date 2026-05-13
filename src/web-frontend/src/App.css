@@ -68,6 +68,18 @@ body {
   background-clip: text;
 }
 
+/* 路由标识 */
+.app-nav-route {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
 .app-nav-links {
   display: flex;
   align-items: center;

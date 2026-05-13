@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
   ],
   resolve: {
+    dedupe: ['three'],
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@/admin': path.resolve(__dirname, './src/admin'),
@@ -34,6 +35,11 @@ export default defineConfig({
       },
       // 代理生成模型文件到后端
       '/generation-models': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      // 代理静态模型文件（根目录 models/）到后端
+      '/static-models': {
         target: 'http://localhost:8000',
         changeOrigin: true,
       },

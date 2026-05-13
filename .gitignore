@@ -49,6 +49,7 @@ ts-errors.txt
 *.tmp
 
 # 3D Model Files (too large)
+models/
 *.spz
 *.ply
 *.glb
@@ -56,4 +57,5 @@ ts-errors.txt
 *.obj
 *.fbx
 *.stl
+*.splat
 *.rar

@@ -12,6 +12,7 @@ import os
 from app.config import settings
 from app.database import engine, Base
 from app.api.v1 import auth, users, models, templates, generation, experimental, quota
+from app.api.v1 import settings as settings_router
 
 
 def create_application() -> FastAPI:
@@ -33,6 +34,7 @@ def create_application() -> FastAPI:
     application.include_router(generation.router, prefix="/api/v1", tags=["3D生成"])
     application.include_router(experimental.router, prefix="/api/v1", tags=["实验性功能"])
     application.include_router(quota.router, prefix="/api/v1", tags=["额度管理"])
+    application.include_router(settings_router.router, prefix="/api/v1/settings", tags=["系统设置"])
     
     # 健康检查端点
     @application.get("/health")
@@ -102,6 +104,18 @@ def create_application() -> FastAPI:
         logger.info(f"Generation models mounted from: {gen_models_dir_abs}")
     else:
         logger.warning(f"Generation models directory not found: {gen_models_dir_abs}")
+
+
+    # ========== 挂载根目录 models/ 静态文件 ==========
+    # 前端画廊页面可以直接访问 /static-models/ 获取模型文件
+    # 需同时配置 Vite proxy 代理 /static-models -> http://localhost:8000/static-models
+    models_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "models")
+    models_dir_abs = os.path.abspath(models_dir)
+    if os.path.exists(models_dir_abs):
+        application.mount("/static-models", StaticFiles(directory=models_dir_abs), name="static-models")
+        logger.info(f"Static models mounted from: {models_dir_abs}")
+    else:
+        logger.warning(f"Models directory not found: {models_dir_abs}")
     
     # 启动事件
     @application.on_event("startup")

@@ -60,6 +60,13 @@ export const modelApi = {
   },
 
   /**
+   * 批量删除模型
+   */
+  batchDelete: (ids: string[]) => {
+    return axiosInstance.post('/models/batch-delete', { ids });
+  },
+
+  /**
    * 批量审核
    */
   batchReview: (data: IModelBatchReview) => {
@@ -78,6 +85,47 @@ export const modelApi = {
    */
   archive: (id: string) => {
     return axiosInstance.patch(`/models/${id}/archive`);
+  },
+
+  /**
+   * 切换模型可见性（启用/禁用）
+   */
+  toggleVisibility: (id: string) => {
+    return axiosInstance.patch<{ message: string; status: string }>(`/models/${id}/toggle-visibility`);
+  },
+
+  /**
+   * 替换模型文件（管理员）
+   */
+  replaceFile: (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return axiosInstance.post<IModel>(`/models/${id}/file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
+  /**
+   * 上传模型文件（管理员）
+   */
+  upload: (file: File, category?: string, extraFields?: {
+    displayName?: string;
+    icon?: string;
+    colorHex?: string;
+    showOnHomepage?: boolean;
+    sortOrder?: number;
+  }) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (category) formData.append('category', category);
+    if (extraFields?.displayName) formData.append('display_name', extraFields.displayName);
+    if (extraFields?.icon) formData.append('icon', extraFields.icon);
+    if (extraFields?.colorHex) formData.append('color_hex', extraFields.colorHex);
+    if (extraFields?.showOnHomepage) formData.append('show_on_homepage', 'true');
+    if (extraFields?.sortOrder !== undefined) formData.append('sort_order', String(extraFields.sortOrder));
+    return axiosInstance.post<IModel>('/models/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
   },
 };
 

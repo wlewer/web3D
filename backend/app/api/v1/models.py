@@ -2,7 +2,7 @@
 Web3D Backend - 3D模型API路由
 3D Model API endpoints with full CRUD operations
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, select, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +10,7 @@ from typing import Optional
 import math
 import os
 import uuid
+import urllib.parse
 from pathlib import Path
 from datetime import datetime
 
@@ -28,7 +29,126 @@ from app.schemas.model import (
 from app.dependencies import get_current_user, require_role
 from loguru import logger
 
+
+# 全局版本号（每次发布更新时递增）
+_homepage_version: int = int(datetime.utcnow().timestamp())
+
+
 router = APIRouter()
+
+
+@router.get("/public", response_model=ModelListResponse)
+async def list_public_models(
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    category: Optional[str] = None,
+    show_on_homepage: Optional[bool] = Query(None),
+    show_in_gallery: Optional[bool] = Query(None),
+):
+    """
+    公开模型列表（无需登录，仅显示已审核模型）
+    Public model list (no auth required, approved models only)
+    """
+    try:
+        query = select(Model3D).where(Model3D.status == "approved")
+        
+        if category:
+            query = query.where(Model3D.category == category)
+        
+        if show_on_homepage is not None:
+            query = query.where(Model3D.show_on_homepage == show_on_homepage)
+        
+        if show_in_gallery is not None:
+            query = query.where(Model3D.show_in_gallery == show_in_gallery)
+        
+        count_query = select(sa_func.count()).select_from(query.subquery())
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
+        
+        offset = (page - 1) * page_size
+        query = query.order_by(Model3D.created_at.desc()).offset(offset).limit(page_size)
+        result = await db.execute(query)
+        models = result.scalars().all()
+        
+        total_pages = math.ceil(total / page_size) if total > 0 else 0
+        
+        return ModelListResponse(
+            data=[ModelResponse.model_validate(m) for m in models],
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+        )
+    except Exception as e:
+        logger.error(f"Failed to list public models: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list public models: {str(e)}"
+        )
+
+
+@router.get("/homepage", response_model=ModelListResponse)
+async def list_homepage_models(
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    首页模型列表（无需登录，仅返回 show_on_homepage=true 且审核通过的模型）
+    按 sort_order 降序排列
+    Homepage model list (no auth, show_on_homepage & approved only)
+    """
+    try:
+        query = select(Model3D).where(
+            Model3D.status == "approved",
+            Model3D.show_on_homepage == True,
+        ).order_by(Model3D.sort_order.desc())
+        
+        count_query = select(sa_func.count()).select_from(query.subquery())
+        total_result = await db.execute(count_query)
+        total = total_result.scalar() or 0
+        
+        result = await db.execute(query)
+        models = result.scalars().all()
+        
+        return ModelListResponse(
+            data=[ModelResponse.model_validate(m) for m in models],
+            total=total,
+            page=1,
+            page_size=total or 50,
+            total_pages=1 if total > 0 else 0,
+        )
+    except Exception as e:
+        logger.error(f"Failed to list homepage models: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list homepage models: {str(e)}"
+        )
+
+
+@router.get("/homepage/version")
+async def get_homepage_version():
+    """
+    获取首页配置版本号（无需登录）
+    客户端用于校验缓存是否过期，后台发布时自动更新版本号
+    GET homepage cache version (no auth)
+    """
+    global _homepage_version
+    return {"version": _homepage_version}
+
+
+@router.post("/homepage/publish")
+async def publish_homepage(
+    current_user: User = Depends(require_role("admin")),
+):
+    """
+    发布首页配置（管理员）
+    更新版本号，客户端下次访问时将自动清除旧缓存
+    Publish homepage configuration (admin only)
+    """
+    global _homepage_version
+    _homepage_version = int(datetime.utcnow().timestamp())
+    logger.info(f"Homepage published by {current_user.username}, version={_homepage_version}")
+    return {"version": _homepage_version, "message": "首页配置已发布"}
 
 
 @router.get("/", response_model=ModelListResponse)
@@ -72,9 +192,9 @@ async def list_models(
         total_result = await db.execute(count_query)
         total = total_result.scalar() or 0
         
-        # 分页
+        # 分页 - 默认按 sort_order 降序排列（支持拖拽持久化），同权重按创建时间降序
         offset = (page - 1) * page_size
-        query = query.order_by(Model3D.created_at.desc()).offset(offset).limit(page_size)
+        query = query.order_by(Model3D.sort_order.desc(), Model3D.created_at.desc()).offset(offset).limit(page_size)
         result = await db.execute(query)
         models = result.scalars().all()
         
@@ -131,6 +251,11 @@ async def get_model_stats(
     )
     archived = archived_result.scalar() or 0
     
+    disabled_result = await db.execute(
+        select(func.count(Model3D.id)).where(Model3D.status == "disabled")
+    )
+    disabled = disabled_result.scalar() or 0
+    
     # 按分类统计
     category_result = await db.execute(
         select(Model3D.category, func.count(Model3D.id)).group_by(Model3D.category)
@@ -149,6 +274,7 @@ async def get_model_stats(
         "approved": approved,
         "rejected": rejected,
         "archived": archived,
+        "disabled": disabled,
         "byCategory": by_category,
         "totalSize": total_size,
     }
@@ -342,6 +468,49 @@ async def review_model(
     return ModelResponse.model_validate(model)
 
 
+@router.post("/batch-delete")
+async def batch_delete_models(
+    ids: list[str],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """
+    批量删除模型（管理员）
+    Batch delete models (admin only)
+    """
+    result = await db.execute(
+        select(Model3D).where(Model3D.id.in_(ids))
+    )
+    models = result.scalars().all()
+
+    if not models:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No models found with provided IDs"
+        )
+
+    for model in models:
+        # 删除模型文件（如果是 models/ 目录下的）
+        old_url = model.model_url or ''
+        if old_url.startswith('/static-models/'):
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
+            models_dir = os.path.join(project_root, "models")
+            old_filename = urllib.parse.unquote(old_url[len('/static-models/'):])
+            old_path = os.path.join(models_dir, old_filename)
+            if os.path.exists(old_path):
+                try:
+                    os.remove(old_path)
+                except Exception as e:
+                    logger.warning(f"Failed to remove file {old_path}: {e}")
+
+        await db.delete(model)
+
+    logger.info(f"Batch deleted {len(models)} models by {current_user.username}")
+
+    return {"message": f"成功删除 {len(models)} 个模型"}
+
+
 @router.post("/batch-review")
 async def batch_review(
     review_data: BatchReviewRequest,
@@ -405,3 +574,241 @@ async def archive_model(
     logger.info(f"Model archived: {model.name} by {current_user.username}")
     
     return {"message": "Model archived successfully"}
+
+
+@router.patch("/{model_id}/toggle-visibility")
+async def toggle_model_visibility(
+    model_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """
+    切换模型可见性（启用/禁用）
+    只有已审核通过的模型可以切换
+    """
+    result = await db.execute(
+        select(Model3D).where(Model3D.id == model_id)
+    )
+    model = result.scalar_one_or_none()
+    
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Model not found"
+        )
+    
+    if model.status == "approved":
+        model.status = "disabled"
+    elif model.status == "disabled":
+        model.status = "approved"
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="只能切换启用/禁用状态的模型（当前状态：{model.status}）"
+        )
+    
+    model.reviewed_by = current_user.id
+    model.reviewed_at = datetime.utcnow()
+    
+    logger.info(f"Model visibility toggled: {model.name} -> {model.status} by {current_user.username}")
+    
+    return {"message": "可见性已切换", "status": model.status}
+
+
+@router.post("/{model_id}/file", response_model=ModelResponse)
+async def replace_model_file(
+    model_id: str,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """
+    替换模型文件（管理员）
+    上传新文件替换模型的现有文件
+    Replace model file (admin only)
+    """
+    # 1. 查找模型
+    result = await db.execute(
+        select(Model3D).where(Model3D.id == model_id)
+    )
+    model = result.scalar_one_or_none()
+
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Model not found"
+        )
+
+    # 2. 校验文件扩展名
+    VALID_EXTENSIONS = {'.glb', '.gltf', '.ply', '.spz', '.obj', '.fbx', '.stl', '.splat'}
+    original_filename = file.filename or 'model.bin'
+    ext = os.path.splitext(original_filename)[1].lower()
+
+    if ext not in VALID_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"不支持的模型格式: {ext}，支持的格式: {', '.join(VALID_EXTENSIONS)}"
+        )
+
+    # 3. 确定保存路径
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
+    models_dir = os.path.join(project_root, "models")
+    os.makedirs(models_dir, exist_ok=True)
+
+    # 4. 生成唯一文件名（保留模型ID前缀防止冲突）
+    safe_filename = f"{model.id[:8]}_{original_filename}"
+
+    # 5. 保存新文件
+    try:
+        content = await file.read()
+        file_path = os.path.join(models_dir, safe_filename)
+        with open(file_path, "wb") as f:
+            f.write(content)
+        logger.info(f"File replaced for model {model.id}: {file_path} ({len(content)} bytes)")
+    except Exception as e:
+        logger.error(f"Failed to save replacement file: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"文件保存失败: {str(e)}"
+        )
+
+    # 6. 删除旧文件（如果是 models/ 目录下的）
+    old_url = model.model_url or ''
+    if old_url.startswith('/static-models/'):
+        old_filename = urllib.parse.unquote(old_url[len('/static-models/'):])
+        old_path = os.path.join(models_dir, old_filename)
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+                logger.info(f"Old file removed: {old_path}")
+            except Exception as e:
+                logger.warning(f"Failed to remove old file {old_path}: {e}")
+
+    # 7. 更新模型记录
+    model.model_url = f"/static-models/{urllib.parse.quote(safe_filename)}"
+    model.file_size = len(content)
+    model.format = ext.lstrip('.')
+
+    await db.flush()
+    await db.refresh(model)
+
+    logger.info(f"Model file replaced: {model.name} by {current_user.username}")
+
+    return ModelResponse.model_validate(model)
+
+
+@router.post("/upload", response_model=ModelResponse, status_code=status.HTTP_201_CREATED)
+async def upload_model(
+    file: UploadFile = File(...),
+    category: Optional[str] = Form(None),
+    display_name: Optional[str] = Form(None),
+    icon: Optional[str] = Form(None),
+    color_hex: Optional[str] = Form(None),
+    show_on_homepage: Optional[bool] = Form(None),
+    sort_order: Optional[int] = Form(None),
+    metadata_json: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    """
+    上传模型文件（管理员）
+    支持格式: glb, gltf, ply, spz, obj, fbx, stl, splat
+    文件保存到 models/ 目录，并自动创建数据库记录（状态: approved）
+    """
+    # 1. 校验文件扩展名
+    VALID_EXTENSIONS = {'.glb', '.gltf', '.ply', '.spz', '.obj', '.fbx', '.stl', '.splat'}
+    original_filename = file.filename or 'model.bin'
+    ext = os.path.splitext(original_filename)[1].lower()
+    
+    if ext not in VALID_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"不支持的模型格式: {ext}，支持的格式: {', '.join(VALID_EXTENSIONS)}"
+        )
+    
+    # 2. 确定 models/ 目录路径
+    # api/v1/models.py -> api -> app -> backend -> project root
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
+    models_dir = os.path.join(project_root, "models")
+    os.makedirs(models_dir, exist_ok=True)
+    
+    # 3. 处理重名文件（加数字后缀）
+    base_name = os.path.splitext(original_filename)[0]
+    safe_filename = original_filename
+    counter = 1
+    while os.path.exists(os.path.join(models_dir, safe_filename)):
+        safe_filename = f"{base_name}_{counter}{ext}"
+        counter += 1
+    
+    # 4. 保存文件到磁盘
+    try:
+        content = await file.read()
+        file_path = os.path.join(models_dir, safe_filename)
+        with open(file_path, "wb") as f:
+            f.write(content)
+        logger.info(f"File saved: {file_path} ({len(content)} bytes)")
+    except Exception as e:
+        logger.error(f"Failed to save uploaded file: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"文件保存失败: {str(e)}"
+        )
+    
+    # 5. 确定模型格式
+    fmt = ext.lstrip('.')
+    
+    # 6. 确定分类（前端可选，默认 other）
+    valid_categories = [
+        'character', 'scene', 'prop', 'vehicle', 'box',
+        'animation', 'nature', 'animal', 'architecture',
+        'food', 'industry', 'art', 'other'
+    ]
+    cat = category if category and category in valid_categories else 'other'
+    
+    # 7. 生成显示名称（美化文件名）作为 fallback
+    name_fallback = base_name.replace('-', ' ').replace('_', ' ').replace('.', ' ')
+    name_fallback = ' '.join(w.capitalize() for w in name_fallback.split() if w)
+    if not name_fallback:
+        name_fallback = base_name
+    
+    # 8. 构建模型访问 URL
+    model_url = f"/static-models/{urllib.parse.quote(safe_filename)}"
+    
+    # 9. 创建数据库记录
+    new_model = Model3D(
+        id=str(uuid.uuid4()),
+        name=display_name or name_fallback,
+        description=f"管理员上传: {safe_filename}",
+        category=cat,
+        status="approved",
+        model_url=model_url,
+        format=fmt,
+        file_size=len(content),
+        created_by=current_user.id,
+        reviewed_by=current_user.id,
+        reviewed_at=datetime.utcnow(),
+        tags=['upload'],
+        display_name=display_name,
+        icon=icon,
+        color_hex=color_hex,
+        show_on_homepage=show_on_homepage if show_on_homepage is not None else False,
+        sort_order=sort_order if sort_order is not None else 0,
+        model_url_fallback=None,
+    )
+
+    if metadata_json:
+        try:
+            import json
+            new_model.metadata_json = json.loads(metadata_json)
+        except json.JSONDecodeError:
+            logger.warning(f"Invalid metadata_json: {metadata_json}")
+    
+    db.add(new_model)
+    await db.flush()
+    await db.refresh(new_model)
+    
+    logger.info(f"Model uploaded and saved: {safe_filename} ({fmt}) by {current_user.username}")
+    
+    return ModelResponse.model_validate(new_model)

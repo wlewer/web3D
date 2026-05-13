@@ -37,9 +37,9 @@ export interface IUserUpdateDTO extends Partial<IUserCreateDTO> {
 
 // ==================== 模型相关类型 ====================
 
-export type ModelStatus = 'pending' | 'approved' | 'rejected' | 'archived';
+export type ModelStatus = 'pending' | 'approved' | 'rejected' | 'archived' | 'disabled';
 
-export type ModelCategory = 'character' | 'scene' | 'prop' | 'vehicle' | 'other';
+export type ModelCategory = 'character' | 'scene' | 'prop' | 'vehicle' | 'box' | 'animation' | 'nature' | 'animal' | 'architecture' | 'food' | 'industry' | 'art' | 'other';
 
 export interface IModel {
   id: string;
@@ -49,7 +49,7 @@ export interface IModel {
   status: ModelStatus;
   thumbnailUrl?: string;
   modelUrl: string;
-  format: 'glb' | 'gltf' | 'fbx' | 'obj' | 'ply' | 'splat';
+  format: 'glb' | 'gltf' | 'fbx' | 'obj' | 'ply' | 'splat' | 'spz' | 'stl';
   fileSize: number; // bytes
   polygonCount?: number;
   textureCount?: number;
@@ -61,6 +61,13 @@ export interface IModel {
   rejectionReason?: string;
   tags?: string[];
   metadata?: Record<string, any>;
+  // 首页展示字段
+  displayName?: string;
+  icon?: string;
+  colorHex?: string;
+  showOnHomepage?: boolean;
+  sortOrder?: number;
+  modelUrlFallback?: string;
 }
 
 export interface IModelCreateDTO {

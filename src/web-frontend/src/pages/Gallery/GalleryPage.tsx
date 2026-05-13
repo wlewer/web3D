@@ -1,331 +1,358 @@
 // 画廊页面组件 - 全屏3D卡片展示 + 左侧导航
-import { useState, useMemo, useRef, useCallback } from 'react';
-import { Input } from 'antd';
-import { SearchOutlined, SettingOutlined, LeftOutlined, RightOutlined, AppstoreOutlined, BoxPlotOutlined, CameraOutlined, HomeOutlined, RocketOutlined } from '@ant-design/icons';
-import { UniversalGaussianCard } from '../../components/3d/UniversalGaussianCard';
-import { SparkViewer } from '../../components/3d/Spark/SparkViewer';
+// 使用 V3 组件 UniversalGaussianCardV3 + 后端 API 数据
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { UniversalGaussianCardV3 } from '../../components/3d/UniversalGaussianCardV3';
+import type { Base3DViewerRef } from '../../components/3d/Base3DViewer';
 import { useTranslation } from '../../i18n';
-import { GALLERY_ITEMS, CATEGORIES } from './gallery.data';
-import type { GalleryItem, GalleryFilter } from './gallery.types';
+import { fetchPublicModels, CATEGORY_LABELS, formatFileSize } from './gallery.api';
+import type { GalleryModelItem } from './gallery.api';
 import './GalleryPage.css';
 
-const { Search } = Input;
+const PAGE_SIZE = 6; // 固定每页6个模型
 
-// 每页显示数量 - 2行3列（6个模型）
-const CARDS_PER_PAGE = 6;
+// 分类图标映射
+const CATEGORY_ICONS: Record<string, string> = {
+  character: '🧑',
+  scene: '🌄',
+  prop: '🛠️',
+  vehicle: '🚗',
+  box: '📦',
+  animation: '🎬',
+  nature: '🌿',
+  animal: '🐾',
+  architecture: '🏛️',
+  food: '🍔',
+  industry: '🏭',
+  art: '🎨',
+  other: '📂',
+};
 
 export function GalleryPage() {
   const { t, language } = useTranslation();
   const isZh = language === 'zh-CN';
-  const [filter, setFilter] = useState<GalleryFilter>({
-    category: undefined,
-    boxType: undefined,
-    search: '',
-    sortBy: 'recent',
-  });
-  const [selectedItem, setSelectedItem] = useState<GalleryItem | null>(null);
-  const [currentSlide, setCurrentSlide] = useState(0);
 
-  // 统计数据
-  const stats = useMemo(() => {
-    const items = GALLERY_ITEMS;
-    return {
-      total: items.length,
-      boxes: items.filter(i => i.boxType).length,
-      models: items.filter(i => i.category === 'model' && !i.boxType).length,
-      scenes: items.filter(i => i.category === 'scene').length,
-      animations: items.filter(i => i.category === 'animation').length,
-    };
+  // 状态
+  const [models, setModels] = useState<GalleryModelItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [detailModel, setDetailModel] = useState<GalleryModelItem | null>(null);
+
+  // 从后端获取模型列表
+  const loadModels = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetchPublicModels({ page_size: 24 });
+      setModels(res.data);
+      setTotalCount(res.total || res.data.length);
+    } catch (err: any) {
+      setError(err.message || '加载模型失败');
+      console.error('❌ Gallery: 加载模型失败', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  // 分类图标映射
-  const categoryIcons: Record<string, React.ReactNode> = {
-    all: <AppstoreOutlined />,
-    box: <BoxPlotOutlined />,
-    model: <CameraOutlined />,
-    scene: <HomeOutlined />,
-    animation: <RocketOutlined />,
-  };
+  useEffect(() => {
+    loadModels();
+  }, [loadModels]);
 
-  // 分类标签
-  const categoryLabels: Record<string, string> = {
-    all: t.gallery.categoryAll,
-    box: t.gallery.categoryBox,
-    model: t.gallery.categoryModel,
-    scene: t.gallery.categoryScene,
-    animation: t.gallery.categoryAnimation,
-  };
+  // 提取所有分类（从数据中动态获取）
+  const categories = useMemo(() => {
+    const catSet = new Set<string>();
+    models.forEach(m => {
+      if (m.category && m.category !== 'other') catSet.add(m.category);
+    });
+    return Array.from(catSet).sort();
+  }, [models]);
 
-  // 排序选项
-  const sortLabels = {
-    recent: t.gallery.sortRecent,
-    popular: t.gallery.sortPopular,
-    likes: t.gallery.sortLikes,
-  };
+  // 过滤
+  const filteredModels = useMemo(() => {
+    let items = [...models];
 
-
-
-  // 过滤出有3D模型URL的项
-  const itemsWith3DModel = useMemo(() => {
-    return GALLERY_ITEMS.filter(item => item.modelUrl && item.modelUrl.length > 0);
-  }, []);
-
-  // 过滤和排序
-  const filteredItems = useMemo(() => {
-    let items = [...itemsWith3DModel];
-
-    // 主分类过滤
-    if (filter.category === 'box') {
-      items = items.filter((item) => item.boxType !== undefined);
-    } else if (filter.category && filter.category !== 'all') {
-      items = items.filter((item) => item.category === filter.category && !item.boxType);
-    }
-
-    // 盒子子分类过滤
-    if (filter.boxType && filter.boxType !== 'all') {
-      items = items.filter((item) => item.boxType === filter.boxType);
-    }
-
-    // 搜索过滤
-    if (filter.search) {
-      const searchLower = filter.search.toLowerCase();
-      items = items.filter(
-        (item) =>
-          item.title.toLowerCase().includes(searchLower) ||
-          item.description.toLowerCase().includes(searchLower) ||
-          item.tags.some((tag) => tag.toLowerCase().includes(searchLower))
-      );
-    }
-
-    // 排序
-    switch (filter.sortBy) {
-      case 'popular':
-        items.sort((a, b) => b.views - a.views);
-        break;
-      case 'likes':
-        items.sort((a, b) => b.likes - a.likes);
-        break;
-      case 'recent':
-      default:
-        items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (selectedCategory !== 'all') {
+      items = items.filter(m => m.category === selectedCategory);
     }
 
     return items;
-  }, [filter, itemsWith3DModel]);
+  }, [models, selectedCategory]);
 
-  // 分页计算
-  const totalSlides = Math.ceil(filteredItems.length / CARDS_PER_PAGE);
-  const currentPageItems = filteredItems.slice(currentSlide * CARDS_PER_PAGE, (currentSlide + 1) * CARDS_PER_PAGE);
+  // 分页
+  const totalPages = Math.ceil(filteredModels.length / PAGE_SIZE);
+  const safePage = Math.min(currentPage, Math.max(0, totalPages - 1));
+  const pageItems = filteredModels.slice(
+    safePage * PAGE_SIZE,
+    (safePage + 1) * PAGE_SIZE
+  );
 
-  // 导航
-  const goPrev = () => setCurrentSlide(p => Math.max(0, p - 1));
-  const goNext = () => setCurrentSlide(p => Math.min(totalSlides - 1, p + 1));
+  // 页码范围（带省略号折叠）
+  const pageNumbers = useMemo(() => {
+    const pages: (number | 'ellipsis')[] = [];
+    if (totalPages <= 7) {
+      for (let i = 0; i < totalPages; i++) pages.push(i);
+    } else {
+      const cur = safePage;
+      pages.push(0);
+      if (cur > 2) pages.push('ellipsis');
+      for (let i = Math.max(1, cur - 1); i <= Math.min(totalPages - 2, cur + 1); i++) {
+        pages.push(i);
+      }
+      if (cur < totalPages - 3) pages.push('ellipsis');
+      pages.push(totalPages - 1);
+    }
+    return pages;
+  }, [totalPages, safePage]);
 
-  // 分类切换
-  const handleCategoryChange = (category: string) => {
-    setFilter({
-      ...filter,
-      category: category === 'all' ? undefined : (category as any),
-      boxType: undefined,
-    });
-    setCurrentSlide(0);
-  };
-
-  // 搜索变化
-  const handleSearchChange = (value: string) => {
-    setFilter({ ...filter, search: value });
-    setCurrentSlide(0);
-  };
-
-  // 双击触发弹框
-  const handleDoubleClick = useCallback((item: GalleryItem) => {
-    console.log('🎯 双击触发弹框:', item.title);
-    setSelectedItem(item);
+  // 切换页面
+  const goToPage = useCallback((page: number) => {
+    setCurrentPage(page);
   }, []);
 
+  // 切换页面大小（已固定为6）
 
-  // 鼠标拖拽切换
-  const dragState = useRef({ isDragging: false, startX: 0, startSlide: 0 });
-  
-  const handleMouseDown = (e: React.MouseEvent) => {
-    dragState.current = { isDragging: true, startX: e.clientX, startSlide: currentSlide };
+  // 分类切换
+  const handleCategoryChange = (cat: string) => {
+    setSelectedCategory(cat);
+    goToPage(0);
   };
-  
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!dragState.current.isDragging) return;
-    const deltaX = e.clientX - dragState.current.startX;
-    const threshold = 100; // 拖拽阈值
-    if (Math.abs(deltaX) > threshold) {
-      if (deltaX < 0 && currentSlide < totalSlides - 1) {
-        goNext();
-      } else if (deltaX > 0 && currentSlide > 0) {
-        goPrev();
-      }
-      dragState.current.isDragging = false;
-    }
+
+  // 查看详情
+  const openDetail = (model: GalleryModelItem) => {
+    setDetailModel(model);
   };
-  
-  const handleMouseUp = () => {
-    dragState.current.isDragging = false;
+
+  const closeDetail = () => {
+    setDetailModel(null);
   };
 
   return (
-    <div className="gallery-page" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-      {/* 左侧导航栏 */}
+    <div className="gallery-page">
+      {/* 左侧分类导航（Upload 页面风格） */}
       <aside className="gallery-sidebar">
-        <div className="gallery-logo">✨</div>
-        <h1 className="gallery-sidebar-title">{isZh ? '模型作品' : 'Model Gallery'}</h1>
-        
-        <nav className="gallery-nav">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.value}
-              className={`gallery-nav-btn ${(filter.category === cat.value || (cat.value === 'all' && !filter.category && !filter.boxType)) ? 'active' : ''}`}
-              onClick={() => handleCategoryChange(cat.value)}
-              title={categoryLabels[cat.value] || cat.label}
-            >
-              <span className="gallery-nav-icon">
-                {categoryIcons[cat.value] || <AppstoreOutlined />}
-              </span>
-              <span className="gallery-nav-label">{cat.label}</span>
-              <span className="gallery-nav-count">
-                {cat.value === 'all' ? stats.total :
-                 cat.value === 'box' ? stats.boxes :
-                 cat.value === 'model' ? stats.models :
-                 cat.value === 'scene' ? stats.scenes : stats.animations}
-              </span>
-            </button>
-          ))}
-        </nav>
+        <div className="gallery-sidebar-logo">🎨</div>
+        <h2 className="gallery-sidebar-title">
+          {isZh ? '模型画廊' : 'Gallery'}
+        </h2>
 
-        <div className="gallery-nav-bottom">
-          <button className="gallery-settings-btn" title={isZh ? '设置' : 'Settings'}>
-            <SettingOutlined />
-            <span className="gallery-nav-label">{isZh ? '设置' : 'Settings'}</span>
+        <nav className="gallery-nav">
+          <button
+            className={`gallery-nav-btn ${selectedCategory === 'all' ? 'active' : ''}`}
+            onClick={() => handleCategoryChange('all')}
+          >
+            <span className="gallery-nav-icon">🖼️</span>
+            <span className="gallery-nav-label">{isZh ? '全部' : 'All'}</span>
+            <span className="gallery-nav-count">{totalCount}</span>
           </button>
-        </div>
+
+          {categories.map(cat => {
+            const count = models.filter(m => m.category === cat).length;
+            const icon = CATEGORY_ICONS[cat] || '📦';
+            return (
+              <button
+                key={cat}
+                className={`gallery-nav-btn ${selectedCategory === cat ? 'active' : ''}`}
+                onClick={() => handleCategoryChange(cat)}
+              >
+                <span className="gallery-nav-icon">{icon}</span>
+                <span className="gallery-nav-label">{CATEGORY_LABELS[cat] || cat}</span>
+                <span className="gallery-nav-count">{count}</span>
+              </button>
+            );
+          })}
+        </nav>
       </aside>
 
       {/* 主内容区 */}
       <main className="gallery-main">
-        {/* 顶部搜索栏 - 精简版 */}
-        <header className="gallery-top-bar">
-          <div className="gallery-search-area">
-            <div className="gallery-search-box">
-              <Search
-                placeholder={t.gallery.search}
-                prefix={<SearchOutlined />}
-                value={filter.search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                allowClear
-              />
-            </div>
-            <select
-              className="gallery-sort-select"
-              value={filter.sortBy}
-              onChange={(e) => {
-                setFilter({ ...filter, sortBy: e.target.value as GalleryFilter['sortBy'] });
-                setCurrentSlide(0);
-              }}
-            >
-              <option value="recent">{sortLabels.recent}</option>
-              <option value="popular">{sortLabels.popular}</option>
-              <option value="likes">{sortLabels.likes}</option>
-            </select>
-          </div>
-        </header>
 
-        {/* 3D卡片区域 */}
-        <section 
-          className="gallery-carousel-area"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          style={{ cursor: dragState.current.isDragging ? 'grabbing' : 'grab' }}
-        >
-          {/* 左导航按钮 */}
-          <button
-            className={`gallery-nav-arrow gallery-nav-prev ${currentSlide === 0 ? 'disabled' : ''}`}
-            onClick={goPrev}
-            disabled={currentSlide === 0}
-            title={isZh ? '上一页' : 'Previous Page'}
-          >
-            <LeftOutlined />
-          </button>
-          
-          {currentPageItems.length > 0 ? (
-            <div className="gallery-cards-viewport">
-              <div className="gallery-cards-track">
-                {currentPageItems.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="gallery-3d-card-test"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                    onDoubleClick={() => handleDoubleClick(item)}
-                  >
-                    {/* 使用UniversalGaussianCard直接渲染3D模型 */}
-                    <UniversalGaussianCard
-                      modelUrl={item.modelUrl}
-                      title={item.title}
-                      subtitle={item.description}
-                      layout="grid"
-                      autoRotate={true}
+        {/* 加载状态 */}
+        {loading && (
+          <div className="gallery-loading">
+            <div className="gallery-loading-spinner" />
+            <p>{isZh ? '正在加载模型...' : 'Loading models...'}</p>
+          </div>
+        )}
+
+        {/* 错误状态 */}
+        {error && !loading && (
+          <div className="gallery-error">
+            <p>⚠️ {isZh ? '加载失败: ' : 'Error: '}{error}</p>
+            <button onClick={loadModels}>
+              {isZh ? '重新加载' : 'Retry'}
+            </button>
+          </div>
+        )}
+
+        {/* 空状态 */}
+        {!loading && !error && filteredModels.length === 0 && (
+          <div className="gallery-empty">
+            <p>{isZh ? '暂无匹配的模型' : 'No models found'}</p>
+            <button onClick={() => setSelectedCategory('all')}>
+              {isZh ? '重置筛选' : 'Reset filters'}
+            </button>
+          </div>
+        )}
+
+        {/* 3D卡片网格 + 两侧悬浮翻页按钮 */}
+        {!loading && !error && pageItems.length > 0 && (
+          <div className="gallery-grid-container">
+            {/* 左侧悬浮上一页 */}
+            <button
+              className={`gallery-nav-arrow gallery-nav-prev ${safePage > 0 ? 'visible' : ''}`}
+              onClick={() => goToPage(safePage - 1)}
+              disabled={safePage === 0}
+              title={isZh ? '上一页' : 'Previous'}
+            >
+              ‹
+            </button>
+
+            <section className="gallery-grid">
+              {pageItems.map(model => (
+                <div
+                  key={model.id}
+                  className="gallery-card-wrapper"
+                  onClick={() => openDetail(model)}
+                >
+                  <div className="gallery-card-3d" onClick={e => e.stopPropagation()}>
+                    <UniversalGaussianCardV3
+                      modelUrl={model.model_url}
+                      layout="compact"
+                      autoCenter={true}
+                      margin={1.8}
                       enableControls={true}
+                      autoRotate={true}
+                      autoRotateSpeed={0.5}
+                      showParticles={true}
+                      particleSize={0.05}
+                      showPlatform={false}
+                      showLabels={false}
+                      showTitle={true}
+                      title={model.name}
+                      subtitle={`${model.format.toUpperCase()} · ${CATEGORY_LABELS[model.category] || model.category}`}
                       showStats={true}
-                      onClick={undefined}
+                      onScreenshot={(dataUrl) => {
+                        const a = document.createElement('a');
+                        a.href = dataUrl;
+                        a.download = `${model.name}-${Date.now()}.png`;
+                        a.click();
+                      }}
                     />
+                    <button
+                      className="gallery-card-detail-btn"
+                      onClick={(e) => { e.stopPropagation(); openDetail(model); }}
+                    >
+                      🔍 {isZh ? '查看详情' : 'Details'}
+                    </button>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
+            </section>
+
+            {/* 右侧悬浮下一页 */}
+            <button
+              className={`gallery-nav-arrow gallery-nav-next ${safePage < totalPages - 1 ? 'visible' : ''}`}
+              onClick={() => goToPage(safePage + 1)}
+              disabled={safePage >= totalPages - 1}
+              title={isZh ? '下一页' : 'Next'}
+            >
+              ›
+            </button>
+          </div>
+        )}
+
+         {/* 底部页码 */}
+        {!loading && !error && totalPages > 1 && (
+          <div className="gallery-pagination">
+            <button
+              className="gallery-page-btn gallery-page-btn-icon"
+              disabled={safePage === 0}
+              onClick={() => goToPage(0)}
+              title={isZh ? '首页' : 'First'}
+            >
+              «
+            </button>
+
+            <div className="gallery-page-numbers">
+              {pageNumbers.map((p, idx) =>
+                p === 'ellipsis' ? (
+                  <span key={`e-${idx}`} className="gallery-page-ellipsis">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    className={`gallery-page-btn ${p === safePage ? 'active' : ''}`}
+                    onClick={() => goToPage(p)}
+                  >
+                    {p + 1}
+                  </button>
+                )
+              )}
             </div>
-          ) : (
-            <div className="gallery-empty-state">
-              <span className="gallery-empty-icon"></span>
-              <p className="gallery-empty-text">{t.gallery.emptyTitle}</p>
-              <button
-                className="gallery-empty-btn"
-                onClick={() => {
-                  setFilter({ search: '', sortBy: 'recent' });
-                  setCurrentSlide(0);
-                }}
-              >
-                {t.gallery.emptyButton}
-              </button>
-            </div>
-          )}
-          
-          {/* 右导航按钮 */}
-          <button
-            className={`gallery-nav-arrow gallery-nav-next ${currentSlide >= totalSlides - 1 ? 'disabled' : ''}`}
-            onClick={goNext}
-            disabled={currentSlide >= totalSlides - 1}
-            title={isZh ? '下一页' : 'Next Page'}
-          >
-            <RightOutlined />
-          </button>
-        </section>
+
+            <button
+              className="gallery-page-btn gallery-page-btn-icon"
+              disabled={safePage >= totalPages - 1}
+              onClick={() => goToPage(totalPages - 1)}
+              title={isZh ? '末页' : 'Last'}
+            >
+              »
+            </button>
+          </div>
+        )}
       </main>
 
-      {/* 3D 预览模态框 - 参考首页“模型作品”的弹框效果 */}
-      {selectedItem && (
-        <div className="gallery-modal" onClick={() => setSelectedItem(null)}>
-          <div className="gallery-modal-content-simple" onClick={(e) => e.stopPropagation()}>
-            <button className="gallery-modal-close" onClick={() => setSelectedItem(null)}>×</button>
-            
-            {/* 3D查看器 - 直接使用SparkViewer，不嵌套UniversalGaussianCard */}
-            <div className="gallery-modal-3d-viewer">
-              <SparkViewer
-                splatUrl={selectedItem.modelUrl}
-                autoRotate={true}
+      {/* ===== 详情弹框（V3 featured 布局） ===== */}
+      {detailModel && (
+        <div className="gallery-modal" onClick={closeDetail}>
+          <div className="gallery-modal-content" onClick={e => e.stopPropagation()}>
+            <button className="gallery-modal-close" onClick={closeDetail}>✕</button>
+
+            <div className="gallery-modal-header">
+              <h2>{detailModel.name}</h2>
+              <span className="gallery-modal-tag">
+                {detailModel.format.toUpperCase()} · {CATEGORY_LABELS[detailModel.category] || detailModel.category}
+              </span>
+            </div>
+
+            <div className="gallery-modal-viewer">
+              <UniversalGaussianCardV3
+                modelUrl={detailModel.model_url}
+                autoCenter={true}
+                margin={2.5}
+                layout="featured"
                 enableControls={true}
+                autoRotate={true}
+                autoRotateSpeed={1.0}
+                showParticles={true}
+                showPlatform={true}
+                showLabels={true}
+                showTitle={true}
+                title={detailModel.name}
+                subtitle={`${detailModel.format.toUpperCase()} · 详情预览`}
                 showStats={true}
+                onScreenshot={(dataUrl) => {
+                  const a = document.createElement('a');
+                  a.href = dataUrl;
+                  a.download = `${detailModel.name}-${Date.now()}.png`;
+                  a.click();
+                }}
               />
             </div>
-            
-            {/* 模型信息 */}
-            <div className="gallery-modal-info">
-              <h3 className="gallery-modal-title">{selectedItem.title}</h3>
-              <p className="gallery-modal-desc">{selectedItem.description}</p>
-              <p className="gallery-modal-hint">{isZh ? '点击拖拽旋转 · 滚轮缩放' : 'Drag to rotate · Scroll to zoom'}</p>
+
+            <div className="gallery-modal-footer">
+              {detailModel.description && (
+                <p className="gallery-modal-desc">{detailModel.description}</p>
+              )}
+              <div className="gallery-modal-meta">
+                <span>📁 {detailModel.format.toUpperCase()}</span>
+                <span>📦 {formatFileSize(detailModel.file_size)}</span>
+                <span>🏷️ {CATEGORY_LABELS[detailModel.category] || detailModel.category}</span>
+              </div>
+              <p className="gallery-modal-hint">
+                🖱️ {isZh ? '点击拖拽旋转 · 滚轮缩放' : 'Drag to rotate · Scroll to zoom'}
+              </p>
             </div>
           </div>
         </div>
@@ -333,3 +360,5 @@ export function GalleryPage() {
     </div>
   );
 }
+
+export default GalleryPage;

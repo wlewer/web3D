@@ -14,6 +14,14 @@ class ModelCategory(str, Enum):
     SCENE = "scene"
     PROP = "prop"
     VEHICLE = "vehicle"
+    BOX = "box"
+    ANIMATION = "animation"
+    NATURE = "nature"
+    ANIMAL = "animal"
+    ARCHITECTURE = "architecture"
+    FOOD = "food"
+    INDUSTRY = "industry"
+    ART = "art"
     OTHER = "other"
 
 
@@ -23,6 +31,7 @@ class ModelStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     ARCHIVED = "archived"
+    DISABLED = "disabled"
 
 
 class ModelFormat(str, Enum):
@@ -33,6 +42,8 @@ class ModelFormat(str, Enum):
     OBJ = "obj"
     PLY = "ply"
     SPLAT = "splat"
+    STL = "stl"
+    SPZ = "spz"
 
 
 class ModelBase(BaseModel):
@@ -45,7 +56,15 @@ class ModelBase(BaseModel):
     thumbnail_url: Optional[str] = None
     tags: Optional[List[str]] = None
     metadata_json: Optional[Dict[str, Any]] = None
-    
+    # 首页展示字段
+    display_name: Optional[str] = None
+    icon: Optional[str] = None
+    color_hex: Optional[str] = None
+    show_on_homepage: bool = False
+    show_in_gallery: bool = False
+    sort_order: int = 0
+    model_url_fallback: Optional[str] = None
+
     class Config:
         protected_namespaces = ()
 
@@ -67,6 +86,14 @@ class ModelUpdate(BaseModel):
     metadata_json: Optional[Dict[str, Any]] = None
     polygon_count: Optional[int] = None
     texture_count: Optional[int] = None
+    # 首页展示字段
+    display_name: Optional[str] = None
+    icon: Optional[str] = None
+    color_hex: Optional[str] = None
+    show_on_homepage: Optional[bool] = None
+    show_in_gallery: Optional[bool] = None
+    sort_order: Optional[int] = None
+    model_url_fallback: Optional[str] = None
 
 
 class ModelReviewRequest(BaseModel):
@@ -88,6 +115,14 @@ class ModelResponse(ModelBase):
     rejection_reason: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    # 首页展示字段（响应中返回）
+    display_name: Optional[str] = None
+    icon: Optional[str] = None
+    color_hex: Optional[str] = None
+    show_on_homepage: bool = False
+    show_in_gallery: bool = False
+    sort_order: int = 0
+    model_url_fallback: Optional[str] = None
     
     class Config:
         from_attributes = True

@@ -27,6 +27,7 @@ export interface IModelStats {
   approved: number;
   rejected: number;
   archived: number;
+  disabled: number;
   byCategory: Record<ModelCategory, number>;
   totalSize: number; // bytes
 }

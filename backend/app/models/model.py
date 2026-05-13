@@ -26,12 +26,12 @@ class Model3D(Base):
     
     # 分类与状态 / Category and status
     category = Column(
-        SQLEnum('character', 'scene', 'prop', 'vehicle', 'other', name='model_category'),
+        SQLEnum('character', 'scene', 'prop', 'vehicle', 'other', 'box', 'animation', 'nature', 'animal', 'architecture', 'food', 'industry', 'art', name='model_category'),
         nullable=False,
         default='other'
     )
     status = Column(
-        SQLEnum('pending', 'approved', 'rejected', 'archived', name='model_status'),
+        SQLEnum('pending', 'approved', 'rejected', 'archived', 'disabled', name='model_status'),
         nullable=False,
         default='pending',
         index=True
@@ -41,7 +41,7 @@ class Model3D(Base):
     thumbnail_url = Column(String, nullable=True)
     model_url = Column(String, nullable=False)  # 3D模型文件URL
     format = Column(
-        SQLEnum('glb', 'gltf', 'fbx', 'obj', 'ply', 'splat', name='model_format'),
+        SQLEnum('glb', 'gltf', 'fbx', 'obj', 'ply', 'splat', 'stl', 'spz', name='model_format'),
         nullable=False
     )
     file_size = Column(BigInteger, nullable=False)  # 文件大小（字节）
@@ -53,6 +53,15 @@ class Model3D(Base):
     
     # 标签 / Tags
     tags = Column(JSON, nullable=True)  # 标签列表
+    
+    # 首页展示字段 / Homepage display fields
+    display_name = Column(String(255), nullable=True)  # 首页展示名称（如"蓝色大闪蝶"）
+    icon = Column(String(50), nullable=True)  # UI图标/emoji（如"🦋"）
+    color_hex = Column(String(7), nullable=True)  # 主题色（如"#667eea"）
+    show_on_homepage = Column(Boolean, default=False)  # 是否在首页展示
+    show_in_gallery = Column(Boolean, default=False)  # 是否在画廊网格展示
+    sort_order = Column(Integer, default=0)  # 首页排序权重（越大越靠前）
+    model_url_fallback = Column(Text, nullable=True)  # 备用模型文件URL
     
     # 关联用户 / Related user
     created_by = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)

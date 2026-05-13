@@ -65,6 +65,8 @@ export interface LabelsConfig {
   enabled?: boolean;        // 是否启用，默认false
   products?: ProductLabel[];// 产品标签数据
   language?: 'zh' | 'en';   // 语言，默认'zh'
+  /** 标签显示数量（2或3，自动环形均布，默认全部显示） */
+  labelCount?: number;
 }
 
 export interface DecorationConfig {
@@ -78,7 +80,7 @@ export interface SceneDecorationAPI {
   apply: (config: DecorationConfig) => void;
   
   /** 更新产品标签 */
-  updateLabels: (products: ProductLabel[]) => void;
+  updateLabels: (products: ProductLabel[], labelCount?: number) => void;
   
   /** 显示/隐藏所有装饰 */
   setVisible: (visible: boolean) => void;
@@ -100,6 +102,8 @@ export class SceneDecoration implements SceneDecorationAPI {
   private platformGroup: THREE.Group | null = null;
   private labelsGroup: THREE.Group | null = null;
   private currentLanguage: 'zh' | 'en' = 'zh';
+  /** 标签显示数量（用于 updateLabels 时保持自动定位一致） */
+  private currentLabelCount: number = 3;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -129,6 +133,7 @@ export class SceneDecoration implements SceneDecorationAPI {
     // 产品标签
     if (config.labels?.enabled && config.labels.products && config.labels.products.length > 0) {
       this.currentLanguage = config.labels.language || 'zh';
+      this.currentLabelCount = config.labels.labelCount ?? config.labels.products.length;
       this.createLabels(config.labels.products);
     } else if (this.labelsGroup) {
       this.removeLabels();
@@ -274,7 +279,8 @@ export class SceneDecoration implements SceneDecorationAPI {
   }
 
   /**
-   * 创建产品标签
+   * 创建产品标签（自动环形均布，覆盖 product.position）
+   * @param products - 产品标签数据
    */
   private createLabels(products: ProductLabel[]): void {
     // 如果已存在，先移除
@@ -288,13 +294,27 @@ export class SceneDecoration implements SceneDecorationAPI {
     this.labelsGroup.visible = true;
     this.scene.add(this.labelsGroup);
 
-    // 为每个产品创建标签
-    products.forEach(product => {
-      const label = this.createLabelSprite(product);
+    // ★ 根据 labelCount 截取显示数量，自动计算环形位置
+    const count = Math.min(this.currentLabelCount, products.length);
+    const displayProducts = products.slice(0, count);
+    const total = displayProducts.length;
+    const LABEL_RADIUS = 1.8;
+    const LABEL_Y_OFFSET = -0.4;
+
+    displayProducts.forEach((product, index) => {
+      const angle = (index / total) * Math.PI * 2;
+      const label = this.createLabelSprite({
+        ...product,
+        position: [
+          LABEL_RADIUS * Math.cos(angle),
+          LABEL_Y_OFFSET,
+          LABEL_RADIUS * Math.sin(angle),
+        ],
+      });
       this.labelsGroup!.add(label);
     });
 
-    console.log(`🏷️ 产品标签已创建 (${products.length}个)`);
+    console.log(`🏷️ 产品标签已创建 (${total}个, labelCount=${this.currentLabelCount})`);
   }
 
   /**
@@ -406,12 +426,18 @@ export class SceneDecoration implements SceneDecorationAPI {
   }
 
   /**
-   * 更新产品标签
+   * 更新产品标签（也使用 labelCount 自动环形定位）
+   * @param products - 产品标签数据
+   * @param labelCount - 可选，覆盖默认显示数量
    */
-  updateLabels(products: ProductLabel[]): void {
+  updateLabels(products: ProductLabel[], labelCount?: number): void {
     if (!this.labelsGroup) {
       console.warn('⚠️ 标签组不存在，无法更新');
       return;
+    }
+
+    if (labelCount !== undefined) {
+      this.currentLabelCount = labelCount;
     }
 
     // 清空现有标签
@@ -423,13 +449,27 @@ export class SceneDecoration implements SceneDecorationAPI {
       }
     }
 
-    // 添加新标签
-    products.forEach(product => {
-      const label = this.createLabelSprite(product);
+    // ★ 使用 labelCount 截取，自动计算环形位置
+    const count = Math.min(this.currentLabelCount, products.length);
+    const displayProducts = products.slice(0, count);
+    const total = displayProducts.length;
+    const LABEL_RADIUS = 1.8;
+    const LABEL_Y_OFFSET = -0.4;
+
+    displayProducts.forEach((product, index) => {
+      const angle = (index / total) * Math.PI * 2;
+      const label = this.createLabelSprite({
+        ...product,
+        position: [
+          LABEL_RADIUS * Math.cos(angle),
+          LABEL_Y_OFFSET,
+          LABEL_RADIUS * Math.sin(angle),
+        ],
+      });
       this.labelsGroup!.add(label);
     });
 
-    console.log(`🔄 产品标签已更新 (${products.length}个)`);
+    console.log(`🔄 产品标签已更新 (${total}个, labelCount=${this.currentLabelCount})`);
   }
 
   /**

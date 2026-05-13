@@ -25,6 +25,8 @@ export interface DecorationControlProps {
   showPlatform?: boolean;
   /** 产品标签 */
   showLabels?: boolean;
+  /** 标签显示数量（2 或 3，自动环形均布，默认全部显示） */
+  labelCount?: number;
   /** 标签数据 */
   products?: ProductLabel[];
   /** 语言 */
@@ -50,6 +52,7 @@ export function buildDecorationConfig(
     showParticles,
     showPlatform,
     showLabels,
+    labelCount,
     products = [],
     language = 'zh-CN',
     particleSize = 0.08,
@@ -80,6 +83,7 @@ export function buildDecorationConfig(
             position: p.position || [0, 0, 0],
             color: p.color || '#667eea',
           })),
+          labelCount: labelCount !== undefined ? labelCount : products.length,
           language: language === 'zh-CN' ? 'zh' : 'en',
         }
       : undefined,

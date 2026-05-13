@@ -132,4 +132,4 @@ export interface GalleryConfig {
 /**
  * 页面导航类型
  */
-export type PageType = 'home' | 'gallery' | 'auth' | 'upload' | 'official-editor' | 'showcase' | 'book' | 'book-gallery';
+export type PageType = 'home' | 'gallery' | 'auth' | 'upload' | 'showcase' | 'book' | 'book-gallery';

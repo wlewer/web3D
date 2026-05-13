@@ -3,7 +3,8 @@
  */
 
 import React from 'react';
-import { Card, Row, Col, Statistic, Table, Tag } from 'antd';
+import { Card, Row, Col, Statistic, Tag } from 'antd';
+import UnifiedTable from '@/admin/components/UnifiedTable';
 import {
   UserOutlined,
   BoxPlotOutlined,
@@ -139,7 +140,8 @@ const Dashboard: React.FC = () => {
 
       {/* 最近活动 */}
       <Card title="最近活动" variant="borderless">
-        <Table
+        <UnifiedTable
+          storageKey="admin_dashboard_activity"
           dataSource={recentActivities}
           columns={columns}
           pagination={false}
