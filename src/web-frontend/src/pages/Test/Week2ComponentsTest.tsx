@@ -21,7 +21,7 @@ const TEST_MODELS = [
     icon: '🦋',
     name: '蓝色大闪蝶',
     nameEn: 'Blue Morpho',
-    url: '/models/butterfly.spz',
+    url: '/static-models/butterfly.spz',
     format: 'SPZ',
     category: '自然',
     categoryEn: 'Nature',
@@ -35,7 +35,7 @@ const TEST_MODELS = [
     icon: '🐱',
     name: '可爱猫咪',
     nameEn: 'Cute Cat',
-    url: '/models/cat.spz',
+    url: '/static-models/cat.spz',
     format: 'SPZ',
     category: '宠物',
     categoryEn: 'Pet',
@@ -48,7 +48,7 @@ const TEST_MODELS = [
     icon: '🍔',
     name: '精致汉堡',
     nameEn: 'Burger',
-    url: '/models/burger-from-amboy.spz',
+    url: '/static-models/burger-from-amboy.spz',
     format: 'SPZ',
     category: '美食',
     categoryEn: 'Food',
@@ -59,7 +59,7 @@ const TEST_MODELS = [
     icon: '🤖',
     name: '机器人头',
     nameEn: 'Robot Head',
-    url: '/models/robot-head.spz',
+    url: '/static-models/robot-head.spz',
     format: 'SPZ',
     category: '科技',
     categoryEn: 'Tech',
@@ -70,7 +70,7 @@ const TEST_MODELS = [
     icon: '🐧',
     name: '南极企鹅',
     nameEn: 'Penguin',
-    url: '/models/penguin.spz',
+    url: '/static-models/penguin.spz',
     format: 'SPZ',
     category: '极地',
     categoryEn: 'Polar',
@@ -81,7 +81,7 @@ const TEST_MODELS = [
     icon: '🍰',
     name: '精致甜点',
     nameEn: 'Dessert',
-    url: '/models/dessert.spz',
+    url: '/static-models/dessert.spz',
     format: 'SPZ',
     category: '甜品',
     categoryEn: 'Dessert',
@@ -545,8 +545,8 @@ export function Week2ComponentsTest() {
                         title={`${m.icon} ${m.name}`}
                         subtitle={`${m.format} · ${m.category}`}
                         showStats={showStats}
-                        onLoadComplete={() => track('网格卡片加载完成')}
-                        onError={() => track('网格卡片加载失败')}
+                        onLoadComplete={() => track(`加载成功: ${m.name}`)}
+                        onError={() => track(`❌ 加载失败: ${m.name}`)}
                       />
                       <button className="w2t-card-detail-overlay" onClick={e => { e.stopPropagation(); setDetailModel(m); setDetailLayout('featured'); }}>
                         🔍 查看详情
@@ -578,8 +578,8 @@ export function Week2ComponentsTest() {
                         title={`${m.icon} ${m.name}`}
                         subtitle={`${m.format} · ${m.category}`}
                         showStats={showStats}
-                        onLoadComplete={() => track('画廊卡片加载完成')}
-                        onError={() => track('画廊卡片加载失败')}
+                        onLoadComplete={() => track(`加载成功: ${m.name}`)}
+                        onError={() => track(`❌ 加载失败: ${m.name}`)}
                       />
                       <button className="w2t-card-detail-overlay" onClick={e => { e.stopPropagation(); setDetailModel(m); setDetailLayout('gallery'); }}>
                         🔍 查看详情

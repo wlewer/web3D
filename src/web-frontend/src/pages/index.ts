@@ -3,6 +3,5 @@ export { HomePage } from './Home';
 export { GalleryPage } from './Gallery';
 export { AuthPage } from './Auth';
 export { UploadPage } from './Upload';
-export { SparkShowcase } from './Showcase/SparkShowcase';
 export { BookViewerPage } from './BookViewer';
 export { BookGalleryPage } from './BookGallery';

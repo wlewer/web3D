@@ -316,6 +316,14 @@
   animation: pulse-tag 2s ease-in-out infinite;
 }
 
+/* 格式标识标签 - 绿色认证风格 */
+.tech-tag-glass.format-badge {
+  background: rgba(82, 196, 26, 0.12);
+  border-color: rgba(82, 196, 26, 0.35);
+  color: #52c41a;
+  font-weight: 500;
+}
+
 @keyframes pulse-tag {
   0%, 100% {
     opacity: 1;

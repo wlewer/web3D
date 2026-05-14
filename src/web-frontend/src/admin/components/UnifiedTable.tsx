@@ -19,9 +19,10 @@
  * 不影响任何现有的 dataSource、loading、pagination、onChange 等数据流
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Table, Popover, Checkbox, Button } from 'antd';
+import { Table, Popover, Checkbox, Button, message } from 'antd';
 import { SettingOutlined } from '@ant-design/icons';
 import type { TableProps, TableColumnsType } from 'antd';
+import { axiosInstance } from '@/admin/core/providers';
 
 // ==================== 常量 ====================
 
@@ -67,6 +68,61 @@ function loadColumnSettings(storageKey: string): { key: string; visible: boolean
   }
 }
 
+/** 保存列设置到 localStorage */
+function saveToLocalStorage(storageKey: string, settings: { key: string; visible: boolean }[]) {
+  try {
+    localStorage.setItem(LS_PREFIX + storageKey, JSON.stringify(settings));
+  } catch {
+    // localStorage 不可用时忽略
+  }
+}
+
+/** 从数据库加载列设置 */
+async function loadColumnSettingsFromAPI(storageKey: string): Promise<{ key: string; visible: boolean }[] | null> {
+  try {
+    const res = await axiosInstance.get(`/users/me/column-settings/${storageKey}`);
+    const value = res.data?.value;
+    if (value && Array.isArray(value) && value.length > 0) {
+      return value;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** 保存列设置到数据库（fire-and-forget） */
+async function saveColumnSettingsToAPI(storageKey: string, settings: { key: string; visible: boolean }[]) {
+  try {
+    await axiosInstance.put(`/users/me/column-settings/${storageKey}`, { value: settings });
+  } catch {
+    // API 不可用时静默降级
+  }
+}
+
+/** 合并列设置：以 saved 顺序为准，追加新列 */
+function mergeColumnSettings(
+  defaultSettings: ColumnSetting[],
+  saved: { key: string; visible: boolean }[],
+): ColumnSetting[] {
+  const savedKeySet = new Set(saved.map(s => s.key));
+  const merged: ColumnSetting[] = [];
+  // 第一步：按 saved 顺序添加仍在 columns 中的列
+  for (const savedItem of saved) {
+    const def = defaultSettings.find(d => d.key === savedItem.key);
+    if (def) {
+      merged.push({ ...def, visible: savedItem.visible });
+    }
+  }
+  // 第二步：追加新增的列（saved 中没有的）到末尾
+  for (const def of defaultSettings) {
+    if (!savedKeySet.has(def.key)) {
+      merged.push(def);
+    }
+  }
+  return merged;
+}
+
 // ==================== 组件 ====================
 
 function UnifiedTable<T extends object>(props: UnifiedTableProps<T>) {
@@ -87,7 +143,6 @@ function UnifiedTable<T extends object>(props: UnifiedTableProps<T>) {
     if (initRef.current === colsKey) return; // columns 结构未变，跳过
     initRef.current = colsKey;
 
-    const saved = loadColumnSettings(storageKey);
     const defaultSettings: ColumnSetting[] = (columns as any[])
       .filter((col: any) => col.key != null)
       .map((col: any) => ({
@@ -96,30 +151,35 @@ function UnifiedTable<T extends object>(props: UnifiedTableProps<T>) {
         visible: true,
       }));
 
-    if (saved && saved.length > 0) {
-      const merged = defaultSettings.map(def => {
-        const savedItem = saved.find((s: any) => s.key === def.key);
-        if (savedItem) {
-          return { ...def, visible: savedItem.visible };
-        }
-        return def;
-      });
-      setColumnSettings(merged);
-    } else {
-      setColumnSettings(defaultSettings);
-    }
+    // === 双源加载：localStorage（即时） + 数据库（权威） ===
+    const applySettings = (source: { key: string; visible: boolean }[] | null) => {
+      if (source && source.length > 0) {
+        setColumnSettings(mergeColumnSettings(defaultSettings, source));
+      } else {
+        setColumnSettings(defaultSettings);
+      }
+    };
+
+    // Step 1: 从 localStorage 同步加载（即时显示，避免白屏等待）
+    applySettings(loadColumnSettings(storageKey));
+
+    // Step 2: 从数据库异步加载（后台覆盖，保证跨设备一致性）
+    loadColumnSettingsFromAPI(storageKey).then(apiData => {
+      if (apiData && apiData.length > 0) {
+        setColumnSettings(mergeColumnSettings(defaultSettings, apiData));
+        // 同步到 localStorage 作为缓存
+        saveToLocalStorage(storageKey, apiData);
+      }
+    });
   }, [columns, storageKey]);
 
-  // 持久化列设置
+  // 持久化列设置（localStorage + 数据库双重写入）
   const saveSettings = useCallback((settings: ColumnSetting[]) => {
-    try {
-      localStorage.setItem(
-        LS_PREFIX + storageKey,
-        JSON.stringify(settings.map(s => ({ key: s.key, visible: s.visible }))),
-      );
-    } catch {
-      // localStorage 不可用时忽略
-    }
+    const data = settings.map(s => ({ key: s.key, visible: s.visible }));
+    // localStorage 同步写入（本地缓存，即时响应）
+    saveToLocalStorage(storageKey, data);
+    // 数据库异步持久化（fire-and-forget，跨设备同步）
+    saveColumnSettingsToAPI(storageKey, data);
   }, [storageKey]);
 
   // 切换列显隐

@@ -7,14 +7,12 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import './Workshop3D.css';
 
+// 3D车间Props
 interface Workshop3DProps {
-  onNavigate?: (page: string) => void;
-  embedded?: boolean; // 是否为嵌入式模式
-  onClose?: () => void; // 关闭回调（嵌入式模式使用）
   panoramaUrl?: string; // 全景图URL（可选，默认使用本地mob2uecf.png）
 }
 
-export function Workshop3D({ onNavigate, embedded = false, onClose, panoramaUrl }: Workshop3DProps) {
+export function Workshop3D({ panoramaUrl }: Workshop3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const panoramaUrlRef = useRef(panoramaUrl); // 保存panoramaUrl的引用
 
@@ -43,6 +41,7 @@ export function Workshop3D({ onNavigate, embedded = false, onClose, panoramaUrl 
       // ★ [fix] 不再创建 import map（Vite dev server 会自动管理模块解析）
       // 使用项目的 three.js 模块直接动态导入
       const { OrbitControls } = await import('three/addons/controls/OrbitControls.js');
+      const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
       // 不再使用CSS2DRenderer，改用CanvasTexture Sprite
       
       // 使用全局TWEEN
@@ -316,31 +315,66 @@ export function Workshop3D({ onNavigate, embedded = false, onClose, panoramaUrl 
       groundPlane.name = 'GroundPlane';
       scene.add(groundPlane);
 
-      // --- 机床数据 ---
+      // --- 工业车间模型（从模型库精选6个） ---
       const machines = [
-        { id: 0, name: "CNC数控铣床", x: -2.8, z: -2.0, color: 0x66ccff, status: "运行中", statusColor: "#00aa55" },
-        { id: 1, name: "五轴联动加工中心", x: 2.5, z: -2.2, color: 0xffaa66, status: "待机", statusColor: "#ffaa33" },
-        { id: 2, name: "精密磨床", x: 0, z: 1.8, color: 0x88ff88, status: "运行中", statusColor: "#00aa55" },
-        { id: 3, name: "冲压机床", x: -2.0, z: 3.0, color: 0xff8888, status: "维护中", statusColor: "#aa3333" },
-        { id: 4, name: "激光切割机", x: 3.2, z: 1.5, color: 0xaa88ff, status: "运行中", statusColor: "#00aa55" },
-        { id: 5, name: "焊接机器人工作站", x: 0.5, z: -3.0, color: 0x66ffcc, status: "待机", statusColor: "#ffaa33" }
+        { id: 0, name: "混元胶印机", url: "/static-models/车间/混元-胶印机.glb", x: -2.8, z: -2.0, color: 0x66ccff, status: "运行中", statusColor: "#00aa55" },
+        { id: 1, name: "胶印机2", url: "/static-models/车间/胶印机2.glb", x: 2.5, z: -2.2, color: 0xffaa66, status: "待机", statusColor: "#ffaa33" },
+        { id: 2, name: "胶印机3", url: "/static-models/车间/胶印机3.glb", x: 0, z: 1.8, color: 0x88ff88, status: "运行中", statusColor: "#00aa55" },
+        { id: 3, name: "Hunyuan 01", url: "/static-models/hunyuan-01.glb", x: -2.0, z: 3.0, color: 0xff8888, status: "维护中", statusColor: "#aa3333" },
+        { id: 4, name: "正业模型LOGO", url: "/static-models/车间/正业模型logo.glb", x: 3.2, z: 1.5, color: 0xaa88ff, status: "运行中", statusColor: "#00aa55" },
+        { id: 5, name: "混元Cloud", url: "/static-models/generated/3e6f03c9-22ad-4819-b1f0-4de32c437637.glb", x: 0.5, z: -3.0, color: 0x66ffcc, status: "待机", statusColor: "#ffaa33" }
       ];
 
       const machineModels: any[] = [];
 
-      // 创建机床3D模型
+      // 提取CanvasTexture标签创建函数
+      function createTextTexture(text: string, statusColor: string): THREE.CanvasTexture {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d')!;
+        canvas.width = 256;
+        canvas.height = 64;
+        
+        // 背景
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
+        ctx.beginPath();
+        ctx.roundRect(0, 0, 256, 64, 20);
+        ctx.fill();
+        
+        // 左侧状态条
+        ctx.fillStyle = statusColor;
+        ctx.beginPath();
+        ctx.roundRect(4, 8, 6, 48, 3);
+        ctx.fill();
+        
+        // 文字
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px Microsoft YaHei, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 20, 32);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        return texture;
+      }
+
+      const gltfLoader = new GLTFLoader();
+
+      // 创建机床3D模型（几何体占位 + 异步加载真实GLB）
       console.log('🔧 开始创建机床模型，数量:', machines.length);
       machines.forEach(m => {
         console.log(`  - 创建机床: ${m.name} (ID: ${m.id})`);
         const group = new THREE.Group();
         group.name = `Machine_${m.id}_${m.name}`;
 
+        // 1. 备用几何体（GLB加载完成前显示，加载成功后移除）
         const baseGeo = new THREE.BoxGeometry(1.6, 0.2, 1.6);
         const baseMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.6, roughness: 0.4 });
         const base = new THREE.Mesh(baseGeo, baseMat);
         base.position.y = 0.1;
         base.castShadow = true;
         base.receiveShadow = true;
+        base.name = 'fallback_base';
         group.add(base);
 
         const bodyGeo = new THREE.BoxGeometry(1.2, 0.8, 1.2);
@@ -349,6 +383,7 @@ export function Workshop3D({ onNavigate, embedded = false, onClose, panoramaUrl 
         body.position.y = 0.6;
         body.castShadow = true;
         body.receiveShadow = true;
+        body.name = 'fallback_body';
         group.add(body);
 
         const topGeo = new THREE.CylinderGeometry(0.5, 0.7, 0.3, 16);
@@ -356,8 +391,10 @@ export function Workshop3D({ onNavigate, embedded = false, onClose, panoramaUrl 
         const top = new THREE.Mesh(topGeo, topMat);
         top.position.y = 1.05;
         top.castShadow = true;
+        top.name = 'fallback_top';
         group.add(top);
 
+        // 2. 状态指示灯
         const lampGeo = new THREE.SphereGeometry(0.13, 16, 16);
         const lampMat = new THREE.MeshStandardMaterial({
           color: m.status === "运行中" ? 0x00ff88 : (m.status === "待机" ? 0xffaa33 : 0xff3333),
@@ -372,37 +409,7 @@ export function Workshop3D({ onNavigate, embedded = false, onClose, panoramaUrl 
         group.position.set(m.x, 0, m.z);
         group.userData = { id: m.id, name: m.name, status: m.status };
 
-        // 使用CanvasTexture创建3D标签（避免CSS2DRenderer的DOM问题）
-        function createTextTexture(text: string, statusColor: string): THREE.CanvasTexture {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d')!;
-          canvas.width = 256;
-          canvas.height = 64;
-          
-          // 背景
-          ctx.fillStyle = 'rgba(0,0,0,0.75)';
-          ctx.beginPath();
-          ctx.roundRect(0, 0, 256, 64, 20);
-          ctx.fill();
-          
-          // 左侧状态条
-          ctx.fillStyle = statusColor;
-          ctx.beginPath();
-          ctx.roundRect(4, 8, 6, 48, 3);
-          ctx.fill();
-          
-          // 文字
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 24px Microsoft YaHei, sans-serif';
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(text, 20, 32);
-          
-          const texture = new THREE.CanvasTexture(canvas);
-          texture.needsUpdate = true;
-          return texture;
-        }
-        
+        // 3. 3D标签
         const statusColor = m.status === "运行中" ? '#00ff88' : (m.status === "待机" ? '#ffaa33' : '#ff6666');
         const labelTexture = createTextTexture(m.name, statusColor);
         const labelMaterial = new THREE.SpriteMaterial({ 
@@ -414,19 +421,61 @@ export function Workshop3D({ onNavigate, embedded = false, onClose, panoramaUrl 
         const labelSprite = new THREE.Sprite(labelMaterial);
         labelSprite.position.set(0, 1.5, 0);
         labelSprite.scale.set(1.8, 0.45, 1);
-        group.add(labelSprite); // 添加到group
+        group.add(labelSprite);
         
         scene.add(group);
 
         machineModels.push({
           group,
           lamp,
-          label: labelSprite, // 保存Sprite引用
+          label: labelSprite,
           id: m.id,
           name: m.name,
           pos: new THREE.Vector3(m.x, 0.6, m.z),
           status: m.status
         });
+
+        // 4. 异步加载真实模型（GLB加载成功后替换备用几何体）
+        gltfLoader.load(
+          m.url,
+          (gltf) => {
+            const model = gltf.scene;
+            
+            // 自动缩放：计算包围盒，缩放到统一尺寸
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            if (maxDim > 0) {
+              const targetScale = 1.2 / maxDim;
+              model.scale.set(targetScale, targetScale, targetScale);
+              const center = box.getCenter(new THREE.Vector3());
+              model.position.set(-center.x * targetScale, -center.y * targetScale + 0.1, -center.z * targetScale);
+            }
+            
+            model.traverse((child) => {
+              if ((child as THREE.Mesh).isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+              }
+            });
+            
+            // 移除备用几何体
+            const toRemove: THREE.Object3D[] = [];
+            group.children.forEach(child => {
+              if (child.name && child.name.startsWith('fallback_')) {
+                toRemove.push(child);
+              }
+            });
+            toRemove.forEach(child => group.remove(child));
+            
+            group.add(model);
+            console.log(`✅ 真实模型加载成功: ${m.name}`);
+          },
+          undefined,
+          (error) => {
+            console.warn(`⚠️ 模型 ${m.name} 加载失败，保留备用几何体:`, error);
+          }
+        );
       });
 
       // --- 侧边栏和状态面板 ---
@@ -728,20 +777,13 @@ export function Workshop3D({ onNavigate, embedded = false, onClose, panoramaUrl 
   }, []); // 空依赖数组，只在组件挂载时初始化一次
 
   return (
-    <div ref={containerRef} className={`workshop-3d-container ${!embedded ? 'standalone' : ''}`}>
+    <div ref={containerRef} className="workshop-3d-container">
       {/* 全景图加载提示 */}
       <div className="panorama-hint" id="panoramaHint">
         🌐 360°全景背景加载中... | 拖拽旋转查看全景
       </div>
       
-      {/* 嵌入式模式下的关闭按钮 */}
-      {embedded && onClose && (
-        <button className="embedded-close-btn" onClick={onClose}>
-          ✕ 收起
-        </button>
-      )}
-      
-      {/* 悬浮按钮 */}
+      {/* 侧边栏切换按钮 */}
       <div className="floating-toggle" id="toggleBtn">
         <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" /></svg>
       </div>
@@ -767,15 +809,6 @@ export function Workshop3D({ onNavigate, embedded = false, onClose, panoramaUrl 
         ✨ 点击任意机床模型或列表项，自动聚焦并360°环绕<br />
         🌐 拖拽旋转查看360°全景背景
       </div>
-
-      {/* 返回/关闭按钮 */}
-      {!embedded && (
-        <div className="workshop-back-btn">
-          <button onClick={() => onNavigate?.('home')} className="back-button">
-            ← 返回首页
-          </button>
-        </div>
-      )}
     </div>
   );
 }

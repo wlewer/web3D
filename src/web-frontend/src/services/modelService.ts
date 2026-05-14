@@ -168,6 +168,8 @@ function toHomepageModel(api: ApiModelResponse): HomepageModel {
     format: api.format as HomepageModel['format'],
     modelUrl: api.model_url || '',
     modelUrlFallback: api.model_url_fallback || undefined,
+    // ★ 兼容旧格式：如果 model_url 为空且 splat_url 存在，作为备用
+    splatUrl: undefined,
     products: meta.products as ProductTag[] | undefined,
     renderConfig: meta.renderConfig as RenderConfig | undefined,
   };

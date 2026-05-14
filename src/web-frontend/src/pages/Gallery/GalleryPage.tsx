@@ -132,10 +132,6 @@ export function GalleryPage() {
     <div className="gallery-page">
       {/* 左侧分类导航（Upload 页面风格） */}
       <aside className="gallery-sidebar">
-        <div className="gallery-sidebar-logo">🎨</div>
-        <h2 className="gallery-sidebar-title">
-          {isZh ? '模型画廊' : 'Gallery'}
-        </h2>
 
         <nav className="gallery-nav">
           <button

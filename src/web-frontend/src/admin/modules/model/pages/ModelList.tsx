@@ -26,7 +26,6 @@ import {
   PlusOutlined,
   SearchOutlined,
   DeleteOutlined,
-  EyeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   ReloadOutlined,
@@ -233,7 +232,7 @@ export const ModelList: React.FC = () => {
       key: 'name',
       width: 250,
       render: (_: string, record: IModel) => (
-        <Space>
+        <Space style={{ cursor: 'pointer' }} onClick={() => handleView(record)}>
           {record.thumbnailUrl ? (
             <Image
               src={record.thumbnailUrl}
@@ -247,7 +246,7 @@ export const ModelList: React.FC = () => {
             <FormatPlaceholder format={record.format} fileSize={record.fileSize} />
           )}
           <div>
-            <div style={{ fontWeight: 500 }}>{record.name}</div>
+            <div style={{ fontWeight: 500, color: '#1677ff' }}>{record.name}</div>
             <div style={{ fontSize: 12, color: '#999' }}>
               {formatMap[record.format] || record.format}
             </div>
@@ -424,19 +423,9 @@ export const ModelList: React.FC = () => {
       title: '操作',
       key: 'action',
       fixed: 'right' as const,
-      width: 240,
+      width: 170,
       render: (_: any, record: IModel) => (
         <Space size="small" style={{ display: 'flex', flexWrap: 'nowrap' }}>
-          <Tooltip title="查看模型">
-            <Button
-              type="link"
-              size="small"
-              icon={<EyeOutlined />}
-              onClick={() => handleView(record)}
-            >
-              查看
-            </Button>
-          </Tooltip>
           <Tooltip title="编辑信息">
             <Button
               type="link"
@@ -917,7 +906,7 @@ export const ModelList: React.FC = () => {
                 ...(rowIndex !== undefined && data[rowIndex]?.id && dragIndex >= 0 && data[dragIndex]?.id !== data[rowIndex]?.id && document.querySelector(`[data-row-key="${data[rowIndex]?.id}"]`) ? { borderTop: '2px solid #1677ff' } : {}),
               },
             })}
-            scroll={{ y: 'calc(100vh - 355px)', x: 1300 }}
+            scroll={{ x: 'max-content', y: 'calc(100vh - 355px)' }}
           />
         </Card>
       </div>

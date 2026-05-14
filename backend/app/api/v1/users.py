@@ -21,6 +21,11 @@ from app.schemas.user import (
 from app.dependencies import get_current_user, require_role
 from app.core.security import get_password_hash
 from loguru import logger
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from typing import Any, Dict
+from datetime import datetime
+from app.models.settings import UserSettings
 
 router = APIRouter()
 
@@ -332,3 +337,93 @@ async def get_user_stats(
         "banned": banned,
         "byRole": by_role,
     }
+
+
+# ==================== 列设置持久化 ====================
+
+
+@router.get("/me/column-settings/{storage_key}")
+async def get_column_settings(
+    storage_key: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    获取当前用户的表格列设置
+    Get current user's column layout settings
+    """
+    try:
+        result = await db.execute(
+            select(UserSettings).where(
+                UserSettings.user_id == current_user.id,
+                UserSettings.key == storage_key,
+            )
+        )
+        setting = result.scalar_one_or_none()
+
+        if setting is None:
+            return {"key": storage_key, "value": None}
+
+        return {"key": setting.key, "value": setting.value}
+    except Exception as e:
+        logger.error(f"Failed to get column settings: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get column settings: {str(e)}"
+        )
+
+
+@router.put("/me/column-settings/{storage_key}")
+async def save_column_settings(
+    storage_key: str,
+    body: Dict[str, Any],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    保存当前用户的表格列设置
+    Save current user's column layout settings
+
+    Body: {"value": [{"key": "name", "visible": true}, ...]}
+    """
+    try:
+        value = body.get("value")
+        if value is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing 'value' field in request body"
+            )
+
+        # 查询或创建
+        result = await db.execute(
+            select(UserSettings).where(
+                UserSettings.user_id == current_user.id,
+                UserSettings.key == storage_key,
+            )
+        )
+        setting = result.scalar_one_or_none()
+
+        if setting is None:
+            setting = UserSettings(
+                user_id=current_user.id,
+                key=storage_key,
+                value=value,
+            )
+            db.add(setting)
+        else:
+            setting.value = value
+            setting.updated_at = datetime.utcnow()
+
+        await db.commit()
+        await db.refresh(setting)
+
+        logger.info(f"Column settings saved for user {current_user.username}: {storage_key}")
+        return {"key": setting.key, "value": setting.value, "updated_at": str(setting.updated_at)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to save column settings: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save column settings: {str(e)}"
+        )

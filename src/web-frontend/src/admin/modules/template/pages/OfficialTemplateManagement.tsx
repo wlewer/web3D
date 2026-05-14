@@ -42,6 +42,7 @@ import {
 } from '@ant-design/icons';
 import { axiosInstance } from '@/admin/core/providers';
 import { RenderConfigEditor } from '../components/RenderConfigEditor';
+import { ModelPreviewModal } from '@/admin/modules/model/components/ModelPreviewModal';
 import type { RenderConfig } from '@/types/render-config';
 
 // ==================== 类型定义 ====================
@@ -181,6 +182,10 @@ export const OfficialTemplateManagement: React.FC = () => {
   const [productTagEditingModel, setProductTagEditingModel] = useState<HeroModel | null>(null);
   const [productTagList, setProductTagList] = useState<ProductTagItem[]>([]);
   const [productTagSaving, setProductTagSaving] = useState(false);
+
+  // 模型预览弹窗
+  const [previewModel, setPreviewModel] = useState<any>(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
 
   // ===== 数据加载 =====
   const triggerRefresh = useCallback(() => setRefreshKey(k => k + 1), []);
@@ -513,6 +518,22 @@ export const OfficialTemplateManagement: React.FC = () => {
     return rc !== undefined && rc !== null && Object.keys(rc).length > 0;
   }, []);
 
+  // 打开模型预览弹窗
+  const handleView = (record: any) => {
+    // ★ 关键修复：模板模型使用 snake_case 字段名，统一映射为 camelCase
+    setPreviewModel({
+      ...record,
+      modelUrl: record.model_url || record.modelUrl || '',
+      createdAt: record.created_at || record.createdAt,
+      fileSize: record.fileSize || record.file_size || 0,
+    });
+    setPreviewVisible(true);
+  };
+  const handleClosePreview = () => {
+    setPreviewVisible(false);
+    setPreviewModel(null);
+  };
+
   // ===== 表格列定义 =====
 
   // Hero 模型表格列
@@ -529,8 +550,8 @@ export const OfficialTemplateManagement: React.FC = () => {
       key: 'display',
       width: 200,
       render: (_: any, record: HeroModel) => (
-        <div>
-          <div style={{ fontWeight: 500 }}>{record.display_name || record.name}</div>
+        <div style={{ cursor: 'pointer' }} onClick={() => handleView(record)}>
+          <div style={{ fontWeight: 500, color: '#1677ff' }}>{record.display_name || record.name}</div>
           <div style={{ fontSize: 12, color: '#999' }}>{record.name}</div>
         </div>
       ),
@@ -633,10 +654,10 @@ export const OfficialTemplateManagement: React.FC = () => {
       title: '模型信息',
       key: 'info',
       render: (_: any, record: GalleryModelItem) => (
-        <Space>
+        <Space style={{ cursor: 'pointer' }} onClick={() => handleView(record)}>
           <span style={{ fontSize: 24 }}>{record.icon || '📦'}</span>
           <div>
-            <div style={{ fontWeight: 500 }}>{record.display_name || record.name}</div>
+            <div style={{ fontWeight: 500, color: '#1677ff' }}>{record.display_name || record.name}</div>
             <div style={{ fontSize: 12, color: '#999' }}>
               {formatMap[record.format] || record.format} | {record.category}
             </div>
@@ -1296,6 +1317,13 @@ export const OfficialTemplateManagement: React.FC = () => {
           </Button>
         </div>
       </Modal>
+
+      {/* 模型预览弹窗 */}
+      <ModelPreviewModal
+        visible={previewVisible}
+        model={previewModel}
+        onClose={handleClosePreview}
+      />
     </div>
   );
 };

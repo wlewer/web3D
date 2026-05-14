@@ -9,42 +9,9 @@
   background: #0a1a2e; /* 更新为全景版背景色 */
 }
 
-/* 嵌入式模式下的关闭按钮 */
-.embedded-close-btn {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  z-index: 1002;
-  background: rgba(239, 68, 68, 0.85);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-}
-
-.embedded-close-btn:hover {
-  background: rgba(239, 68, 68, 1);
-  transform: scale(1.05);
-  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
-}
-
-/* 独立页面模式 - 全屏固定定位 */
-.workshop-3d-container.standalone {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 1000;
-}
-
 /* 悬浮按钮 */
 .floating-toggle {
-  position: absolute; /* 嵌入模式使用绝对定位 */
+  position: absolute;
   top: 20px;
   right: 20px;
   width: 48px;
@@ -61,11 +28,6 @@
   border: 1px solid rgba(100, 150, 255, 0.5);
 }
 
-/* 独立页面模式 - 固定定位 */
-.standalone .floating-toggle {
-  position: fixed;
-}
-
 .floating-toggle:hover {
   background: #2a3a7a;
   transform: scale(1.05);
@@ -79,7 +41,7 @@
 
 /* 侧边栏 - 右侧滑动面板 */
 .machine-sidebar {
-  position: absolute; /* 嵌入模式使用绝对定位 */
+  position: absolute;
   top: 0;
   right: -320px;
   width: 300px;
@@ -92,12 +54,6 @@
   display: flex;
   flex-direction: column;
   box-shadow: -5px 0 25px rgba(0, 0, 0, 0.3);
-}
-
-/* 独立页面模式 - 固定定位 */
-.standalone .machine-sidebar {
-  position: fixed;
-  height: 100vh;
 }
 
 .machine-sidebar.open {
@@ -191,7 +147,7 @@
 
 /* 实时数据面板 */
 .data-panel {
-  position: absolute; /* 嵌入模式使用绝对定位 */
+  position: absolute;
   bottom: 20px;
   left: 20px;
   width: 280px;
@@ -206,11 +162,6 @@
   pointer-events: none;
 }
 
-/* 独立页面模式 - 固定定位 */
-.standalone .data-panel {
-  position: fixed;
-}
-
 .data-panel h4 {
   margin: 0 0 10px 0;
   color: #00ffcc;
@@ -222,7 +173,7 @@
 }
 
 .controls-hint {
-  position: absolute; /* 嵌入模式使用绝对定位 */
+  position: absolute;
   bottom: 20px;
   right: 20px;
   color: rgba(255, 255, 255, 0.6);
@@ -233,41 +184,6 @@
   z-index: 1000;
 }
 
-/* 独立页面模式 - 固定定位 */
-.standalone .controls-hint {
-  position: fixed;
-}
-
-/* 返回按钮 */
-.workshop-back-btn {
-  position: absolute; /* 嵌入模式使用绝对定位 */
-  top: 20px;
-  left: 20px;
-  z-index: 1001;
-}
-
-/* 独立页面模式 - 固定定位 */
-.standalone .workshop-back-btn {
-  position: fixed;
-}
-
-.back-button {
-  background: rgba(30, 42, 94, 0.9);
-  color: #fff;
-  border: 1px solid rgba(100, 150, 255, 0.5);
-  padding: 10px 20px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-}
-
-.back-button:hover {
-  background: rgba(42, 58, 122, 0.9);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
 
 /* 全景图加载提示 */
 .panorama-hint {
@@ -284,10 +200,6 @@
   pointer-events: none;
   transition: opacity 0.8s ease;
   border: 1px solid rgba(255, 200, 0, 0.4);
-}
-
-.standalone .panorama-hint {
-  position: fixed;
 }
 
 .panorama-hint.loaded {

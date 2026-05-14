@@ -1161,6 +1161,17 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
    * 加载模型（根据URL后缀判断类型）- 完全对齐V2第1323-1343行
    */
   const loadModel = useCallback(() => {
+    // ★ 守卫：modelUrl 为空时直接跳过，避免 detextFormat 收到 undefined 崩溃
+    if (!modelUrl) {
+      console.warn('⚠️ [Base3DViewer] modelUrl 为空，跳过模型加载');
+      setStateMachine({ state: 'ERROR', currentModelUrl: '' });
+      setError('模型URL为空，无法加载');
+      setLoading(false);
+      setModelLoaded(false);
+      onError?.(new Error('modelUrl is empty or undefined'));
+      return;
+    }
+
     const fmt = (modelFormat || '').toLowerCase() || detectFormat(modelUrl);
     
     if (fmt === 'spz' || fmt === 'splat') {
@@ -1172,7 +1183,7 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       // GLB/GLTF/STL/OBJ等使用Three.js场景加载
       loadGLBModel();
     }
-  }, [modelUrl, modelFormat, loadSplatModel, loadSplatWithFallback, loadGLBModel]);
+  }, [modelUrl, modelFormat, loadSplatModel, loadSplatWithFallback, loadGLBModel, onError]);
 
   /**
    * 动画循环（集成SparkRenderer渲染）
@@ -1714,8 +1725,17 @@ export const Base3DViewer = forwardRef<Base3DViewerRef, Base3DViewerProps>(({
       modelLoaded
     });
   
-    // ★ 状态机守卫：只在READY或LOADED状态下才处理modelUrl变化（对齐V2第1544-1548行）
-    if (stateMachine.state !== 'READY' && stateMachine.state !== 'LOADED') {
+    // ★ 状态机守卫：允许从ERROR状态重试（如果URL变化了）
+    if (stateMachine.state === 'ERROR') {
+      if (modelUrl === stateMachine.currentModelUrl) {
+        console.log('⚠️ ERROR状态且URL相同，跳过（不会重试已失败的模型）');
+        return;
+      }
+      console.log('🔄 ERROR状态 + 新URL，允许重新加载');
+      // ★ 重置错误状态，允许加载新模型
+      setError(null);
+      sparkFailedRef.current = false;
+    } else if (stateMachine.state !== 'READY' && stateMachine.state !== 'LOADED') {
       console.log('⚠️ 当前状态不允许加载模型:', stateMachine.state);
       return;
     }

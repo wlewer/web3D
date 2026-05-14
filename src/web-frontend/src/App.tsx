@@ -1,9 +1,9 @@
 // 应用入口
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { HomePage, GalleryPage, AuthPage, UploadPage, SparkShowcase, BookViewerPage, BookGalleryPage } from './pages';
+import { HomePage, GalleryPage, AuthPage, UploadPage, BookViewerPage, BookGalleryPage } from './pages';
 import { Week2ComponentsTest } from './pages/Test';
-
+import { Workshop3D } from './pages/Workshop3D';
 import { SparkEditor } from './pages/Editor/SparkEditor';
 import { I18nProvider, useLanguage, useTranslation } from './i18n';
 import { getCurrentUser, logout, type User } from './pages/Auth';
@@ -44,11 +44,9 @@ function UserAvatar({ user, onLogout }: { user: User; onLogout: () => void }) {
 }
 
 // 导航栏组件
-function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorkshopInHome, user, onLogout }: {
+function NavBar({ currentPage, setCurrentPage, user, onLogout }: {
   currentPage: string;
-  setCurrentPage: (page: 'home' | 'gallery' | 'auth' | 'upload' | 'spark-editor' | 'showcase' | 'book' | 'book-gallery' | 'week2-components-test') => void;
-  showWorkshopInHome?: boolean;
-  setShowWorkshopInHome?: (show: boolean) => void;
+  setCurrentPage: (page: 'home' | 'gallery' | 'auth' | 'upload' | 'spark-editor' | 'book' | 'book-gallery' | 'week2-components-test' | 'workshop') => void;
   user: User | null;
   onLogout: () => void;
 }) {
@@ -63,9 +61,9 @@ function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorksh
         <span className="app-nav-route">
           {currentPage === 'home' ? '/ Home' :
            currentPage === 'gallery' ? '/ Gallery' :
+           currentPage === 'workshop' ? '/ Workshop' :
            currentPage === 'upload' ? '/ Upload' :
            currentPage === 'auth' ? '/ Auth' :
-           currentPage === 'showcase' ? '/ Showcase' :
            currentPage === 'book' ? '/ Book' :
            currentPage === 'book-gallery' ? '/ Book Gallery' :
            currentPage === 'spark-editor' ? '/ Editor' :
@@ -74,12 +72,8 @@ function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorksh
       </div>
       <div className="app-nav-links">
         <button
-          className={`app-nav-link ${currentPage === 'home' && !showWorkshopInHome ? 'active' : ''}`}
-          onClick={() => {
-            // 点击首页按钮：隐藏3D车间，回到正常首页
-            setCurrentPage('home');
-            setShowWorkshopInHome?.(false);
-          }}
+          className={`app-nav-link ${currentPage === 'home' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('home')}
         >
           {t.nav.home}
         </button>
@@ -96,26 +90,14 @@ function NavBar({ currentPage, setCurrentPage, showWorkshopInHome, setShowWorksh
           🧪 Week 2组件验证
         </button>
         <button
-          className={`app-nav-link ${currentPage === 'showcase' ? 'active' : ''}`}
-          onClick={() => setCurrentPage('showcase')}
-        >
-          🎨 {language === 'zh-CN' ? '示例' : 'Showcase'}
-        </button>
-        <button
           className={`app-nav-link ${currentPage === 'upload' ? 'active' : ''}`}
           onClick={() => setCurrentPage('upload')}
         >
           {t.nav.upload}
         </button>
         <button
-          className={`app-nav-link ${currentPage === 'home' && showWorkshopInHome ? 'active' : ''}`}
-          onClick={() => {
-            // 如果已经在首页，只触发滚动；如果不在首页，先跳转到首页
-            if (currentPage !== 'home') {
-              setCurrentPage('home');
-            }
-            setShowWorkshopInHome?.(true);
-          }}
+          className={`app-nav-link ${currentPage === 'workshop' ? 'active' : ''}`}
+          onClick={() => setCurrentPage('workshop')}
         >
           🏭 {language === 'zh-CN' ? '3D车间' : '3D Workshop'}
         </button>
@@ -145,15 +127,14 @@ function AppContent() {
     if (path === '/auth') return 'auth';
     if (path === '/upload') return 'upload';
     if (path === '/editor/spark') return 'spark-editor';
-    if (path === '/showcase') return 'showcase';
     if (path === '/book') return 'book';
     if (path === '/book-gallery') return 'book-gallery';
     if (path === '/gallery') return 'gallery';
+    if (path === '/workshop') return 'workshop';
     return 'home';
   };
 
   const [currentPage, setCurrentPage] = useState(getPageFromPath());
-  const [showWorkshopInHome, setShowWorkshopInHome] = useState(false);
   const [user, setUser] = useState<User | null>(null);
 
   // 初始化检查登录状态
@@ -180,11 +161,11 @@ function AppContent() {
     const pathMap: Record<typeof currentPage, string> = {
       'home': '/',
       'gallery': '/gallery',
+      'workshop': '/workshop',
       'week2-components-test': '/test/week2-components-test',
       'auth': '/auth',
       'upload': '/upload',
       'spark-editor': '/editor/spark',
-      'showcase': '/showcase',
       'book': '/book',
       'book-gallery': '/book-gallery',
     };
@@ -197,15 +178,14 @@ function AppContent() {
       <NavBar
         currentPage={currentPage}
         setCurrentPage={handlePageChange}
-        showWorkshopInHome={showWorkshopInHome}
-        setShowWorkshopInHome={setShowWorkshopInHome}
         user={user}
         onLogout={handleLogout}
       />
       
       <main className="app-main">
-        {currentPage === 'home' && <HomePage onNavigate={handlePageChange} showWorkshop3D={showWorkshopInHome} onWorkshopClose={() => setShowWorkshopInHome(false)} />}
+        {currentPage === 'home' && <HomePage onNavigate={handlePageChange} />}
         {currentPage === 'spark-editor' && <SparkEditor />}
+        {currentPage === 'workshop' && <Workshop3D />}
         {currentPage === 'gallery' && <GalleryPage />}
         {currentPage === 'week2-components-test' && <Week2ComponentsTest />}
         {currentPage === 'auth' && (
@@ -214,7 +194,6 @@ function AppContent() {
           />
         )}
         {currentPage === 'upload' && <UploadPage />}
-        {currentPage === 'showcase' && <SparkShowcase />}
         {currentPage === 'book' && <BookViewerPage onNavigate={() => handlePageChange('home')} />}
         {currentPage === 'book-gallery' && <BookGalleryPage onNavigate={() => handlePageChange('home')} />}
       </main>

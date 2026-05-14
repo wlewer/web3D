@@ -47,6 +47,12 @@ export default defineConfig({
         target: 'http://localhost:8000',
         changeOrigin: true,
       },
+      // ★ 代理 /models/ 到后端的 /static-models/（兼容旧路径 + 兜底）
+      '/models': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/models/, '/static-models'),
+      },
     },
   },
 })
