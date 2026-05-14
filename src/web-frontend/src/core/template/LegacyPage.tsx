@@ -8,6 +8,7 @@
  */
 import React from 'react';
 import type { NavMenuItem } from '../../types/template';
+import { ErrorBoundary } from './ErrorBoundary';
 
 // 需要懒加载的页面组件（均为 named export，需 .then 提取）
 const HomePage = React.lazy(() => import('../../pages/Home/HomePage').then(m => ({ default: m.HomePage })));
@@ -61,13 +62,22 @@ export const LegacyPage: React.FC<LegacyPageProps> = ({ pageComponent, onNavigat
     );
   }
 
+  // 兼容不同页面组件的 prop 签名
+  // AuthPage 用 onSuccess, HomePage/BookViewer/BookGallery 用 onNavigate
+  const commonProps = {
+    onNavigate: onNavigate,
+    onSuccess: onNavigate,
+  };
+
   return (
     <React.Suspense fallback={
       <div style={{ padding: '4rem', textAlign: 'center', color: 'rgba(255,255,255,0.3)' }}>
         Loading...
       </div>
     }>
-      <Comp onNavigate={onNavigate} />
+    <ErrorBoundary>
+      <Comp {...commonProps} />
+    </ErrorBoundary>
     </React.Suspense>
   );
 };

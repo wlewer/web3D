@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import asyncio
+import json
 from sqlalchemy import inspect, text
 from loguru import logger
 
@@ -348,7 +349,7 @@ async def seed_nav_menus():
                     {
                         "id": item["id"],
                         "parent_id": item.get("parent_id"),
-                        "label": str(item["label"]).replace("'", '"'),
+                        "label": json.dumps(item["label"], ensure_ascii=False),
                         "icon": item["icon"],
                         "route": item["route"],
                         "page_title": item.get("page_title"),
@@ -400,9 +401,9 @@ async def seed_nav_menus():
                         "status": "published",
                         "version": "1.0.0",
                         "is_default": True,
-                        "layout_config": str(layout_config).replace("'", '"'),
+                        "layout_config": json.dumps(layout_config, ensure_ascii=False),
                         "theme_config": '{"cssVariables": {"--primary-color": "#667eea", "--bg-color": "#0a0a0f"}}',
-                        "meta_info": '{}',
+                        "meta_info": json.dumps({}, ensure_ascii=False),
                         "created_by": admin_id,
                     }
                 )
@@ -428,7 +429,7 @@ async def seed_nav_menus():
                             "slot_key": slot["slot_key"],
                             "component_type": slot["component_type"],
                             "sort_order": slot["sort_order"],
-                            "component_config": str(slot["config"]).replace("'", '"'),
+                            "component_config": json.dumps(slot["config"], ensure_ascii=False),
                         }
                     )
                 logger.success("Default homepage template + slots seeded")
@@ -468,7 +469,7 @@ async def seed_components():
                         "description": item.get("description"),
                         "icon": item.get("icon"),
                         "category": item["category"],
-                        "prop_schema": str(item["prop_schema"]).replace("'", '"'),
+                        "prop_schema": json.dumps(item["prop_schema"], ensure_ascii=False),
                         "is_builtin": item["is_builtin"],
                         "is_active": item["is_active"],
                     }

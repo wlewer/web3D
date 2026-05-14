@@ -71,6 +71,10 @@ const menuItems = [
     label: '模板管理',
     children: [
       {
+        key: '/admin/templates/nav-menus',
+        label: '导航菜单',
+      },
+      {
         key: '/admin/templates',
         label: '模板列表',
       },
