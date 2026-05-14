@@ -226,9 +226,20 @@ function AppContent() {
     return item.route === routeMap[currentPage];
   });
 
-  // 页面渲染：模板模式 > 遗留模式 > 硬编码回退
+ // 页面渲染：page_component(安全模式) > template_id > API不可用时硬编码回退
   const renderPage = () => {
-    // 模板模式：nav_menu 有 template_id
+    // 安全模式：只要 nav_menu 有 page_component，优先使用 LegacyPage
+    // 这样可以安全地在 admin 中绑定 template_id 而不会影响前端渲染
+    if (currentNavMenuItem?.page_component) {
+      return (
+        <LegacyPage
+          pageComponent={currentNavMenuItem.page_component}
+          onNavigate={handlePageChange}
+        />
+      );
+    }
+
+    // 模板模式：nav_menu 只有 template_id（没有 page_component）
     if (currentNavMenuItem?.template_id) {
       const context: PageContext = {
         route: currentNavMenuItem.route,
@@ -240,17 +251,17 @@ function AppContent() {
       return <TemplateRenderer templateId={currentNavMenuItem.template_id} context={context} />;
     }
 
-    // 遗留模式：nav_menu 有 page_component
-    if (currentNavMenuItem?.page_component) {
+    // navItems 已加载但当前页面没有匹配的导航项 → 显示"未找到页面"
+    if (navItems && navItems.length > 0 && !currentNavMenuItem) {
       return (
-        <LegacyPage
-          pageComponent={currentNavMenuItem.page_component}
-          onNavigate={handlePageChange}
-        />
+        <div style={{ padding: '4rem', textAlign: 'center', color: 'rgba(255,255,255,0.4)' }}>
+          <h2 style={{ color: 'rgba(255,255,255,0.6)' }}>页面未找到</h2>
+          <p>当前路由未配置导航菜单条目</p>
+        </div>
       );
     }
 
-    // 回退模式：硬编码页面组件
+    // 兜底安全网：仅当 navItems API 不可用时使用硬编码组件回退
     return (<>
       {currentPage === 'home' && <HomePage onNavigate={handlePageChange} />}
       {currentPage === 'spark-editor' && <SparkEditor />}

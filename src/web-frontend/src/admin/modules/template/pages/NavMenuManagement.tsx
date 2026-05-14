@@ -138,6 +138,17 @@ export const NavMenuManagement: React.FC = () => {
     }
   };
 
+  // 一键切换到模板模式（清除 page_component）
+  const switchToTemplateMode = async (menu: NavMenuItem) => {
+    try {
+      await axiosInstance.put(`/api/v1/nav-menus/${menu.id}`, { page_component: null });
+      message.success(`「${menu.label?.zh || menu.route}」已切换到模板模式`);
+      fetchMenus();
+    } catch (err: any) {
+      message.error('切换失败: ' + (err?.message || ''));
+    }
+  };
+
   // 删除
   const handleDelete = async (id: string) => {
     try {
@@ -201,10 +212,19 @@ export const NavMenuManagement: React.FC = () => {
       render: (v: boolean) => v ? <Tag color="orange">是</Tag> : <Tag>否</Tag>,
     },
     {
-      title: '操作', key: 'actions', width: 140, fixed: 'right' as const,
+      title: '操作', key: 'actions', width: 220, fixed: 'right' as const,
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="编辑"><Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} /></Tooltip>
+          {record.page_component && record.template_id ? (
+            <Popconfirm
+              title={`确定将「${record.label?.zh || record.route}」切换到模板模式？`}
+              description="切换后页面将使用模板引擎渲染，遗留组件将被移除"
+              onConfirm={() => switchToTemplateMode(record)}
+            >
+              <Tooltip title="切换到模板模式"><Button size="small" type="primary" ghost>模板</Button></Tooltip>
+            </Popconfirm>
+          ) : null}
           <Popconfirm title="确定删除此菜单？" onConfirm={() => handleDelete(record.id)}>
             <Tooltip title="删除"><Button size="small" danger icon={<DeleteOutlined />} /></Tooltip>
           </Popconfirm>

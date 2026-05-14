@@ -90,6 +90,10 @@ registerComponents([
     type: 'image-block',
     loader: () => import('./builtin/ImageBlock').then(m => ({ default: m.ImageBlock })),
   },
+  {
+    type: 'home-buttons',
+    loader: () => import('./builtin/HomeButtons').then(m => ({ default: m.HomeButtons })),
+  },
 ]);
 
 export default registry;
