@@ -11,7 +11,7 @@ import os
 
 from app.config import settings
 from app.database import engine, Base
-from app.api.v1 import auth, users, models, templates, generation, experimental, quota
+from app.api.v1 import auth, users, models, templates, generation, experimental, quota, website
 from app.api.v1 import settings as settings_router
 
 
@@ -35,6 +35,11 @@ def create_application() -> FastAPI:
     application.include_router(experimental.router, prefix="/api/v1", tags=["实验性功能"])
     application.include_router(quota.router, prefix="/api/v1", tags=["额度管理"])
     application.include_router(settings_router.router, prefix="/api/v1/settings", tags=["系统设置"])
+    
+    # 官网模板系统路由
+    application.include_router(website.nav_router, prefix="/api/v1")
+    application.include_router(website.template_router, prefix="/api/v1")
+    application.include_router(website.component_router, prefix="/api/v1")
     
     # 健康检查端点
     @application.get("/health")
