@@ -395,11 +395,11 @@
                 description: '科幻风格的破损头盔模型'
             },
             {
-                title: 'Water Bottle',
-                tag: 'GLB · 道具',
-                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/WaterBottle/glTF-Binary/WaterBottle.glb',
-                emoji: '🧴',
-                description: '透明水瓶模型'
+                title: 'Cesium Man',
+                tag: 'GLB · 人物',
+                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/CesiumMan/glTF-Binary/CesiumMan.glb',
+                emoji: '',
+                description: '经典Cesium人物模型'
             },
             {
                 title: 'Avocado',
@@ -426,7 +426,7 @@
                 title: 'Lantern',
                 tag: 'GLB · 装饰',
                 url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Lantern/glTF-Binary/Lantern.glb',
-                emoji: '🏮',
+                emoji: '',
                 description: '中式灯笼模型'
             }
         ];
@@ -469,10 +469,10 @@
                     <span class="card-tag">${model.tag}</span>
                 </div>
                 <div class="card-actions">
-                    <button class="btn-action" onclick="event.stopPropagation(); handleScreenshot(${index})">
+                    <button class="btn-action btn-screenshot">
                          截图
                     </button>
-                    <button class="btn-action" onclick="event.stopPropagation(); openPreview(${index})">
+                    <button class="btn-action btn-detail">
                         🔍 详情
                     </button>
                 </div>
@@ -487,6 +487,20 @@
             
             // 点击卡片打开预览
             card.addEventListener('click', () => {
+                openPreview(index);
+            });
+
+            // 截图按钮（阻止事件冒泡）
+            const screenshotBtn = card.querySelector('.btn-screenshot');
+            screenshotBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleScreenshot(index);
+            });
+
+            // 详情按钮（阻止事件冒泡）
+            const detailBtn = card.querySelector('.btn-detail');
+            detailBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 openPreview(index);
             });
 
