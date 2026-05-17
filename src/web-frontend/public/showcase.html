@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartAI 3D - 模型展示</title>
+    <title>SmartAI 3D 模型展示</title>
     <style>
         * {
             margin: 0;
@@ -12,196 +12,153 @@
         }
 
         body {
-            background: #0a0a0f;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
             color: white;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            overflow: hidden;
-            height: 100vh;
+            overflow-x: hidden;
         }
 
-        /* 头部 */
         .header {
-            padding: 20px 40px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: rgba(10, 10, 15, 0.9);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
             backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
         .header h1 {
-            font-size: 24px;
-            font-weight: 600;
+            font-size: 2.5em;
+            margin-bottom: 10px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
-        .header .subtitle {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.5);
+        .header p {
+            font-size: 1.1em;
+            color: rgba(255, 255, 255, 0.7);
         }
 
-        /* 网格布局 */
+        .gallery-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
         .gallery-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(2, 1fr);
-            gap: 20px;
-            padding: 20px 40px;
-            height: calc(100vh - 80px);
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 30px;
         }
 
-        /* 卡片 */
         .gallery-card {
-            position: relative;
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.05);
             border-radius: 16px;
             overflow: hidden;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             transition: all 0.3s ease;
+            cursor: pointer;
         }
 
         .gallery-card:hover {
-            border-color: rgba(102, 126, 234, 0.3);
-            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.2);
-            transform: translateY(-4px);
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            border-color: rgba(102, 126, 234, 0.5);
         }
 
-        /* 3D 画布容器 */
         .card-3d-container {
             width: 100%;
-            height: 100%;
+            height: 300px;
             position: relative;
+            background: rgba(0, 0, 0, 0.2);
         }
 
-        .card-3d-container canvas {
-            width: 100% !important;
-            height: 100% !important;
-            display: block;
-        }
-
-        /* 卡片信息 */
         .card-info {
+            padding: 20px;
             position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 10;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+            z-index: 5;
         }
 
         .card-title {
-            font-size: 18px;
+            font-size: 1.6em;
             font-weight: 600;
-            color: white;
-            margin-bottom: 4px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 8px;
         }
 
         .card-tag {
             display: inline-block;
-            padding: 4px 12px;
-            background: rgba(102, 126, 234, 0.2);
-            border: 1px solid rgba(102, 126, 234, 0.3);
-            border-radius: 20px;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
-        }
-
-        /* 操作按钮 */
-        .card-actions {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 10;
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn-action {
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 12px;
-            cursor: pointer;
-            backdrop-filter: blur(10px);
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .btn-action:hover {
+            padding: 6px 16px;
             background: rgba(102, 126, 234, 0.3);
-            border-color: rgba(102, 126, 234, 0.5);
-            color: white;
-        }
-
-        /* 底部信息 */
-        .card-footer {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 10;
-        }
-
-        .hint-text {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .fps-counter {
-            padding: 4px 8px;
-            background: rgba(0, 0, 0, 0.5);
-            border-radius: 6px;
-            font-size: 11px;
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            font-size: 0.9em;
             color: #667eea;
-            font-weight: 600;
         }
 
-        /* 加载动画 */
         .loading-overlay {
             position: absolute;
-            inset: 0;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(0, 0, 0, 0.3);
-            z-index: 5;
-            transition: opacity 0.5s;
+            z-index: 10;
         }
 
         .loading-overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
+            display: none;
         }
 
         .spinner {
             width: 40px;
             height: 40px;
-            border: 3px solid rgba(102, 126, 234, 0.2);
+            border: 4px solid rgba(102, 126, 234, 0.3);
             border-top-color: #667eea;
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+            animation: spin 1s linear infinite;
         }
 
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
 
-        /* 背景星星 */
-        .star {
+        /* 查看详情按钮 - 嵌入在画布底部中央 */
+        .btn-detail-overlay {
             position: absolute;
-            background: rgba(102, 126, 234, 0.3);
-            border-radius: 50%;
-            pointer-events: none;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 32px;
+            background: rgba(102, 126, 234, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(102, 126, 234, 0.6);
+            border-radius: 12px;
+            color: white;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-detail-overlay:hover {
+            background: rgba(102, 126, 234, 0.6);
+            border-color: rgba(102, 126, 234, 0.8);
+            transform: translateX(-50%) translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         /* 预览弹窗 - 全屏模式 */
@@ -239,8 +196,7 @@
         }
 
         .preview-header h2 {
-            font-size: 24px;
-            font-weight: 600;
+            font-size: 1.8em;
             color: white;
             text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
         }
@@ -248,122 +204,138 @@
         .close-btn {
             width: 40px;
             height: 40px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
             color: white;
-            font-size: 20px;
+            font-size: 1.5em;
             cursor: pointer;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s ease;
         }
 
         .close-btn:hover {
-            background: rgba(255, 77, 77, 0.4);
-            border-color: rgba(255, 77, 77, 0.6);
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(90deg);
         }
 
-        /* 预览底部操作栏 - 覆盖在模型下方 */
+        /* 标签和描述 - 在头部下方 */
+        .preview-info {
+            position: absolute;
+            top: 80px;
+            left: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .preview-tag {
+            display: inline-block;
+            padding: 6px 16px;
+            background: rgba(102, 126, 234, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(102, 126, 234, 0.5);
+            border-radius: 20px;
+            font-size: 0.9em;
+            color: #667eea;
+            width: fit-content;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .preview-description {
+            font-size: 1em;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 底部操作栏 */
         .preview-footer {
             position: absolute;
             bottom: 0;
             left: 0;
             right: 0;
             padding: 20px 30px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
             background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             z-index: 10;
         }
 
         .preview-hint {
-            font-size: 12px;
             color: rgba(255, 255, 255, 0.7);
-            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+            font-size: 0.9em;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
         }
 
-        .preview-info {
-            position: absolute;
-            top: 70px;
-            left: 30px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            z-index: 10;
-        }
-
-        .preview-tag {
-            padding: 6px 14px;
-            background: rgba(102, 126, 234, 0.3);
-            border: 1px solid rgba(102, 126, 234, 0.5);
-            border-radius: 20px;
-            font-size: 13px;
-            color: white;
+        .preview-footer .btn-action {
+            width: auto;
+            flex: none;
+            padding: 12px 24px;
+            background: rgba(102, 126, 234, 0.4);
             backdrop-filter: blur(10px);
-            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(102, 126, 234, 0.6);
         }
 
-        .preview-description {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.8);
-            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+        .preview-footer .btn-action:hover {
+            background: rgba(102, 126, 234, 0.6);
         }
 
         /* 响应式 */
-        @media (max-width: 1200px) {
-            .gallery-grid {
-                grid-template-columns: repeat(2, 1fr);
-                grid-template-rows: repeat(3, 1fr);
-                padding: 20px;
-                gap: 16px;
-            }
-        }
-
         @media (max-width: 768px) {
             .gallery-grid {
                 grid-template-columns: 1fr;
-                grid-template-rows: repeat(6, 1fr);
-                padding: 16px;
-                gap: 12px;
-            }
-
-            .header {
-                padding: 16px 20px;
             }
 
             .header h1 {
-                font-size: 20px;
+                font-size: 1.8em;
             }
 
-            .preview-content {
-                width: 95vw;
-                height: 90vh;
+            .preview-header h2 {
+                font-size: 1.3em;
             }
+        }
+
+        .stars-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 0.8; }
         }
     </style>
 </head>
 <body>
-    <!-- 头部 -->
+    <div class="stars-container" id="starsContainer"></div>
+    
     <div class="header">
-        <div>
-            <h1>SmartAI 3D 模型展示</h1>
-            <div class="subtitle">3D Gaussian Splatting 渲染引擎 · 高性能实时渲染</div>
-        </div>
+        <h1>SmartAI 3D 模型展示</h1>
+        <p>3D Gaussian Splatting 渲染引擎 · 高性能实时渲染</p>
     </div>
 
-    <!-- 6 个模型卡片 -->
-    <div class="gallery-grid" id="galleryGrid">
-        <!-- 卡片通过 JavaScript 动态生成 -->
+    <div class="gallery-container">
+        <div class="gallery-grid" id="galleryGrid"></div>
     </div>
 
-    <!-- 背景星星容器 -->
-    <div id="starsContainer" style="position: fixed; inset: 0; pointer-events: none; z-index: 0;"></div>
-
-    <!-- Import Map - ES Modules -->
+    <!-- Three.js -->
     <script type="importmap">
     {
         "imports": {
@@ -398,7 +370,7 @@
                 title: 'Cesium Man',
                 tag: 'GLB · 人物',
                 url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/CesiumMan/glTF-Binary/CesiumMan.glb',
-                emoji: '',
+                emoji: '🧑',
                 description: '经典Cesium人物模型'
             },
             {
@@ -419,15 +391,15 @@
                 title: 'Boom Box',
                 tag: 'GLB · 电子设备',
                 url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/BoomBox/glTF-Binary/BoomBox.glb',
-                emoji: '📻',
+                emoji: '',
                 description: '复古收音机模型'
             },
             {
-                title: 'Flight Helmet',
-                tag: 'GLB · 装备',
-                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/FlightHelmet/glTF/FlightHelmet.gltf',
-                emoji: '',
-                description: '复古飞行头盔，细节丰富'
+                title: 'Lantern',
+                tag: 'GLB · 装饰',
+                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Lantern/glTF/Lantern.gltf',
+                emoji: '🏮',
+                description: '中式灯笼模型'
             }
         ];
 
@@ -463,25 +435,22 @@
             card.id = `card-${index}`;
 
             card.innerHTML = `
-                <div class="card-3d-container" id="canvas-${index}" style="cursor: pointer;"></div>
-                <div class="card-info">
-                    <div class="card-title">${model.emoji} ${model.title}</div>
-                    <span class="card-tag">${model.tag}</span>
-                </div>
-                <div class="card-actions">
-                    <button class="btn-action btn-screenshot">
-                         截图
+                <div class="card-3d-container" id="canvas-${index}" style="cursor: pointer;">
+                    <!-- 标题和标签 - 覆盖在画布上方 -->
+                    <div class="card-info">
+                        <div class="card-title">${model.emoji} ${model.title}</div>
+                        <span class="card-tag">${model.tag}</span>
+                    </div>
+                    
+                    <!-- 查看详情按钮 - 嵌入在画布底部 -->
+                    <button class="btn-detail-overlay" id="detail-btn-${index}">
+                        🔍 查看详情
                     </button>
-                    <button class="btn-action btn-detail">
-                        🔍 详情
-                    </button>
-                </div>
-                <div class="loading-overlay" id="loading-${index}">
-                    <div class="spinner"></div>
-                </div>
-                <div class="card-footer">
-                    <span class="hint-text">点击预览 · 拖拽旋转 · 滚轮缩放</span>
-                    <span class="fps-counter" id="fps-${index}">FPS: --</span>
+                    
+                    <!-- 加载动画 -->
+                    <div class="loading-overlay" id="loading-${index}">
+                        <div class="spinner"></div>
+                    </div>
                 </div>
             `;
             
@@ -490,15 +459,8 @@
                 openPreview(index);
             });
 
-            // 截图按钮（阻止事件冒泡）
-            const screenshotBtn = card.querySelector('.btn-screenshot');
-            screenshotBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                handleScreenshot(index);
-            });
-
             // 详情按钮（阻止事件冒泡）
-            const detailBtn = card.querySelector('.btn-detail');
+            const detailBtn = card.querySelector(`#detail-btn-${index}`);
             detailBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 openPreview(index);
@@ -551,7 +513,7 @@
                 0.1,
                 1000
             );
-            camera.position.set(0, 0.6, 4);
+            camera.position.set(0, 1.5, 5);  // 优化相机位置，确保所有模型居中
             cameras[index] = camera;
 
             // 渲染器
@@ -568,17 +530,14 @@
             renderers[index] = renderer;
 
             // 控制器
-            const orbitControls = new OrbitControls(camera, renderer.domElement);
-            orbitControls.enableDamping = true;
-            orbitControls.dampingFactor = 0.05;
-            orbitControls.target.set(0, 0, 0);
-            orbitControls.enabled = true;
-            orbitControls.minDistance = 0.5;
-            orbitControls.maxDistance = 20;
-            orbitControls.autoRotate = true;
-            orbitControls.autoRotateSpeed = 0.5;
-            controls[index] = orbitControls;
-            
+            const control = new OrbitControls(camera, renderer.domElement);
+            control.enableDamping = true;
+            control.dampingFactor = 0.05;
+            control.autoRotate = true;
+            control.autoRotateSpeed = 1;
+            control.target.set(0, 0, 0);
+            controls[index] = control;
+
             // 先添加测试立方体（确保 Three.js 正常工作）
             console.log(`🧊 场景 ${index} 添加测试立方体`);
             const testGeometry = new THREE.BoxGeometry(1, 1, 1);
@@ -594,7 +553,7 @@
             // 立即隐藏加载层，显示测试立方体
             loadingOverlay.classList.add('hidden');
             console.log(`✅ 场景 ${index} 初始化完成，测试立方体已添加`);
-            
+
             // 加载模型
             try {
                 console.log(`📥 开始加载模型 ${index}: ${modelUrl}`);
@@ -604,7 +563,7 @@
                 // 移除测试立方体
                 scene.remove(testCube);
             } catch (error) {
-                console.error(` 模型 ${index} 加载失败:`, error);
+                console.error(`❌ 模型 ${index} 加载失败:`, error);
                 console.warn(`⚠️ 保留测试立方体作为占位符`);
                 // 保留测试立方体，不显示错误
             }
@@ -654,7 +613,7 @@
             const model = MODELS[index];
             currentModelIndex = index;
             
-            // 创建弹窗
+            // 创建全屏弹窗
             const modal = document.createElement('div');
             modal.className = 'preview-modal';
             modal.id = 'preview-modal';
@@ -751,7 +710,7 @@
                 0.1,
                 1000
             );
-            previewCamera.position.set(0, 0.6, 4);
+            previewCamera.position.set(0, 1.5, 5);  // 优化相机位置
             
             // 渲染器
             previewRenderer = new THREE.WebGLRenderer({ antialias: true });
@@ -768,15 +727,19 @@
             previewControls.autoRotateSpeed = 1;
             
             // 加载模型
-            const model = MODELS[index];
-            await loadPreviewModel(model.url, previewScene);
+            try {
+                await loadPreviewModel(index);
+            } catch (error) {
+                console.error('预览模型加载失败:', error);
+            }
             
-            // 启动预览动画
+            // 开始渲染循环
             animatePreview();
         }
 
         // 加载预览模型
-        async function loadPreviewModel(modelUrl, scene) {
+        async function loadPreviewModel(index) {
+            const modelUrl = MODELS[index].url;
             return new Promise((resolve, reject) => {
                 const loader = new GLTFLoader();
                 loader.load(
@@ -790,12 +753,11 @@
                         const size = box.getSize(new THREE.Vector3());
                         const maxDim = Math.max(size.x, size.y, size.z);
                         
-                        // 居中并放大（预览模式显示更大）
                         model.position.sub(center);
-                        const scale = 3 / maxDim;
+                        const scale = 2 / maxDim;
                         model.scale.setScalar(scale);
                         
-                        scene.add(model);
+                        previewScene.add(model);
                         resolve();
                     },
                     undefined,
@@ -804,110 +766,72 @@
             });
         }
 
-        // 预览动画循环
+        // 预览渲染循环
         function animatePreview() {
-            if (!previewScene || !previewCamera || !previewRenderer || !previewControls) return;
-            if (!document.getElementById('preview-modal')) return;
+            if (!previewScene || !previewCamera || !previewRenderer) return;
             
-            requestAnimationFrame(animatePreview);
             previewControls.update();
             previewRenderer.render(previewScene, previewCamera);
-        }
-
-        // 预览截图
-        window.handlePreviewScreenshot = function() {
-            if (!previewRenderer) return;
-            
-            previewRenderer.render(previewScene, previewCamera);
-            const dataURL = previewRenderer.domElement.toDataURL('image/png');
-            
-            const link = document.createElement('a');
-            link.download = `${MODELS[currentModelIndex].title}-preview.png`;
-            link.href = dataURL;
-            link.click();
-        };
-
-        // 动画循环
-        function animate() {
-            animationId = requestAnimationFrame(animate);
-
-            scenes.forEach((scene, index) => {
-                if (scene && cameras[index] && renderers[index] && controls[index]) {
-                    controls[index].update();
-                    renderers[index].render(scene, cameras[index]);
-                    
-                    // 更新 FPS
-                    updateFPS(index);
-                }
-            });
-        }
-
-        // FPS 计数器
-        const frameCounts = [];
-        const lastTimes = [];
-        
-        function updateFPS(index) {
-            if (!frameCounts[index]) frameCounts[index] = 0;
-            if (!lastTimes[index]) lastTimes[index] = performance.now();
-            
-            frameCounts[index]++;
-            const now = performance.now();
-            const delta = now - lastTimes[index];
-            
-            if (delta >= 1000) {
-                const fps = Math.round((frameCounts[index] * 1000) / delta);
-                const fpsCounter = document.getElementById(`fps-${index}`);
-                if (fpsCounter) {
-                    fpsCounter.textContent = `FPS: ${fps}`;
-                }
-                frameCounts[index] = 0;
-                lastTimes[index] = now;
-            }
+            requestAnimationFrame(animatePreview);
         }
 
         // 窗口调整
         function onWindowResize(index, container) {
-            const camera = cameras[index];
-            const renderer = renderers[index];
-
-            if (!camera || !renderer) return;
-
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
+            if (!cameras[index] || !renderers[index]) return;
+            
+            cameras[index].aspect = container.clientWidth / container.clientHeight;
+            cameras[index].updateProjectionMatrix();
+            renderers[index].setSize(container.clientWidth, container.clientHeight);
         }
 
-        // 截图功能
-        window.handleScreenshot = function(index) {
-            const renderer = renderers[index];
-            if (!renderer) return;
-
-            renderer.render(scenes[index], cameras[index]);
-            const dataURL = renderer.domElement.toDataURL('image/png');
+        // 截图功能（保留供预览弹窗使用）
+        function handleScreenshot(index) {
+            if (!renderers[index]) return;
             
             const link = document.createElement('a');
-            link.download = `model-${index}.png`;
-            link.href = dataURL;
+            link.download = `${MODELS[index].title}.png`;
+            link.href = renderers[index].domElement.toDataURL('image/png');
             link.click();
-        };
+        }
+
+        // 动画循环（移除 FPS 计算）
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            
+            scenes.forEach((scene, index) => {
+                if (controls[index]) {
+                    controls[index].update();
+                }
+                if (renderers[index] && cameras[index]) {
+                    renderers[index].render(scene, cameras[index]);
+                }
+            });
+        }
 
         // 初始化所有卡片
-        function initAllCards() {
-            const grid = document.getElementById('galleryGrid');
-
+        async function initAllCards() {
+            const galleryGrid = document.getElementById('galleryGrid');
+            
             MODELS.forEach((model, index) => {
                 const card = createCard(model, index);
-                grid.appendChild(card);
-
-                // 延迟初始化，避免卡顿
-                setTimeout(() => {
-                    initScene(index, model.url);
-                }, index * 100);
+                galleryGrid.appendChild(card);
             });
-
-            // 启动动画循环
-            animate();
+            
+            // 延迟初始化场景（确保 DOM 渲染完成）
+            setTimeout(() => {
+                MODELS.forEach((model, index) => {
+                    initScene(index, model.url);
+                });
+                animate();
+            }, 100);
         }
+
+        // 启动
+        createStars();
+        initAllCards();
+    </script>
+</body>
+</html>
 
         // 启动
         createStars();
