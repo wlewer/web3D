@@ -204,6 +204,119 @@
             pointer-events: none;
         }
 
+        /* 预览弹窗 */
+        .preview-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .preview-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+        }
+
+        .preview-content {
+            position: relative;
+            width: 90vw;
+            max-width: 1200px;
+            height: 85vh;
+            background: rgba(10, 10, 15, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .preview-header {
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .preview-header h2 {
+            font-size: 24px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .close-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 77, 77, 0.3);
+            border-color: rgba(255, 77, 77, 0.5);
+        }
+
+        .preview-info {
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .preview-tag {
+            padding: 4px 12px;
+            background: rgba(102, 126, 234, 0.2);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            border-radius: 20px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .preview-description {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .preview-3d-container {
+            flex: 1;
+            position: relative;
+        }
+
+        .preview-3d-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+
+        .preview-footer {
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .preview-hint {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
         /* 响应式 */
         @media (max-width: 1200px) {
             .gallery-grid {
@@ -228,6 +341,11 @@
 
             .header h1 {
                 font-size: 20px;
+            }
+
+            .preview-content {
+                width: 95vw;
+                height: 90vh;
             }
         }
     </style>
@@ -262,44 +380,51 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // 模型数据
+        // 模型数据（使用公开可用的 GLB 模型）
         const MODELS = [
             {
-                title: 'Penguin',
-                tag: 'SPZ · 动物',
-                url: 'https://sparkjs.dev/assets/splats/butterfly.spz',
-                emoji: ''
+                title: 'Damaged Helmet',
+                tag: 'GLB · 道具',
+                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/DamagedHelmet/glTF-Binary/DamagedHelmet.glb',
+                emoji: '⛑️',
+                description: '科幻风格的破损头盔模型'
             },
             {
-                title: 'Sample Dragon2',
-                tag: 'PLY · 动物',
-                url: 'https://sparkjs.dev/assets/splats/fly.spz',
-                emoji: '🐉'
+                title: 'Flight Helmet',
+                tag: 'GLB · 装备',
+                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/FlightHelmet/glTF/FlightHelmet.glb',
+                emoji: '🪖',
+                description: '复古飞行头盔，细节丰富'
             },
             {
-                title: 'Butterfly',
-                tag: 'SPZ · 动物',
-                url: 'https://sparkjs.dev/assets/splats/dessert.spz',
-                emoji: ''
+                title: 'Avocado',
+                tag: 'GLB · 食物',
+                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Avocado/glTF-Binary/Avocado.glb',
+                emoji: '',
+                description: '高精度牛油果模型'
             },
             {
-                title: 'Cat',
-                tag: 'SPZ · 动物',
-                url: 'https://sparkjs.dev/assets/splats/food/burger-from-amboy.spz',
-                emoji: '🐱'
+                title: 'Duck',
+                tag: 'GLB · 动物',
+                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Duck/glTF-Binary/Duck.glb',
+                emoji: '🦆',
+                description: '经典橡皮鸭模型'
             },
             {
-                title: 'Penguin',
-                tag: 'SPZ · 动物',
-                url: 'https://sparkjs.dev/assets/splats/food/branzino-amarin.spz',
-                emoji: '🐧'
+                title: 'Boom Box',
+                tag: 'GLB · 电子设备',
+                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/BoomBox/glTF-Binary/BoomBox.glb',
+                emoji: '',
+                description: '复古收音机模型'
             },
             {
-                title: 'Woobles',
-                tag: 'SPZ · 动物',
-                url: 'https://sparkjs.dev/assets/splats/food/clams-and-caviar-by-ikoyi.spz',
-                emoji: ''
+                title: 'Lantern',
+                tag: 'GLB · 装饰',
+                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Lantern/glTF-Binary/Lantern.glb',
+                emoji: '🏮',
+                description: '中式灯笼模型'
             }
         ];
 
@@ -308,8 +433,10 @@
         const cameras = [];
         const renderers = [];
         const controls = [];
+        const models = [];
         const stars = [];
         let animationId = null;
+        let currentModelIndex = null;
 
         // 创建星星背景
         function createStars() {
@@ -333,24 +460,32 @@
             card.id = `card-${index}`;
 
             card.innerHTML = `
-                <div class="card-3d-container" id="canvas-${index}"></div>
+                <div class="card-3d-container" id="canvas-${index}" style="cursor: pointer;"></div>
                 <div class="card-info">
                     <div class="card-title">${model.emoji} ${model.title}</div>
                     <span class="card-tag">${model.tag}</span>
                 </div>
                 <div class="card-actions">
-                    <button class="btn-action" onclick="handleScreenshot(${index})">
-                        📷 截图
+                    <button class="btn-action" onclick="event.stopPropagation(); handleScreenshot(${index})">
+                         截图
+                    </button>
+                    <button class="btn-action" onclick="event.stopPropagation(); openPreview(${index})">
+                        🔍 详情
                     </button>
                 </div>
                 <div class="loading-overlay" id="loading-${index}">
                     <div class="spinner"></div>
                 </div>
                 <div class="card-footer">
-                    <span class="hint-text">拖拽旋转 · 滚轮缩放</span>
-                    <span class="fps-counter" id="fps-${index}">3DGS FPS: --</span>
+                    <span class="hint-text">点击预览 · 拖拽旋转 · 滚轮缩放</span>
+                    <span class="fps-counter" id="fps-${index}">FPS: --</span>
                 </div>
             `;
+            
+            // 点击卡片打开预览
+            card.addEventListener('click', () => {
+                openPreview(index);
+            });
 
             return card;
         }
@@ -368,6 +503,20 @@
             scene.background = new THREE.Color(0x0a0a0f);
             scenes[index] = scene;
 
+            // 添加环境光
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+
+            // 添加主光源
+            const mainLight = new THREE.DirectionalLight(0xffffff, 1);
+            mainLight.position.set(5, 5, 5);
+            scene.add(mainLight);
+
+            // 添加补光
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+            fillLight.position.set(-5, -5, -5);
+            scene.add(fillLight);
+
             // 相机
             const camera = new THREE.PerspectiveCamera(
                 50,
@@ -382,6 +531,7 @@
             const renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
             container.appendChild(renderer.domElement);
             renderers[index] = renderer;
 
@@ -397,16 +547,215 @@
             orbitControls.autoRotateSpeed = 0.5;
             controls[index] = orbitControls;
 
-            // 隐藏加载层
-            setTimeout(() => {
-                loadingOverlay.classList.add('hidden');
-            }, 1000);
+            // 加载模型
+            try {
+                await loadGLBModel(index, modelUrl, scene);
+                
+                // 隐藏加载层
+                setTimeout(() => {
+                    loadingOverlay.classList.add('hidden');
+                }, 500);
+            } catch (error) {
+                console.error(`❌ 模型 ${index} 加载失败:`, error);
+                loadingOverlay.innerHTML = '<div style="color: #ff6b6b; font-size: 12px;">加载失败</div>';
+            }
 
             // 响应式
             window.addEventListener('resize', () => {
                 onWindowResize(index, container);
             });
         }
+
+        // 加载 GLB 模型
+        async function loadGLBModel(index, modelUrl, scene) {
+            return new Promise((resolve, reject) => {
+                const loader = new GLTFLoader();
+                loader.load(
+                    modelUrl,
+                    (gltf) => {
+                        const model = gltf.scene;
+                        
+                        // 智能居中
+                        const box = new THREE.Box3().setFromObject(model);
+                        const center = box.getCenter(new THREE.Vector3());
+                        const size = box.getSize(new THREE.Vector3());
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        
+                        // 居中并缩放
+                        model.position.sub(center);
+                        const scale = 2 / maxDim;
+                        model.scale.setScalar(scale);
+                        
+                        scene.add(model);
+                        models[index] = model;
+                        resolve();
+                    },
+                    undefined,
+                    (error) => reject(error)
+                );
+            });
+        }
+
+        // 打开预览弹窗
+        function openPreview(index) {
+            const model = MODELS[index];
+            currentModelIndex = index;
+            
+            // 创建弹窗
+            const modal = document.createElement('div');
+            modal.className = 'preview-modal';
+            modal.id = 'preview-modal';
+            
+            modal.innerHTML = `
+                <div class="preview-overlay" onclick="closePreview()"></div>
+                <div class="preview-content">
+                    <div class="preview-header">
+                        <h2>${model.emoji} ${model.title}</h2>
+                        <button class="close-btn" onclick="closePreview()">✕</button>
+                    </div>
+                    <div class="preview-info">
+                        <span class="preview-tag">${model.tag}</span>
+                        <p class="preview-description">${model.description}</p>
+                    </div>
+                    <div class="preview-3d-container" id="preview-canvas"></div>
+                    <div class="preview-footer">
+                        <span class="preview-hint">拖拽旋转 · 滚轮缩放 · ESC 关闭</span>
+                        <button class="btn-action" onclick="handlePreviewScreenshot()">📷 截图保存</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 初始化预览场景
+            setTimeout(() => initPreviewScene(index), 100);
+            
+            // ESC 关闭
+            document.addEventListener('keydown', handleEscKey);
+        }
+
+        // 关闭预览弹窗
+        function closePreview() {
+            const modal = document.getElementById('preview-modal');
+            if (modal) {
+                modal.remove();
+            }
+            currentModelIndex = null;
+            document.removeEventListener('keydown', handleEscKey);
+        }
+
+        // ESC 键处理
+        function handleEscKey(e) {
+            if (e.key === 'Escape') {
+                closePreview();
+            }
+        }
+
+        // 初始化预览场景
+        let previewScene, previewCamera, previewRenderer, previewControls;
+        
+        async function initPreviewScene(index) {
+            const container = document.getElementById('preview-canvas');
+            if (!container) return;
+            
+            // 场景
+            previewScene = new THREE.Scene();
+            previewScene.background = new THREE.Color(0x0a0a0f);
+            
+            // 灯光
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            previewScene.add(ambientLight);
+            
+            const mainLight = new THREE.DirectionalLight(0xffffff, 1);
+            mainLight.position.set(5, 5, 5);
+            previewScene.add(mainLight);
+            
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+            fillLight.position.set(-5, -5, -5);
+            previewScene.add(fillLight);
+            
+            // 相机
+            previewCamera = new THREE.PerspectiveCamera(
+                50,
+                container.clientWidth / container.clientHeight,
+                0.1,
+                1000
+            );
+            previewCamera.position.set(0, 0.6, 4);
+            
+            // 渲染器
+            previewRenderer = new THREE.WebGLRenderer({ antialias: true });
+            previewRenderer.setSize(container.clientWidth, container.clientHeight);
+            previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
+            container.appendChild(previewRenderer.domElement);
+            
+            // 控制器
+            previewControls = new OrbitControls(previewCamera, previewRenderer.domElement);
+            previewControls.enableDamping = true;
+            previewControls.dampingFactor = 0.05;
+            previewControls.autoRotate = true;
+            previewControls.autoRotateSpeed = 1;
+            
+            // 加载模型
+            const model = MODELS[index];
+            await loadPreviewModel(model.url, previewScene);
+            
+            // 启动预览动画
+            animatePreview();
+        }
+
+        // 加载预览模型
+        async function loadPreviewModel(modelUrl, scene) {
+            return new Promise((resolve, reject) => {
+                const loader = new GLTFLoader();
+                loader.load(
+                    modelUrl,
+                    (gltf) => {
+                        const model = gltf.scene;
+                        
+                        // 智能居中
+                        const box = new THREE.Box3().setFromObject(model);
+                        const center = box.getCenter(new THREE.Vector3());
+                        const size = box.getSize(new THREE.Vector3());
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        
+                        // 居中并放大（预览模式显示更大）
+                        model.position.sub(center);
+                        const scale = 3 / maxDim;
+                        model.scale.setScalar(scale);
+                        
+                        scene.add(model);
+                        resolve();
+                    },
+                    undefined,
+                    (error) => reject(error)
+                );
+            });
+        }
+
+        // 预览动画循环
+        function animatePreview() {
+            if (!previewScene || !previewCamera || !previewRenderer || !previewControls) return;
+            if (!document.getElementById('preview-modal')) return;
+            
+            requestAnimationFrame(animatePreview);
+            previewControls.update();
+            previewRenderer.render(previewScene, previewCamera);
+        }
+
+        // 预览截图
+        window.handlePreviewScreenshot = function() {
+            if (!previewRenderer) return;
+            
+            previewRenderer.render(previewScene, previewCamera);
+            const dataURL = previewRenderer.domElement.toDataURL('image/png');
+            
+            const link = document.createElement('a');
+            link.download = `${MODELS[currentModelIndex].title}-preview.png`;
+            link.href = dataURL;
+            link.click();
+        };
 
         // 动画循环
         function animate() {
@@ -416,8 +765,34 @@
                 if (scene && cameras[index] && renderers[index] && controls[index]) {
                     controls[index].update();
                     renderers[index].render(scene, cameras[index]);
+                    
+                    // 更新 FPS
+                    updateFPS(index);
                 }
             });
+        }
+
+        // FPS 计数器
+        const frameCounts = [];
+        const lastTimes = [];
+        
+        function updateFPS(index) {
+            if (!frameCounts[index]) frameCounts[index] = 0;
+            if (!lastTimes[index]) lastTimes[index] = performance.now();
+            
+            frameCounts[index]++;
+            const now = performance.now();
+            const delta = now - lastTimes[index];
+            
+            if (delta >= 1000) {
+                const fps = Math.round((frameCounts[index] * 1000) / delta);
+                const fpsCounter = document.getElementById(`fps-${index}`);
+                if (fpsCounter) {
+                    fpsCounter.textContent = `FPS: ${fps}`;
+                }
+                frameCounts[index] = 0;
+                lastTimes[index] = now;
+            }
         }
 
         // 窗口调整
