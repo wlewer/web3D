@@ -8,9 +8,9 @@ Web3D 是一个全栈 3D 模型生成与管理平台，集成多种 AI 3D 生成
 
 ## 🎮 在线演示
 
-### 👉 [点击查看 3D Demo](https://yourusername.github.io/web3D/demo.html)
+### 👉 [点击查看 3D Demo](https://wlewer.github.io/web3D/demo.html)
 
-![Web3D Demo Preview](docs/images/demo-preview.png)
+![Web3D Demo Preview]
 
 **Demo 特性**：
 - ✅ 纯前端实现，无需后端
