@@ -367,20 +367,24 @@
     <!-- 背景星星容器 -->
     <div id="starsContainer" style="position: fixed; inset: 0; pointer-events: none; z-index: 0;"></div>
 
-    <!-- Import Map -->
+    <!-- Import Map - ES Modules -->
     <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.180.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.180.0/examples/jsm/"
-            }
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
         }
+    }
     </script>
 
     <script type="module">
+        console.log('📦 开始加载 Three.js...');
+        
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        
+        console.log('✅ Three.js 加载成功:', THREE.REVISION);
 
         // 模型数据（使用公开可用的 GLB 模型）
         const MODELS = [
@@ -496,7 +500,12 @@
             const loadingOverlay = document.getElementById(`loading-${index}`);
             const fpsCounter = document.getElementById(`fps-${index}`);
 
-            if (!container) return;
+            if (!container) {
+                console.error(`❌ 容器 ${index} 不存在`);
+                return;
+            }
+            
+            console.log(`🎨 初始化场景 ${index}: ${MODELS[index].title}`);
 
             // 场景
             const scene = new THREE.Scene();
@@ -504,18 +513,23 @@
             scenes[index] = scene;
 
             // 添加环境光
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
 
             // 添加主光源
-            const mainLight = new THREE.DirectionalLight(0xffffff, 1);
+            const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
             mainLight.position.set(5, 5, 5);
             scene.add(mainLight);
 
             // 添加补光
-            const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
             fillLight.position.set(-5, -5, -5);
             scene.add(fillLight);
+
+            // 添加底部光
+            const bottomLight = new THREE.DirectionalLight(0x667eea, 0.3);
+            bottomLight.position.set(0, -3, 0);
+            scene.add(bottomLight);
 
             // 相机
             const camera = new THREE.PerspectiveCamera(
@@ -528,10 +542,15 @@
             cameras[index] = camera;
 
             // 渲染器
-            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            const renderer = new THREE.WebGLRenderer({ 
+                antialias: true,
+                alpha: true 
+            });
             renderer.setSize(container.clientWidth, container.clientHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.outputColorSpace = THREE.SRGBColorSpace;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
             container.appendChild(renderer.domElement);
             renderers[index] = renderer;
 
@@ -549,15 +568,22 @@
 
             // 加载模型
             try {
+                console.log(` 加载模型 ${index}: ${modelUrl}`);
                 await loadGLBModel(index, modelUrl, scene);
+                console.log(`✅ 模型 ${index} 加载成功`);
                 
                 // 隐藏加载层
                 setTimeout(() => {
                     loadingOverlay.classList.add('hidden');
-                }, 500);
+                }, 300);
             } catch (error) {
                 console.error(`❌ 模型 ${index} 加载失败:`, error);
-                loadingOverlay.innerHTML = '<div style="color: #ff6b6b; font-size: 12px;">加载失败</div>';
+                loadingOverlay.innerHTML = `
+                    <div style="text-align: center; color: #ff6b6b; padding: 20px;">
+                        <div style="font-size: 32px; margin-bottom: 10px;">️</div>
+                        <div style="font-size: 14px;">加载失败</div>
+                        <div style="font-size: 11px; margin-top: 8px; opacity: 0.7;">${error.message}</div>
+                    </div>`;
             }
 
             // 响应式
