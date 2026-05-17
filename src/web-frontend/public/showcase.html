@@ -423,11 +423,11 @@
                 description: '复古收音机模型'
             },
             {
-                title: 'Lantern',
-                tag: 'GLB · 装饰',
-                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Lantern/glTF-Binary/Lantern.glb',
+                title: 'Flight Helmet',
+                tag: 'GLB · 装备',
+                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/FlightHelmet/glTF/FlightHelmet.gltf',
                 emoji: '',
-                description: '中式灯笼模型'
+                description: '复古飞行头盔，细节丰富'
             }
         ];
 
@@ -624,16 +624,20 @@
                     (gltf) => {
                         const model = gltf.scene;
                         
-                        // 智能居中
+                        // 增强版智能居中算法
                         const box = new THREE.Box3().setFromObject(model);
                         const center = box.getCenter(new THREE.Vector3());
                         const size = box.getSize(new THREE.Vector3());
                         const maxDim = Math.max(size.x, size.y, size.z);
                         
-                        // 居中并缩放
+                        console.log(`📐 模型 ${index} 尺寸:`, size, '中心:', center, '最大维度:', maxDim);
+                        
+                        // 居中并缩放（所有模型统一缩放策略）
                         model.position.sub(center);
                         const scale = 2 / maxDim;
                         model.scale.setScalar(scale);
+                        
+                        console.log(`✅ 模型 ${index} 缩放比例:`, scale);
                         
                         scene.add(model);
                         models[index] = model;
