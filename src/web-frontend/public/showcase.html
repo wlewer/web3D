@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartAI 3D 模型展示</title>
+    <title>3D 模型展示</title>
     <style>
         * {
             margin: 0;
@@ -19,32 +19,10 @@
             overflow-x: hidden;
         }
 
-        .header {
-            padding: 30px;
-            text-align: center;
-            background: rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .header p {
-            font-size: 1.1em;
-            color: rgba(255, 255, 255, 0.7);
-        }
-
         .gallery-container {
             max-width: 1400px;
             margin: 0 auto;
-            padding: 40px 20px;
+            padding: 30px 20px;
         }
 
         .gallery-grid {
@@ -60,7 +38,6 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
             transition: all 0.3s ease;
-            cursor: pointer;
         }
 
         .gallery-card:hover {
@@ -78,16 +55,10 @@
 
         .card-info {
             padding: 20px;
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
-            z-index: 5;
         }
 
         .card-title {
-            font-size: 1.6em;
+            font-size: 1.4em;
             font-weight: 600;
             margin-bottom: 8px;
         }
@@ -95,11 +66,36 @@
         .card-tag {
             display: inline-block;
             padding: 6px 16px;
-            background: rgba(102, 126, 234, 0.3);
-            backdrop-filter: blur(10px);
+            background: rgba(102, 126, 234, 0.2);
             border-radius: 20px;
             font-size: 0.9em;
             color: #667eea;
+        }
+
+        .card-actions {
+            padding: 0 20px 20px;
+            text-align: center;
+        }
+
+        .btn-detail {
+            padding: 12px 40px;
+            background: rgba(102, 126, 234, 0.3);
+            border: 1px solid rgba(102, 126, 234, 0.5);
+            border-radius: 12px;
+            color: white;
+            font-size: 0.95em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-detail:hover {
+            background: rgba(102, 126, 234, 0.5);
+            border-color: rgba(102, 126, 234, 0.7);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         .loading-overlay {
@@ -130,35 +126,6 @@
 
         @keyframes spin {
             to { transform: rotate(360deg); }
-        }
-
-        /* 查看详情按钮 - 嵌入在画布底部中央 */
-        .btn-detail-overlay {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 12px 32px;
-            background: rgba(102, 126, 234, 0.4);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(102, 126, 234, 0.6);
-            border-radius: 12px;
-            color: white;
-            font-size: 1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            z-index: 5;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-detail-overlay:hover {
-            background: rgba(102, 126, 234, 0.6);
-            border-color: rgba(102, 126, 234, 0.8);
-            transform: translateX(-50%) translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         /* 预览弹窗 - 全屏模式 */
@@ -291,10 +258,6 @@
                 grid-template-columns: 1fr;
             }
 
-            .header h1 {
-                font-size: 1.8em;
-            }
-
             .preview-header h2 {
                 font-size: 1.3em;
             }
@@ -326,11 +289,6 @@
 <body>
     <div class="stars-container" id="starsContainer"></div>
     
-    <div class="header">
-        <h1>SmartAI 3D 模型展示</h1>
-        <p>3D Gaussian Splatting 渲染引擎 · 高性能实时渲染</p>
-    </div>
-
     <div class="gallery-container">
         <div class="gallery-grid" id="galleryGrid"></div>
     </div>
@@ -346,16 +304,9 @@
     </script>
 
     <script type="module">
-        console.log(' 开始加载 Three.js...');
-        console.log('🔧 使用 ES Modules 方式');
-        
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-        
-        console.log('✅ Three.js 加载成功，版本:', THREE.REVISION);
-        console.log('✅ OrbitControls:', typeof OrbitControls);
-        console.log('✅ GLTFLoader:', typeof GLTFLoader);
 
         // 模型数据（使用公开可用的 GLB 模型）
         const MODELS = [
@@ -409,7 +360,6 @@
         const renderers = [];
         const controls = [];
         const models = [];
-        const stars = [];
         let animationId = null;
         let currentModelIndex = null;
 
@@ -435,31 +385,22 @@
             card.id = `card-${index}`;
 
             card.innerHTML = `
-                <div class="card-3d-container" id="canvas-${index}" style="cursor: pointer;">
-                    <!-- 标题和标签 - 覆盖在画布上方 -->
-                    <div class="card-info">
-                        <div class="card-title">${model.emoji} ${model.title}</div>
-                        <span class="card-tag">${model.tag}</span>
-                    </div>
-                    
-                    <!-- 查看详情按钮 - 嵌入在画布底部 -->
-                    <button class="btn-detail-overlay" id="detail-btn-${index}">
+                <div class="card-3d-container" id="canvas-${index}"></div>
+                <div class="card-info">
+                    <div class="card-title">${model.emoji} ${model.title}</div>
+                    <span class="card-tag">${model.tag}</span>
+                </div>
+                <div class="card-actions">
+                    <button class="btn-detail" id="detail-btn-${index}">
                         🔍 查看详情
                     </button>
-                    
-                    <!-- 加载动画 -->
-                    <div class="loading-overlay" id="loading-${index}">
-                        <div class="spinner"></div>
-                    </div>
+                </div>
+                <div class="loading-overlay" id="loading-${index}">
+                    <div class="spinner"></div>
                 </div>
             `;
             
-            // 点击卡片打开预览
-            card.addEventListener('click', () => {
-                openPreview(index);
-            });
-
-            // 详情按钮（阻止事件冒泡）
+            // 只在按钮上绑定点击事件
             const detailBtn = card.querySelector(`#detail-btn-${index}`);
             detailBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -473,14 +414,11 @@
         async function initScene(index, modelUrl) {
             const container = document.getElementById(`canvas-${index}`);
             const loadingOverlay = document.getElementById(`loading-${index}`);
-            const fpsCounter = document.getElementById(`fps-${index}`);
 
             if (!container) {
                 console.error(`❌ 容器 ${index} 不存在`);
                 return;
             }
-            
-            console.log(`🎨 初始化场景 ${index}: ${MODELS[index].title}`);
 
             // 场景
             const scene = new THREE.Scene();
@@ -513,7 +451,7 @@
                 0.1,
                 1000
             );
-            camera.position.set(0, 1.5, 5);  // 优化相机位置，确保所有模型居中
+            camera.position.set(0, 1.5, 5);
             cameras[index] = camera;
 
             // 渲染器
@@ -538,8 +476,7 @@
             control.target.set(0, 0, 0);
             controls[index] = control;
 
-            // 先添加测试立方体（确保 Three.js 正常工作）
-            console.log(`🧊 场景 ${index} 添加测试立方体`);
+            // 先添加测试立方体
             const testGeometry = new THREE.BoxGeometry(1, 1, 1);
             const testMaterial = new THREE.MeshStandardMaterial({ 
                 color: 0x667eea,
@@ -550,22 +487,17 @@
             testCube.name = 'test-cube';
             scene.add(testCube);
                         
-            // 立即隐藏加载层，显示测试立方体
+            // 立即隐藏加载层
             loadingOverlay.classList.add('hidden');
-            console.log(`✅ 场景 ${index} 初始化完成，测试立方体已添加`);
 
             // 加载模型
             try {
-                console.log(`📥 开始加载模型 ${index}: ${modelUrl}`);
                 await loadGLBModel(index, modelUrl, scene);
-                console.log(`✅ 模型 ${index} 加载成功，移除测试立方体`);
-                            
                 // 移除测试立方体
                 scene.remove(testCube);
             } catch (error) {
                 console.error(`❌ 模型 ${index} 加载失败:`, error);
-                console.warn(`⚠️ 保留测试立方体作为占位符`);
-                // 保留测试立方体，不显示错误
+                // 保留测试立方体作为占位符
             }
 
             // 响应式
@@ -583,20 +515,15 @@
                     (gltf) => {
                         const model = gltf.scene;
                         
-                        // 增强版智能居中算法
+                        // 智能居中
                         const box = new THREE.Box3().setFromObject(model);
                         const center = box.getCenter(new THREE.Vector3());
                         const size = box.getSize(new THREE.Vector3());
                         const maxDim = Math.max(size.x, size.y, size.z);
                         
-                        console.log(`📐 模型 ${index} 尺寸:`, size, '中心:', center, '最大维度:', maxDim);
-                        
-                        // 居中并缩放（所有模型统一缩放策略）
                         model.position.sub(center);
                         const scale = 2 / maxDim;
                         model.scale.setScalar(scale);
-                        
-                        console.log(`✅ 模型 ${index} 缩放比例:`, scale);
                         
                         scene.add(model);
                         models[index] = model;
@@ -613,14 +540,13 @@
             const model = MODELS[index];
             currentModelIndex = index;
             
-            // 创建全屏弹窗
             const modal = document.createElement('div');
             modal.className = 'preview-modal';
             modal.id = 'preview-modal';
             
             modal.innerHTML = `
                 <div class="preview-3d-container" id="preview-canvas"></div>
-                <div class="preview-header" id="preview-header">
+                <div class="preview-header">
                     <h2>${model.emoji} ${model.title}</h2>
                     <button class="close-btn" id="close-preview-btn"></button>
                 </div>
@@ -636,7 +562,7 @@
             
             document.body.appendChild(modal);
             
-            // 绑定事件（使用事件监听器而不是内联 onclick）
+            // 绑定事件
             document.getElementById('close-preview-btn').addEventListener('click', () => closePreview());
             document.getElementById('preview-screenshot-btn').addEventListener('click', () => handlePreviewScreenshot());
             
@@ -656,7 +582,6 @@
             currentModelIndex = null;
             document.removeEventListener('keydown', handleEscKey);
             
-            // 清理预览场景
             if (previewRenderer) {
                 previewRenderer.dispose();
                 previewRenderer = null;
@@ -687,11 +612,9 @@
             const container = document.getElementById('preview-canvas');
             if (!container) return;
             
-            // 场景
             previewScene = new THREE.Scene();
             previewScene.background = new THREE.Color(0x0a0a0f);
             
-            // 灯光
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
             previewScene.add(ambientLight);
             
@@ -703,37 +626,32 @@
             fillLight.position.set(-5, -5, -5);
             previewScene.add(fillLight);
             
-            // 相机
             previewCamera = new THREE.PerspectiveCamera(
                 50,
                 container.clientWidth / container.clientHeight,
                 0.1,
                 1000
             );
-            previewCamera.position.set(0, 1.5, 5);  // 优化相机位置
+            previewCamera.position.set(0, 1.5, 5);
             
-            // 渲染器
             previewRenderer = new THREE.WebGLRenderer({ antialias: true });
             previewRenderer.setSize(container.clientWidth, container.clientHeight);
             previewRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             previewRenderer.outputColorSpace = THREE.SRGBColorSpace;
             container.appendChild(previewRenderer.domElement);
             
-            // 控制器
             previewControls = new OrbitControls(previewCamera, previewRenderer.domElement);
             previewControls.enableDamping = true;
             previewControls.dampingFactor = 0.05;
             previewControls.autoRotate = true;
             previewControls.autoRotateSpeed = 1;
             
-            // 加载模型
             try {
                 await loadPreviewModel(index);
             } catch (error) {
                 console.error('预览模型加载失败:', error);
             }
             
-            // 开始渲染循环
             animatePreview();
         }
 
@@ -747,7 +665,6 @@
                     (gltf) => {
                         const model = gltf.scene;
                         
-                        // 智能居中
                         const box = new THREE.Box3().setFromObject(model);
                         const center = box.getCenter(new THREE.Vector3());
                         const size = box.getSize(new THREE.Vector3());
@@ -784,17 +701,7 @@
             renderers[index].setSize(container.clientWidth, container.clientHeight);
         }
 
-        // 截图功能（保留供预览弹窗使用）
-        function handleScreenshot(index) {
-            if (!renderers[index]) return;
-            
-            const link = document.createElement('a');
-            link.download = `${MODELS[index].title}.png`;
-            link.href = renderers[index].domElement.toDataURL('image/png');
-            link.click();
-        }
-
-        // 动画循环（移除 FPS 计算）
+        // 动画循环
         function animate() {
             animationId = requestAnimationFrame(animate);
             
@@ -809,7 +716,7 @@
         }
 
         // 初始化所有卡片
-        async function initAllCards() {
+        function initAllCards() {
             const galleryGrid = document.getElementById('galleryGrid');
             
             MODELS.forEach((model, index) => {
@@ -817,7 +724,7 @@
                 galleryGrid.appendChild(card);
             });
             
-            // 延迟初始化场景（确保 DOM 渲染完成）
+            // 延迟初始化场景
             setTimeout(() => {
                 MODELS.forEach((model, index) => {
                     initScene(index, model.url);
@@ -825,13 +732,6 @@
                 animate();
             }, 100);
         }
-
-        // 启动
-        createStars();
-        initAllCards();
-    </script>
-</body>
-</html>
 
         // 启动
         createStars();
