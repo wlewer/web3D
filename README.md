@@ -8,9 +8,15 @@ Web3D 是一个全栈 3D 模型生成与管理平台，集成多种 AI 3D 生成
 
 ## 🎮 在线演示
 
-### 👉 [点击查看 3D Demo](https://wlewer.github.io/web3D/demo.html)
+### 👉 [3D 模型展示](https://wlewer.github.io/web3D/showcase.html)
 
-![Web3D Demo Preview]
+**3D 模型展示页**：
+- ✅ 6 个精选模型，星空粒子背景
+- ✅ 画布占满卡片，内嵌详情按钮
+- ✅ 拖拽旋转，滚轮缩放
+- ✅ 全屏预览模式
+
+### 👉 [点击查看 3D Demo](https://wlewer.github.io/web3D/demo.html)
 
 **Demo 特性**：
 - ✅ 纯前端实现，无需后端
