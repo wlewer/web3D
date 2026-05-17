@@ -61,40 +61,6 @@
             min-height: 0;
         }
 
-        .card-3d-container {
-            width: 100%;
-            height: 100%;
-            position: relative;
-            background: rgba(0, 0, 0, 0.2);
-        }
-
-        /* 信息区域 - 在画布下方 */
-        .card-info {
-            padding: 14px 24px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
-            flex-shrink: 0;
-            background: rgba(0, 0, 0, 0.2);
-        }
-
-        .card-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: white;
-            flex: 1;
-        }
-
-        .card-tag {
-            font-size: 12px;
-            padding: 3px 10px;
-            background: rgba(102, 126, 234, 0.2);
-            border-radius: 12px;
-            color: rgba(255, 255, 255, 0.7);
-            white-space: nowrap;
-        }
-
         /* 内嵌详情按钮 - 覆盖在3D画布底部 */
         .gallery-card-detail-btn {
             position: absolute;
@@ -423,18 +389,13 @@
             wrapper.id = `card-${index}`;
 
             wrapper.innerHTML = `
-                <div class="gallery-card-3d">
-                    <div class="card-3d-container" id="canvas-${index}"></div>
+                <div class="gallery-card-3d" id="canvas-${index}">
                     <button class="gallery-card-detail-btn" id="detail-btn-${index}">
                         🔍 查看详情
                     </button>
                     <div class="loading-overlay" id="loading-${index}">
                         <div class="spinner"></div>
                     </div>
-                </div>
-                <div class="card-info">
-                    <div class="card-title">${model.emoji} ${model.title}</div>
-                    <span class="card-tag">${model.tag}</span>
                 </div>
             `;
             
@@ -452,13 +413,11 @@
         async function initScene(index, modelUrl) {
             const container = document.getElementById(`canvas-${index}`);
             const loadingOverlay = document.getElementById(`loading-${index}`);
-
+        
             if (!container) {
                 console.error(`❌ 容器 ${index} 不存在`);
                 return;
             }
-
-            // 场景
             const scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a0a0f);
             scenes[index] = scene;
@@ -511,23 +470,10 @@
             control.target.set(0, 0, 0);
             controls[index] = control;
 
-            // 测试立方体
-            const testGeometry = new THREE.BoxGeometry(1, 1, 1);
-            const testMaterial = new THREE.MeshStandardMaterial({ 
-                color: 0x667eea,
-                roughness: 0.3,
-                metalness: 0.7
-            });
-            const testCube = new THREE.Mesh(testGeometry, testMaterial);
-            testCube.name = 'test-cube';
-            scene.add(testCube);
-                        
-            loadingOverlay.classList.add('hidden');
-
             // 加载模型
             try {
                 await loadGLBModel(index, modelUrl, scene);
-                scene.remove(testCube);
+                loadingOverlay.classList.add('hidden');
             } catch (error) {
                 console.error(`❌ 模型 ${index} 加载失败:`, error);
             }
