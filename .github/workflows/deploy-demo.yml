@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'src/web-frontend/**'
   workflow_dispatch:
@@ -27,13 +27,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: src/web-frontend/package-lock.json
           
       - name: Install dependencies
         working-directory: src/web-frontend
-        run: npm ci
+        run: npm ci || npm install
         
       - name: Build
         working-directory: src/web-frontend
