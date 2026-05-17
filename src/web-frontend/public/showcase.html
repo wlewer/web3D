@@ -350,11 +350,11 @@
                 description: '复古收音机模型'
             },
             {
-                title: 'Flight Helmet',
-                tag: 'GLB · 装饰',
-                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/FlightHelmet/glTF-Binary/FlightHelmet.glb',
-                emoji: '',
-                description: '飞行头盔模型'
+                title: 'Fox',
+                tag: 'GLB · 动物',
+                url: 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/Fox/glTF-Binary/Fox.glb',
+                emoji: '🦊',
+                description: '卡通狐狸模型'
             }
         ];
 
@@ -421,6 +421,40 @@
             const scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a0a0f);
             scenes[index] = scene;
+
+            // 星空粒子效果 - 增强立体感
+            const starsGeometry = new THREE.BufferGeometry();
+            const starsCount = 150;
+            const positions = new Float32Array(starsCount * 3);
+            const colors = new Float32Array(starsCount * 3);
+            
+            for (let i = 0; i < starsCount; i++) {
+                const i3 = i * 3;
+                // 随机分布在场景中
+                positions[i3] = (Math.random() - 0.5) * 20;
+                positions[i3 + 1] = (Math.random() - 0.5) * 20;
+                positions[i3 + 2] = (Math.random() - 0.5) * 20;
+                
+                // 颜色：蓝紫色调
+                colors[i3] = 0.4 + Math.random() * 0.2;
+                colors[i3 + 1] = 0.5 + Math.random() * 0.2;
+                colors[i3 + 2] = 0.9 + Math.random() * 0.1;
+            }
+            
+            starsGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            starsGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            const starsMaterial = new THREE.PointsMaterial({
+                size: 0.05,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                sizeAttenuation: true,
+                blending: THREE.AdditiveBlending
+            });
+            
+            const stars = new THREE.Points(starsGeometry, starsMaterial);
+            scene.add(stars);
 
             // 灯光
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
