@@ -11,8 +11,13 @@ import os
 
 from app.config import settings
 from app.database import engine, Base
-from app.api.v1 import auth, users, models, templates, generation, experimental, quota, website
+from app.api.v1 import auth, users, models, templates, generation, experimental, quota, website, tenants, model_pipeline, pages
 from app.api.v1 import settings as settings_router
+from app.core.redis_client import get_redis_manager
+from app.core.task_store import RedisTaskStore, MemoryTaskStore, set_task_store
+from app.core.rate_limiter import setup_rate_limiting
+from app.core.tenant_middleware import TenantResolverMiddleware
+from app.core.tenant_filter import install_tenant_filter
 
 
 def create_application() -> FastAPI:
@@ -36,10 +41,20 @@ def create_application() -> FastAPI:
     application.include_router(quota.router, prefix="/api/v1", tags=["额度管理"])
     application.include_router(settings_router.router, prefix="/api/v1/settings", tags=["系统设置"])
     
+    # 租户管理路由（仅平台管理员）
+    application.include_router(tenants.router, prefix="/api/v1/tenants", tags=["租户管理"])
+    
+    # 模型优化管线路由
+    application.include_router(model_pipeline.router, prefix="/api/v1/models", tags=["模型优化"])
+
+    # 页面搭建器路由
+    application.include_router(pages.router, prefix="/api/v1/pages", tags=["页面搭建器"])
+    
     # 官网模板系统路由
     application.include_router(website.nav_router, prefix="/api/v1")
     application.include_router(website.template_router, prefix="/api/v1")
     application.include_router(website.component_router, prefix="/api/v1")
+    application.include_router(website.public_router, prefix="/api/v1")
     
     # 健康检查端点
     @application.get("/health")
@@ -87,6 +102,12 @@ def create_application() -> FastAPI:
         allow_headers=["*"],
     )
     
+    # 配置租户解析中间件（在CORS之后、限流之前）
+    application.add_middleware(TenantResolverMiddleware)
+    
+    # 配置限流中间件
+    setup_rate_limiting(application)
+    
     # 最后挂载静态文件到子路径（避免拦截API）
     static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
     if os.path.exists(static_dir):
@@ -127,7 +148,35 @@ def create_application() -> FastAPI:
     async def startup_event():
         logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
         logger.info(f"Environment: {settings.ENVIRONMENT}")
-        # 创建数据库表（生产环境应使用Alembic迁移）
+
+        # 注册租户查询自动过滤器
+        install_tenant_filter()
+        logger.info("Tenant query filter installed")
+
+        # 0. 安全启动验证
+        try:
+            settings.validate_security()
+            logger.info("Security validation passed")
+        except ValueError as e:
+            logger.error(f"Security validation failed: {e}")
+            if not settings.DEBUG:
+                raise
+
+        # 1. 初始化Redis连接
+        redis_manager = get_redis_manager()
+        redis_connected = await redis_manager.connect()
+
+        # 2. 初始化TaskStore（Redis可用则用Redis，否则回退到内存）
+        if redis_connected and redis_manager.redis is not None:
+            task_store = RedisTaskStore(redis_manager.redis)
+            logger.info("[Startup] Using RedisTaskStore for task state persistence")
+        else:
+            task_store = MemoryTaskStore()
+            logger.info("[Startup] Using MemoryTaskStore (Redis unavailable or disabled)")
+
+        set_task_store(task_store)
+
+        # 3. 创建数据库表（生产环境应使用Alembic迁移）
         if settings.DEBUG:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
@@ -137,6 +186,9 @@ def create_application() -> FastAPI:
     @application.on_event("shutdown")
     async def shutdown_event():
         logger.info("Shutting down application")
+        # 关闭Redis连接
+        redis_manager = get_redis_manager()
+        await redis_manager.disconnect()
     
     return application
 

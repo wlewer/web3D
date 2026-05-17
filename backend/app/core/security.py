@@ -2,6 +2,7 @@
 Web3D Backend - 安全工具
 Security utilities: JWT, password hashing, OAuth2
 """
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
@@ -108,6 +109,8 @@ def decode_token(token: str, token_type: str = "access") -> dict:
     解码JWT Token
     Decode and verify JWT token
     
+    先用主密钥解码，失败后尝试fallback密钥（如果配置了）
+    
     Args:
         token: JWT token字符串
         token_type: token类型（access或refresh）
@@ -124,26 +127,51 @@ def decode_token(token: str, token_type: str = "access") -> dict:
         headers={"WWW-Authenticate": "Bearer"},
     )
     
-    try:
-        payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
-        )
-        
-        # 验证token类型
-        if payload.get("type") != token_type:
-            raise credentials_exception
-        
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-        
+    def _try_decode(secret: str) -> Optional[dict]:
+        try:
+            payload = jwt.decode(
+                token,
+                secret,
+                algorithms=[settings.ALGORITHM]
+            )
+            # 验证token类型
+            if payload.get("type") != token_type:
+                return None
+            user_id: str = payload.get("sub")
+            if user_id is None:
+                return None
+            return payload
+        except JWTError:
+            return None
+    
+    # 先尝试主密钥
+    payload = _try_decode(settings.SECRET_KEY)
+    if payload is not None:
         return payload
-        
-    except JWTError as e:
-        logger.error(f"Token decode error: {str(e)}")
-        raise credentials_exception
+    
+    # 主密钥失败，尝试fallback密钥（密钥轮转兼容）
+    if settings.SECRET_KEY_FALLBACK and settings.SECRET_KEY_FALLBACK != settings.SECRET_KEY:
+        payload = _try_decode(settings.SECRET_KEY_FALLBACK)
+        if payload is not None:
+            logger.info("Token verified with fallback key")
+            return payload
+    
+    logger.error("Token decode error: both primary and fallback keys failed")
+    raise credentials_exception
+
+
+def generate_secret_key(length: int = 64) -> str:
+    """
+    生成安全随机密钥
+    Generate a cryptographically secure random secret key
+    
+    Args:
+        length: 密钥长度（默认64字符）
+    
+    Returns:
+        str: 安全随机密钥字符串
+    """
+    return secrets.token_urlsafe(length)
 
 
 # ==================== Token黑名单（Redis） ====================

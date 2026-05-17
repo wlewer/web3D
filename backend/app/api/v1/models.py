@@ -2,7 +2,7 @@
 Web3D Backend - 3D模型API路由
 3D Model API endpoints with full CRUD operations
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, select, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +27,8 @@ from app.schemas.model import (
     ModelStatus,
 )
 from app.dependencies import get_current_user, require_role
+from app.core.quota_guard import require_model_quota, require_storage_quota
+from app.config import settings
 from loguru import logger
 
 
@@ -316,11 +318,14 @@ async def create_model(
     model_data: ModelCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _: bool = Depends(require_model_quota),
 ):
     """
     创建新模型
     Create new 3D model
     """
+    # 写入租户ID（如果当前用户关联了租户）
+    tenant_id = current_user.tenant_id
     new_model = Model3D(
         name=model_data.name,
         description=model_data.description,
@@ -334,6 +339,7 @@ async def create_model(
         tags=model_data.tags,
         metadata_json=model_data.metadata_json,
         created_by=current_user.id,
+        tenant_id=tenant_id,  # 租户隔离
         status="pending",  # 新建模型默认为待审核状态
     )
     
@@ -700,6 +706,7 @@ async def replace_model_file(
 
 @router.post("/upload", response_model=ModelResponse, status_code=status.HTTP_201_CREATED)
 async def upload_model(
+    request: Request,
     file: UploadFile = File(...),
     category: Optional[str] = Form(None),
     display_name: Optional[str] = Form(None),
@@ -710,12 +717,15 @@ async def upload_model(
     metadata_json: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(require_role("admin")),
+    _: bool = Depends(require_model_quota),
 ):
     """
     上传模型文件（管理员）
     支持格式: glb, gltf, ply, spz, obj, fbx, stl, splat
     文件保存到 models/ 目录，并自动创建数据库记录（状态: approved）
     """
+    # 租户ID
+    tenant_id = current_user.tenant_id or getattr(request.state, "tenant_id", None)
     # 1. 校验文件扩展名
     VALID_EXTENSIONS = {'.glb', '.gltf', '.ply', '.spz', '.obj', '.fbx', '.stl', '.splat'}
     original_filename = file.filename or 'model.bin'
@@ -742,9 +752,26 @@ async def upload_model(
         safe_filename = f"{base_name}_{counter}{ext}"
         counter += 1
     
-    # 4. 保存文件到磁盘
+    # 4. 读取并保存文件到磁盘
     try:
         content = await file.read()
+    except Exception as e:
+        logger.error(f"Failed to read uploaded file: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"文件读取失败: {str(e)}"
+        )
+
+    # 4.1 租户存储配额检查（DEBUG模式跳过）
+    if tenant_id and not settings.DEBUG:
+        from app.core.quota_guard import check_storage_quota
+        if not await check_storage_quota(tenant_id, len(content), db):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Storage quota exceeded. Please upgrade your plan."
+            )
+
+    try:
         file_path = os.path.join(models_dir, safe_filename)
         with open(file_path, "wb") as f:
             f.write(content)
@@ -787,6 +814,7 @@ async def upload_model(
         format=fmt,
         file_size=len(content),
         created_by=current_user.id,
+        tenant_id=tenant_id,  # 租户隔离
         reviewed_by=current_user.id,
         reviewed_at=datetime.utcnow(),
         tags=['upload'],

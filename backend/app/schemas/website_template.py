@@ -3,8 +3,35 @@ Web3D Backend - 官网模板系统 Pydantic schemas
 Website Template System validation schemas
 """
 from pydantic import BaseModel, Field, validator
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
+import json
+
+
+def parse_json_field(v: Union[str, Dict, None]) -> Optional[Dict]:
+    """将可能存储为 JSON 字符串的字段解析为 dict"""
+    if v is None:
+        return None
+    if isinstance(v, str):
+        # 兼容 Python repr 格式的布尔值和 None（如 True/False/None 而非 true/false/null）
+        cleaned = v.replace(": True", ": true").replace(": False", ": false")
+        cleaned = cleaned.replace(": True,", ": true,").replace(": False,", ": false,")
+        cleaned = cleaned.replace(": None", ": null").replace(": None,", ": null,")
+        if cleaned != v:
+            v = cleaned
+        try:
+            return json.loads(v)
+        except (json.JSONDecodeError, TypeError):
+            # 如果仍解析失败，尝试更激进的替换（处理嵌套等情况）
+            try:
+                import re
+                v = re.sub(r'\\bTrue\\b', 'true', v)
+                v = re.sub(r'\\bFalse\\b', 'false', v)
+                v = re.sub(r'\\bNone\\b', 'null', v)
+                return json.loads(v)
+            except (json.JSONDecodeError, TypeError):
+                return v
+    return v
 
 
 # ==================== NavMenu Schemas ====================
@@ -78,6 +105,9 @@ class NavMenuResponse(BaseModel):
     class Config:
         from_attributes = True
 
+    _parse_label = validator('label', pre=True, allow_reuse=True)(parse_json_field)
+    _parse_config = validator('config', pre=True, allow_reuse=True)(parse_json_field)
+
 
 class NavMenuListResponse(BaseModel):
     """导航菜单列表响应"""
@@ -95,6 +125,55 @@ class NavMenuBatchSortItem(BaseModel):
 class NavMenuBatchSortRequest(BaseModel):
     """批量排序请求"""
     items: List[NavMenuBatchSortItem]
+
+
+# ==================== TemplateSlot Schemas ====================
+
+class SlotCreate(BaseModel):
+    """创建模板插槽"""
+    slot_key: str = Field(..., min_length=1, max_length=100)
+    component_type: str = Field(..., min_length=1, max_length=100)
+    sort_order: int = 0
+    component_config: Dict[str, Any] = Field(default_factory=dict)
+    is_dynamic: bool = False
+
+
+class SlotUpdate(BaseModel):
+    """更新模板插槽"""
+    component_type: Optional[str] = None
+    sort_order: Optional[int] = None
+    component_config: Optional[Dict[str, Any]] = None
+    is_dynamic: Optional[bool] = None
+
+    @validator('is_dynamic', pre=True, always=True)
+    def default_is_dynamic(cls, v):
+        return v if v is not None else False
+
+
+class SlotResponse(BaseModel):
+    """模板插槽响应"""
+    id: str
+    template_id: str
+    slot_key: str
+    component_type: str
+    sort_order: int = 0
+    component_config: Dict[str, Any] = {}
+    is_dynamic: bool = False
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+    @validator('is_dynamic', pre=True, always=True)
+    def default_is_dynamic(cls, v):
+        return v if v is not None else False
+
+    _parse_component_config = validator('component_config', pre=True, allow_reuse=True)(parse_json_field)
+
+
+class SlotBatchUpdateRequest(BaseModel):
+    """批量更新插槽（替换模板全部插槽）"""
+    slots: List[SlotCreate]
 
 
 # ==================== WebsiteTemplate Schemas ====================
@@ -165,10 +244,14 @@ class TemplateResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     # 关联插槽
-    slots: Optional[List[Any]] = None
+    slots: Optional[List[SlotResponse]] = None
 
     class Config:
         from_attributes = True
+
+    _parse_layout_config = validator('layout_config', pre=True, allow_reuse=True)(parse_json_field)
+    _parse_theme_config = validator('theme_config', pre=True, allow_reuse=True)(parse_json_field)
+    _parse_meta_info = validator('meta_info', pre=True, allow_reuse=True)(parse_json_field)
 
 
 class TemplateListResponse(BaseModel):
@@ -183,45 +266,6 @@ class TemplateListResponse(BaseModel):
 class TemplatePublishRequest(BaseModel):
     """发布模板请求"""
     version: Optional[str] = None
-
-
-# ==================== TemplateSlot Schemas ====================
-
-class SlotCreate(BaseModel):
-    """创建模板插槽"""
-    slot_key: str = Field(..., min_length=1, max_length=100)
-    component_type: str = Field(..., min_length=1, max_length=100)
-    sort_order: int = 0
-    component_config: Dict[str, Any] = Field(default_factory=dict)
-    is_dynamic: bool = False
-
-
-class SlotUpdate(BaseModel):
-    """更新模板插槽"""
-    component_type: Optional[str] = None
-    sort_order: Optional[int] = None
-    component_config: Optional[Dict[str, Any]] = None
-    is_dynamic: Optional[bool] = None
-
-
-class SlotResponse(BaseModel):
-    """模板插槽响应"""
-    id: str
-    template_id: str
-    slot_key: str
-    component_type: str
-    sort_order: int = 0
-    component_config: Dict[str, Any] = {}
-    is_dynamic: bool = False
-    created_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-
-
-class SlotBatchUpdateRequest(BaseModel):
-    """批量更新插槽（替换模板全部插槽）"""
-    slots: List[SlotCreate]
 
 
 # ==================== RegisteredComponent Schemas ====================
@@ -241,6 +285,8 @@ class ComponentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+    _parse_prop_schema = validator('prop_schema', pre=True, allow_reuse=True)(parse_json_field)
 
 
 class ComponentListResponse(BaseModel):

@@ -8,9 +8,9 @@
  * 内部以四组 Tab 组织：相机、环绕、装饰、视觉
  */
 import React, { useState, useCallback, useMemo } from 'react';
-import { Tabs, Slider, Switch, Select, Row, Col, InputNumber, Tooltip, Badge, Collapse, Radio, Button, Space, Popconfirm, message } from 'antd';
+import { Tabs, Slider, Switch, Select, Row, Col, InputNumber, Tooltip, Collapse, Radio, Button, Space, Popconfirm, message } from 'antd';
 import { PlusOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
-import type { RenderConfig, CameraConfigParams, OrbitConfigParams, DecorationConfigParams, VisualConfigParams } from '@/types/render-config';
+import type { RenderConfig } from '@/types/render-config';
 
 // ==================== 内置色板 ====================
 
@@ -171,7 +171,7 @@ function cloneConfig(cfg: RenderConfig): RenderConfig {
 }
 
 /** 获取参数是否继承自全局 */
-function isInherited(global: any, local: any, key: string): boolean {
+function isInherited(global: any, local: any, _key: string): boolean {
   if (local === undefined) return true;
   if (global === undefined) return false;
   return local === global;

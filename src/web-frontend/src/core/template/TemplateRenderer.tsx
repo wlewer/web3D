@@ -15,6 +15,7 @@ import type {
   ThemeConfig,
 } from '../../types/template';
 import { fetchTemplate, fetchTemplateSlots } from '../../services/templateService';
+import { fetchCurrentTenantConfig } from '../../services/tenantService';
 import { hasComponent, getComponentEntry } from './ComponentRegistry';
 import { ErrorBoundary } from './ErrorBoundary';
 import { resolveDataSource } from './DataSourceEngine';
@@ -288,6 +289,23 @@ export const TemplateRenderer: React.FC<TemplateRendererProps> = ({ templateId, 
     } finally {
       if (mountedRef.current) setLoading(false);
     }
+  }, []);
+
+  // 加载租户主题（在模板主题之前应用，模板主题可覆盖）
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTenantTheme() {
+      try {
+        const tenantConfig = await fetchCurrentTenantConfig();
+        if (!cancelled && tenantConfig?.theme_config?.cssVariables) {
+          applyTheme(tenantConfig.theme_config);
+        }
+      } catch (err) {
+        console.warn('租户主题加载失败，使用默认主题', err);
+      }
+    }
+    loadTenantTheme();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {

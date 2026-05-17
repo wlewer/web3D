@@ -41,6 +41,12 @@ logs/
 # Uploads
 uploads/
 
+# SSL Certificates (never commit private keys)
+*.key
+*.crt
+*.csr
+*.pem
+
 # TypeScript error logs
 ts-err.txt
 ts-errors.txt

@@ -5,7 +5,7 @@
 import React from 'react';
 import type { TemplateComponentProps } from '../../../types/template';
 
-export const HomeButtons: React.FC<TemplateComponentProps> = ({ config, context }) => {
+export const HomeButtons: React.FC<TemplateComponentProps> = ({ config }) => {
   const props = (config.props || {}) as Record<string, unknown>;
   const buttons = (props.buttons as Array<{ label: string; route: string; icon?: string }>) || [];
 

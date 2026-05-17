@@ -9,7 +9,7 @@ import {
   type TableColumnsType,
 } from 'antd';
 import {
-  PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined,
+  DeleteOutlined, ReloadOutlined,
   AppstoreOutlined, CheckCircleOutlined, StopOutlined, FileAddOutlined,
 } from '@ant-design/icons';
 import { axiosInstance } from '@/admin/core/providers';
@@ -59,7 +59,7 @@ export const TemplateListManagement: React.FC = () => {
   const fetchTemplates = useCallback(async () => {
     setLoading(true);
     try {
-      const resp = await axiosInstance.get('/api/v1/website-templates', {
+      const resp = await axiosInstance.get('website-templates', {
         params: { page: 1, page_size: 100 },
       });
       setTemplates(resp.data.data || []);
@@ -85,7 +85,7 @@ export const TemplateListManagement: React.FC = () => {
         theme_config: { cssVariables: {} },
         meta_info: {},
       };
-      await axiosInstance.post('/api/v1/website-templates', payload);
+      await axiosInstance.post('website-templates', payload);
       message.success('模板已创建');
       setCreateModalOpen(false);
       form.resetFields();
@@ -100,7 +100,7 @@ export const TemplateListManagement: React.FC = () => {
 
   const handlePublish = async (id: string) => {
     try {
-      await axiosInstance.post(`/api/v1/website-templates/${id}/publish`);
+      await axiosInstance.post(`website-templates/${id}/publish`);
       message.success('模板已发布');
       fetchTemplates();
     } catch (err: any) {
@@ -110,7 +110,7 @@ export const TemplateListManagement: React.FC = () => {
 
   const handleArchive = async (id: string) => {
     try {
-      await axiosInstance.put(`/api/v1/website-templates/${id}`, { status: 'archived' });
+      await axiosInstance.put(`website-templates/${id}`, { status: 'archived' });
       message.success('模板已归档');
       fetchTemplates();
     } catch (err: any) {
@@ -120,7 +120,7 @@ export const TemplateListManagement: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     try {
-      await axiosInstance.delete(`/api/v1/website-templates/${id}`);
+      await axiosInstance.delete(`website-templates/${id}`);
       message.success('模板已删除');
       fetchTemplates();
     } catch (err: any) {

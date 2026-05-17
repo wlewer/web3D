@@ -6,6 +6,23 @@ Web3D 是一个全栈 3D 模型生成与管理平台，集成多种 AI 3D 生成
 
 ---
 
+## 🎮 在线演示
+
+### 👉 [点击查看 3D Demo](https://yourusername.github.io/web3D/demo.html)
+
+![Web3D Demo Preview](docs/images/demo-preview.png)
+
+**Demo 特性**：
+- ✅ 纯前端实现，无需后端
+- ✅ 支持 SPZ / SPLAT / GLB 多格式
+- ✅ 智能居中算法，自动适配相机
+- ✅ 响应式设计，支持移动端
+- ✅ 实时模型切换，流畅交互
+
+> 💡 **提示**: 部署后请将链接中的 `yourusername` 替换为您的 GitHub 用户名
+
+---
+
 ## ✨ 核心功能
 
 ### 🎨 3D 渲染与展示

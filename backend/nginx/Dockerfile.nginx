@@ -1,0 +1,23 @@
+# Web3D Nginx 反向代理镜像
+# 统一入口：暴露 80/443，反向代理前端静态文件和后端 API
+
+FROM nginx:1.27-alpine
+
+# 安装必要工具（调试用，生产环境可移除）
+RUN apk add --no-cache curl ca-certificates
+
+# 复制自定义 Nginx 配置
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# 创建证书目录和 ACME challenge 目录
+RUN mkdir -p /etc/nginx/ssl /var/www/certbot
+
+# 暴露 HTTP 和 HTTPS 端口
+EXPOSE 80 443
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost/nginx-health || exit 1
+
+# 前台运行 Nginx
+CMD ["nginx", "-g", "daemon off;"]

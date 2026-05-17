@@ -27,6 +27,7 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 bcrypt==4.1.2  # 锁定版本，避免与passlib不兼容
 email-validator==2.1.0
+slowapi>=0.1.9  # 限流中间件
 
 # ==================== 数据验证 ====================
 pydantic==2.5.3
@@ -40,6 +41,9 @@ loguru==0.7.2
 python-dateutil==2.8.2
 uuid-utils==0.6.0
 
+# ==================== 缓存 ====================
+redis[hiredis]>=5.0.0  # Redis客户端 + hiredis C解析器（TaskStore持久化需要）
+
 # ==================== 模块1：通用3D处理依赖（所有模块共享） ====================
 # 状态：✅ 已安装 | Python 3.8+ | CPU/GPU通用
 trimesh[easy]==4.11.5          # 3D模型处理（统一版本）
@@ -50,6 +54,9 @@ rembg[gpu]>=2.0.55             # 背景移除（Python 3.12兼容）
 scikit-image>=0.22.0            # 图像处理算法（Python 3.12兼容）
 pygltflib==1.16.0               # GLTF/GLB处理
 pymeshlab==2023.12.post1        # MeshLab Python接口
+networkx>=3.0                   # 图算法库（trimesh依赖 + LOD管线需要）
+fast-simplification>=0.1.10      # 快速四边形减面算法（LOD生成核心依赖）
+pyglet>=2.0.0                   # trimesh offscreen渲染（可选，缩略图生成需要）
 
 # ==================== 模块2：ImageToSTL 图像浮雕（当前真实可用 ✅） ====================
 # 状态：✅ 100%可用 | Python 3.8+ | CPU Only | 无需GPU
@@ -155,6 +162,10 @@ numpy-stl==3.0.0                # STL文件处理
 #   - pro（专业版/hy-3d-3.1）：60-120秒，消耗20积分
 #   - express（极速版/HY-3D-Express）：10-20秒，消耗5积分（暂不可用）
 tencentcloud-sdk-python>=3.1.83  # 腾讯云官方SDK（自动处理签名，需要v3.1.83+支持AI3D）
+
+# ==================== 测试依赖 ====================
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
 
 # ==================== 依赖管理说明 ====================
 #

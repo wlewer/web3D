@@ -36,10 +36,37 @@ class Settings(BaseSettings):
     REDIS_MAX_CONNECTIONS: int = 50
     
     # ==================== JWT配置 ====================
-    SECRET_KEY: str = "your-super-secret-key-change-in-production-min-32-chars"
+    SECRET_KEY: str = ""
+    SECRET_KEY_FALLBACK: str = ""  # 密钥轮转期间双密钥验证
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    
+    def validate_security(self):
+        """
+        启动时安全验证
+        非DEBUG模式下检查SECRET_KEY配置
+        """
+        if self.DEBUG:
+            return
+        
+        if not self.SECRET_KEY or len(self.SECRET_KEY) < 32:
+            raise ValueError(
+                "SECRET_KEY must be set and at least 32 characters long in production mode"
+            )
+        
+        # 已知的开发默认值列表
+        dev_defaults = [
+            "your-super-secret-key-change-in-production-min-32-chars",
+            "change-me-in-production",
+            "secret",
+            "default",
+            "",
+        ]
+        if self.SECRET_KEY.lower() in [d.lower() for d in dev_defaults]:
+            raise ValueError(
+                "SECRET_KEY cannot be a development default value in production mode"
+            )
     
     # ==================== OAuth2配置 ====================
     GOOGLE_CLIENT_ID: str = ""

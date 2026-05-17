@@ -11,6 +11,19 @@ from minio.error import S3Error
 
 from app.config import settings
 
+# 租户隔离相关导入（延迟导入避免循环依赖）
+from fastapi import UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func as sa_func
+
+
+# 延迟导入模型（避免循环依赖）
+def _get_models():
+    from app.models.tenant import Tenant
+    from app.models.model import Model3D
+    from app.models.user import User
+    return Tenant, Model3D, User
+
 
 class ObjectStorageService:
     """对象存储服务封装（MinIO/S3 兼容）"""
@@ -271,6 +284,68 @@ class ObjectStorageService:
         except S3Error:
             return False
 
+    # ===== 租户隔离方法 / Tenant-aware methods =====
+
+    async def get_tenant_bucket(self, tenant_id: str | None = None, db: AsyncSession | None = None) -> str:
+        """获取租户专属bucket名称"""
+        if tenant_id and db:
+            Tenant, _, _ = _get_models()
+            result = await db.execute(select(Tenant.slug).where(Tenant.id == tenant_id))
+            tenant_slug = result.scalar_one_or_none()
+            if tenant_slug:
+                bucket_name = f"web3d-{tenant_slug}-models"
+                self._ensure_bucket_exists(bucket_name)
+                return bucket_name
+        return settings.MINIO_BUCKET_MODELS
+
+    async def upload_file_for_tenant(
+        self,
+        tenant_id: str,
+        file: UploadFile,
+        db: AsyncSession,
+        category: str = "models"
+    ) -> str:
+        """租户级文件上传，路径格式: /{tenant_id}/{category}/{filename}"""
+        bucket = await self.get_tenant_bucket(tenant_id, db)
+        original_filename = file.filename or "file.bin"
+        object_name = f"{tenant_id}/{category}/{original_filename}"
+
+        content = await file.read()
+        import tempfile
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+
+        try:
+            url = self.upload_file(
+                tmp_path,
+                object_name,
+                bucket=bucket,
+                content_type=file.content_type or "application/octet-stream"
+            )
+        finally:
+            os.unlink(tmp_path)
+
+        return url
+
+    async def check_storage_quota(self, tenant_id: str, file_size: int, db: AsyncSession) -> bool:
+        """检查租户存储配额是否足够"""
+        Tenant, Model3D, User = _get_models()
+        result = await db.execute(select(Tenant).where(Tenant.id == tenant_id))
+        tenant = result.scalar_one_or_none()
+        if not tenant:
+            return False
+        if tenant.max_storage_bytes == -1:
+            return True
+
+        storage_result = await db.execute(
+            select(sa_func.coalesce(sa_func.sum(Model3D.file_size), 0))
+            .join(User, Model3D.created_by == User.id)
+            .where(User.tenant_id == tenant_id)
+        )
+        used = storage_result.scalar() or 0
+        return (used + file_size) <= tenant.max_storage_bytes
+
 
 # 全局服务实例（单例模式）
 _storage_service_instance: Optional[ObjectStorageService] = None
@@ -360,3 +435,35 @@ class MockStorageService:
         """模拟检查文件存在"""
         file_path = self.storage_dir / object_name
         return file_path.exists()
+
+    # ===== 租户隔离方法 / Tenant-aware mock methods =====
+
+    async def get_tenant_bucket(self, tenant_id: str | None = None, db: AsyncSession | None = None) -> str:
+        """Mock：返回默认bucket名称"""
+        return "mock-bucket"
+
+    async def upload_file_for_tenant(
+        self,
+        tenant_id: str,
+        file: UploadFile,
+        db: AsyncSession,
+        category: str = "models"
+    ) -> str:
+        """Mock：租户级文件上传"""
+        original_filename = file.filename or "file.bin"
+        object_name = f"{tenant_id}/{category}/{original_filename}"
+        import tempfile
+        content = await file.read()
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+        try:
+            url = self.upload_file(tmp_path, object_name)
+        finally:
+            os.unlink(tmp_path)
+        return url
+
+    async def check_storage_quota(self, tenant_id: str, file_size: int, db: AsyncSession) -> bool:
+        """Mock：始终返回True（开发环境不限制）"""
+        logger.debug(f"[MockStorage] Storage quota check for tenant {tenant_id}: {file_size} bytes -> always True")
+        return True

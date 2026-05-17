@@ -14,54 +14,8 @@ import { ModelList, ModelDetail } from './modules/model';
 import { ExperimentalGeneration, ThreepipeEditorPage, SuperSplatPage } from './modules/experimental';
 import { ProfessionalGenerationPage } from './modules/professional';
 import { OfficialTemplateManagement, NavMenuManagement, TemplateListManagement } from './modules/template';
-
-// 资源定义（暂未使用，保留以便将来扩展）
-// const resources = [
-//   {
-//     name: 'dashboard',
-//     list: '/',
-//     meta: {
-//       label: '仪表盘',
-//       icon: 'DashboardOutlined',
-//     },
-//   },
-//   {
-//     name: 'users',
-//     list: '/users',
-//     create: '/users/create',
-//     edit: '/users/edit/:id',
-//     show: '/users/show/:id',
-//     meta: {
-//       label: '用户管理',
-//       icon: 'UserOutlined',
-//       parent: 'userManagement',
-//     },
-//   },
-//   {
-//     name: 'models',
-//     list: '/models',
-//     create: '/models/create',
-//     edit: '/models/edit/:id',
-//     show: '/models/show/:id',
-//     meta: {
-//       label: '模型管理',
-//       icon: 'BoxPlotOutlined',
-//       parent: 'modelManagement',
-//     },
-//   },
-//   {
-//     name: 'templates',
-//     list: '/templates',
-//     create: '/templates/create',
-//     edit: '/templates/edit/:id',
-//     show: '/templates/show/:id',
-//     meta: {
-//       label: '模板管理',
-//       icon: 'AppstoreOutlined',
-//       parent: 'templateManagement',
-//     },
-//   },
-// ];
+import { PageList } from './modules/pages';
+import { TenantList, TenantCreate, TenantEdit, TenantDetail } from './modules/tenant';
 
 // 路由映射
 const routeComponents: Record<string, React.FC> = {
@@ -79,15 +33,35 @@ const routeComponents: Record<string, React.FC> = {
   '/templates/nav-menus': NavMenuManagement,
   '/templates': TemplateListManagement,
   '/templates/official': OfficialTemplateManagement,
+  '/pages': PageList,
+  '/tenants': TenantList,
+  '/tenants/create': TenantCreate,
 };
 
 export const AdminApp: React.FC = () => {
   // 使用 useLocation hook 响应路由变化
   const location = useLocation();
-  
+
   // 获取当前路径，渲染对应组件
   const pathname = location.pathname.replace('/admin', '') || '/';
-  const CurrentComponent = routeComponents[pathname] || Dashboard;
+
+  // 优先精确匹配
+  let CurrentComponent = routeComponents[pathname];
+
+  // 动态路由匹配（精确匹配失败时）
+  if (!CurrentComponent) {
+    if (/^\/tenants\/[^/]+\/edit$/.test(pathname)) {
+      CurrentComponent = TenantEdit;
+    } else if (/^\/tenants\/[^/]+$/.test(pathname)) {
+      CurrentComponent = TenantDetail;
+    } else if (/^\/users\/edit\/[^/]+$/.test(pathname)) {
+      CurrentComponent = UserEdit;
+    } else if (/^\/models\/show\/[^/]+$/.test(pathname)) {
+      CurrentComponent = ModelDetail;
+    }
+  }
+
+  CurrentComponent = CurrentComponent || Dashboard;
 
   return (
     <AdminLayout>

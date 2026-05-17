@@ -19,6 +19,8 @@ import {
   BellOutlined,
   GlobalOutlined,
   ExperimentOutlined,
+  ApartmentOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useGetIdentity } from '@refinedev/core';
@@ -81,6 +83,28 @@ const menuItems = [
       {
         key: '/admin/templates/official',
         label: '官网模板',
+      },
+    ],
+  },
+  {
+    key: 'page-management',
+    icon: <FileTextOutlined />,
+    label: '页面管理',
+    children: [
+      {
+        key: '/admin/pages',
+        label: '页面列表',
+      },
+    ],
+  },
+  {
+    key: 'tenant-management',
+    icon: <ApartmentOutlined />,
+    label: '租户管理',
+    children: [
+      {
+        key: '/admin/tenants',
+        label: '租户列表',
       },
     ],
   },
@@ -201,7 +225,7 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
         <Menu
           mode="inline"
           selectedKeys={[location.pathname]}
-          defaultOpenKeys={['/admin/users', '/admin/models', '/admin/templates']}
+          defaultOpenKeys={['/admin/users', '/admin/models', '/admin/templates', '/admin/tenants', '/admin/pages']}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
           style={{

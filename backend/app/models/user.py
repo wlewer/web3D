@@ -2,7 +2,7 @@
 Web3D Backend - 用户数据模型
 User database models
 """
-from sqlalchemy import Column, String, BigInteger, Boolean, DateTime, Enum as SQLEnum
+from sqlalchemy import Column, String, BigInteger, Boolean, DateTime, Enum as SQLEnum, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
@@ -48,8 +48,12 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
+    # 租户关联 / Tenant association (nullable for backward compatibility)
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=True, index=True)
+    
     # 关系 / Relationships
     quota = relationship("UserQuota", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    tenant = relationship("Tenant", back_populates="users", foreign_keys=[tenant_id])
     
     def __repr__(self):
         return f"<User(id={self.id}, username={self.username}, email={self.email})>"

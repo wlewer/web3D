@@ -63,6 +63,9 @@ class Model3D(Base):
     sort_order = Column(Integer, default=0)  # 首页排序权重（越大越靠前）
     model_url_fallback = Column(Text, nullable=True)  # 备用模型文件URL
     
+    # 租户关联 / Tenant association (nullable for backward compatibility)
+    tenant_id = Column(String(36), ForeignKey("tenants.id"), nullable=True, index=True)
+
     # 关联用户 / Related user
     created_by = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     

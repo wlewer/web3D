@@ -67,9 +67,9 @@ class AuthService:
             email=user_data.email,
             password_hash=hashed_password,
             phone=user_data.phone,
-            role=user_data.role or 'user',
+            role='user',
             status='active',
-            storage_quota=settings.DEFAULT_STORAGE_QUOTA,
+            storage_quota=getattr(settings, 'DEFAULT_STORAGE_QUOTA', 1073741824),
             storage_used=0
         )
         

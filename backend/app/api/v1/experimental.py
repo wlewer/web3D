@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.services.model_versions import model_versions
+from app.core.task_store import get_task_store
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +33,6 @@ logger.info(f"[EXPERIMENTAL] Loaded .env from: {env_path}")
 logger.info(f"[EXPERIMENTAL] HUNYUAN3D_MODE={os.getenv('HUNYUAN3D_MODE', 'NOT SET')}")
 
 router = APIRouter(prefix="/experimental", tags=["experimental"])
-
-# 存储任务状态（内存中，生产环境应使用Redis）
-task_status = {}
 
 @router.post("/image-to-stl/upload")
 async def upload_image_to_stl(
@@ -60,18 +58,22 @@ async def upload_image_to_stl(
     logger.info(f"[EXPERIMENTAL] Received image for ImageToSTL: {image_path}")
     
     # 初始化任务状态
-    task_status[task_id] = {
+    store = get_task_store()
+    await store.set_task(task_id, {
         'status': 'processing',
         'progress': 0,
         'message': '正在启动生成...'
-    }
+    })
     
     async def imagetostl_process():
         try:
             from app.services.generation.image_to_stl_service import ImageToSTLService
+            store = get_task_store()
             
-            task_status[task_id]['progress'] = 10
-            task_status[task_id]['message'] = '正在加载图片...'
+            await store.update_task(task_id, {
+                'progress': 10,
+                'message': '正在加载图片...'
+            })
             
             # 创建服务实例
             service = ImageToSTLService(
@@ -80,8 +82,10 @@ async def upload_image_to_stl(
                 resolution=256
             )
             
-            task_status[task_id]['progress'] = 30
-            task_status[task_id]['message'] = '正在生成高度图...'
+            await store.update_task(task_id, {
+                'progress': 30,
+                'message': '正在生成高度图...'
+            })
             
             # 生成3D浮雕模型
             output_path = upload_dir / f"{task_id}_model.glb"
@@ -91,32 +95,41 @@ async def upload_image_to_stl(
                 output_format='glb'
             )
             
-            task_status[task_id]['progress'] = 90
-            task_status[task_id]['message'] = '正在优化模型...'
+            await store.update_task(task_id, {
+                'progress': 90,
+                'message': '正在优化模型...'
+            })
             
             if result['status'] == 'completed':
-                task_status[task_id]['progress'] = 100
-                task_status[task_id]['status'] = 'completed'
-                task_status[task_id]['message'] = '生成完成！'
-                task_status[task_id]['glb_path'] = result['file_path']
-                task_status[task_id]['generation_time'] = result['elapsed_time']
-                task_status[task_id]['vertices'] = result['vertices']
-                task_status[task_id]['faces'] = result['faces']
-                task_status[task_id]['file_size'] = result['file_size']
+                await store.update_task(task_id, {
+                    'progress': 100,
+                    'status': 'completed',
+                    'message': '生成完成！',
+                    'glb_path': result['file_path'],
+                    'generation_time': result['elapsed_time'],
+                    'vertices': result['vertices'],
+                    'faces': result['faces'],
+                    'file_size': result['file_size']
+                })
                 logger.info(
                     f"[ImageToSTL] 生成成功: {result['file_path']}, "
                     f"vertices={result['vertices']}, faces={result['faces']}, "
                     f"time={result['elapsed_time']}"
                 )
             else:
-                task_status[task_id]['status'] = 'failed'
-                task_status[task_id]['message'] = '生成失败'
+                await store.update_task(task_id, {
+                    'status': 'failed',
+                    'message': '生成失败'
+                })
                 logger.error(f"[ImageToSTL] 生成失败")
                 
         except Exception as e:
             logger.error(f"[ImageToSTL] 处理异常: {e}", exc_info=True)
-            task_status[task_id]['status'] = 'failed'
-            task_status[task_id]['message'] = f"异常: {str(e)}"
+            store = get_task_store()
+            await store.update_task(task_id, {
+                'status': 'failed',
+                'message': f"异常: {str(e)}"
+            })
     
     if background_tasks:
         background_tasks.add_task(imagetostl_process)
@@ -158,26 +171,32 @@ async def upload_triposr_cpu(
     logger.info(f"[EXPERIMENTAL] Received image for TripoSR CPU: {image_path}, mode={mode}")
     
     # 初始化任务状态
-    task_status[task_id] = {
+    store = get_task_store()
+    await store.set_task(task_id, {
         'status': 'processing',
         'progress': 0,
         'message': '正在启动生成...'
-    }
+    })
     
     if mode == 'cpu':
         # CPU模式：使用真实TripoSR模型
         async def cpu_process():
             try:
                 from app.services.generation.triposr_cpu_service import get_triposr_cpu
+                store = get_task_store()
                 
-                task_status[task_id]['progress'] = 10
-                task_status[task_id]['message'] = '正在加载模型...'
+                await store.update_task(task_id, {
+                    'progress': 10,
+                    'message': '正在加载模型...'
+                })
                 
                 # 获取CPU引擎
                 engine = get_triposr_cpu()
                 
-                task_status[task_id]['progress'] = 30
-                task_status[task_id]['message'] = '正在预处理图片...'
+                await store.update_task(task_id, {
+                    'progress': 30,
+                    'message': '正在预处理图片...'
+                })
                 
                 # 生成3D模型
                 output_path = upload_dir / f"{task_id}_model.glb"
@@ -186,25 +205,34 @@ async def upload_triposr_cpu(
                     output_path=str(output_path)
                 )
                 
-                task_status[task_id]['progress'] = 90
-                task_status[task_id]['message'] = '正在优化模型...'
+                await store.update_task(task_id, {
+                    'progress': 90,
+                    'message': '正在优化模型...'
+                })
                 
                 if result['success']:
-                    task_status[task_id]['progress'] = 100
-                    task_status[task_id]['status'] = 'completed'
-                    task_status[task_id]['message'] = '生成完成！'
-                    task_status[task_id]['glb_path'] = result['output_path']
-                    task_status[task_id]['generation_time'] = result['generation_time']
+                    await store.update_task(task_id, {
+                        'progress': 100,
+                        'status': 'completed',
+                        'message': '生成完成！',
+                        'glb_path': result['output_path'],
+                        'generation_time': result['generation_time']
+                    })
                     logger.info(f"[CPU] TripoSR生成成功: {result['output_path']}, 耗时: {result['generation_time']:.2f}秒")
                 else:
-                    task_status[task_id]['status'] = 'failed'
-                    task_status[task_id]['message'] = f"生成失败: {result.get('error', '未知错误')}"
+                    await store.update_task(task_id, {
+                        'status': 'failed',
+                        'message': f"生成失败: {result.get('error', '未知错误')}"
+                    })
                     logger.error(f"[CPU] TripoSR生成失败: {result.get('error')}")
                     
             except Exception as e:
                 logger.error(f"[CPU] TripoSR处理异常: {e}")
-                task_status[task_id]['status'] = 'failed'
-                task_status[task_id]['message'] = f"异常: {str(e)}"
+                store = get_task_store()
+                await store.update_task(task_id, {
+                    'status': 'failed',
+                    'message': f"异常: {str(e)}"
+                })
         
         if background_tasks:
             background_tasks.add_task(cpu_process)
@@ -214,26 +242,37 @@ async def upload_triposr_cpu(
         # Mock模式：模拟进度（保持原有逻辑）
         async def mock_process():
             import time
+            store = get_task_store()
             await asyncio.sleep(1)
-            task_status[task_id]['progress'] = 20
-            task_status[task_id]['message'] = '正在预处理图片...'
+            await store.update_task(task_id, {
+                'progress': 20,
+                'message': '正在预处理图片...'
+            })
             
             await asyncio.sleep(1)
-            task_status[task_id]['progress'] = 40
-            task_status[task_id]['message'] = '正在进行3D重建...'
+            await store.update_task(task_id, {
+                'progress': 40,
+                'message': '正在进行3D重建...'
+            })
             
             await asyncio.sleep(1)
-            task_status[task_id]['progress'] = 70
-            task_status[task_id]['message'] = '正在生成网格...'
+            await store.update_task(task_id, {
+                'progress': 70,
+                'message': '正在生成网格...'
+            })
             
             await asyncio.sleep(1)
-            task_status[task_id]['progress'] = 90
-            task_status[task_id]['message'] = '正在优化模型...'
+            await store.update_task(task_id, {
+                'progress': 90,
+                'message': '正在优化模型...'
+            })
             
             await asyncio.sleep(1)
-            task_status[task_id]['progress'] = 100
-            task_status[task_id]['status'] = 'completed'
-            task_status[task_id]['message'] = '生成完成！'
+            await store.update_task(task_id, {
+                'progress': 100,
+                'status': 'completed',
+                'message': '生成完成！'
+            })
             
             # 复制示例GLB文件
             possible_paths = [
@@ -255,7 +294,7 @@ async def upload_triposr_cpu(
                 output_glb = upload_dir / f"{task_id}_model.glb"
                 import shutil
                 shutil.copy2(example_glb, output_glb)
-                task_status[task_id]['glb_path'] = str(output_glb)
+                await store.update_task(task_id, {'glb_path': str(output_glb)})
                 logger.info(f"[EXPERIMENTAL] Copied example GLB to: {output_glb}")
             else:
                 logger.warning("[EXPERIMENTAL] No example GLB found, creating valid minimal GLB")
@@ -316,7 +355,7 @@ async def upload_triposr_cpu(
                 minimal_glb.extend(bin_data)
                         
                 output_glb.write_bytes(bytes(minimal_glb))
-                task_status[task_id]['glb_path'] = str(output_glb)
+                await store.update_task(task_id, {'glb_path': str(output_glb)})
                 logger.info(f"[EXPERIMENTAL] Created valid minimal GLB at: {output_glb} ({len(minimal_glb)} bytes)")
         
         if background_tasks:
@@ -410,12 +449,14 @@ async def upload_huggingface(
 @router.get("/task/{task_id}")
 async def get_task_status(task_id: str):
     """查询任务状态"""
-    logger.info(f"[EXPERIMENTAL] Query task: {task_id}, exists={task_id in task_status}")
-    if task_id not in task_status:
+    store = get_task_store()
+    task_data = await store.get_task(task_id)
+    logger.info(f"[EXPERIMENTAL] Query task: {task_id}, exists={task_data is not None}")
+    if task_data is None:
         logger.warning(f"[EXPERIMENTAL] Task not found: {task_id}")
         raise HTTPException(status_code=404, detail='Task not found')
     
-    return task_status[task_id]
+    return task_data
 
 
 async def _handle_mock_generation(
@@ -439,25 +480,26 @@ async def _handle_mock_generation(
     logger.info(f"[EXPERIMENTAL] Mock mode: received image {image_path}")
 
     # 初始化任务状态
-    task_status[task_id] = {
+    store = get_task_store()
+    await store.set_task(task_id, {
         'status': 'processing',
         'progress': 0,
         'message': f'[Mock] 正在生成3D模型... [模型: {version}]',
-        'user_id': current_user.id
-    }
-    logger.info(f"[EXPERIMENTAL] Task created: {task_id}, status keys={list(task_status.keys())}")
+        'user_id': str(current_user.id)
+    })
+    logger.info(f"[EXPERIMENTAL] Task created: {task_id}")
 
     async def mock_process():
         try:
+            store = get_task_store()
             # 模拟进度更新
             for progress in [10, 30, 50, 70, 90, 100]:
                 await asyncio.sleep(1)  # 每秒更新一次
-                task_status[task_id]['progress'] = progress
-
-                if progress < 100:
-                    task_status[task_id]['message'] = f'[Mock] 生成中... {progress}%'
-                else:
-                    task_status[task_id]['message'] = '[Mock] 生成完成！'
+                msg = f'[Mock] 生成中... {progress}%' if progress < 100 else '[Mock] 生成完成！'
+                await store.update_task(task_id, {
+                    'progress': progress,
+                    'message': msg
+                })
 
             # 使用示例GLB文件
             example_glb = Path(__file__).parent.parent.parent.parent / 'assets' / 'example.glb'
@@ -486,18 +528,20 @@ async def _handle_mock_generation(
                     0x0C, 0x00, 0x00, 0x00,  # length: 12 bytes
                 ])
                 output_path.write_bytes(minimal_glb)
-                task_status[task_id]['glb_path'] = str(output_path)
+                await store.update_task(task_id, {'glb_path': str(output_path)})
                 logger.info(f"[EXPERIMENTAL] Created minimal GLB placeholder: {output_path}")
             else:
                 # 复制示例文件
                 output_path = upload_dir / f"{task_id}_model.glb"
                 import shutil
                 shutil.copy2(example_glb, output_path)
-                task_status[task_id]['glb_path'] = str(output_path)
+                await store.update_task(task_id, {'glb_path': str(output_path)})
                 logger.info(f"[EXPERIMENTAL] Copied example GLB: {example_glb} -> {output_path}")
 
-            task_status[task_id]['status'] = 'completed'
-            task_status[task_id]['generation_time'] = 6.0
+            await store.update_task(task_id, {
+                'status': 'completed',
+                'generation_time': 6.0
+            })
 
             # 记录API调用成功（仅统计）
             quota_service = QuotaService(db)
@@ -507,8 +551,11 @@ async def _handle_mock_generation(
 
         except Exception as e:
             logger.error(f"[EXPERIMENTAL] Mock process failed: {e}", exc_info=True)
-            task_status[task_id]['status'] = 'failed'
-            task_status[task_id]['message'] = f"异常: {str(e)}"
+            store = get_task_store()
+            await store.update_task(task_id, {
+                'status': 'failed',
+                'message': f"异常: {str(e)}"
+            })
 
     # 启动后台任务
     asyncio.create_task(mock_process())
@@ -571,31 +618,37 @@ async def _handle_cloud_generation(
 
     logger.info(f"[EXPERIMENTAL] Cloud mode: received image {image_path}")
 
-    task_status[task_id] = {
+    store = get_task_store()
+    await store.set_task(task_id, {
         'status': 'processing',
         'progress': 0,
         'message': '正在上传图片到云端...',
-        'user_id': current_user.id
-    }
+        'user_id': str(current_user.id)
+    })
 
     async def cloud_process():
         try:
             engine = get_hunyuan3d_cloud(version=api_version)
+            store = get_task_store()
 
-            task_status[task_id]['progress'] = 10
-            task_status[task_id]['message'] = '正在上传图片到云端...'
+            await store.update_task(task_id, {
+                'progress': 10,
+                'message': '正在上传图片到云端...'
+            })
 
             # 定义进度回调函数（从30%→90%区间更新）
+            # 注意：此回调在同步上下文中被调用，需通过create_task调度异步更新
             def update_progress(progress_value: int):
-                task_status[task_id]['progress'] = progress_value
-                if progress_value == 30:
-                    task_status[task_id]['message'] = '云端提交成功，正在等待GPU处理完成...'
-                elif progress_value == 50:
-                    task_status[task_id]['message'] = 'GPU正在渲染3D模型纹理...'
-                elif progress_value == 70:
-                    task_status[task_id]['message'] = '模型渲染中，正在生成最终网格...'
-                elif progress_value == 90:
-                    task_status[task_id]['message'] = '即将完成，正在下载模型文件...'
+                msg_map = {
+                    30: '云端提交成功，正在等待GPU处理完成...',
+                    50: 'GPU正在渲染3D模型纹理...',
+                    70: '模型渲染中，正在生成最终网格...',
+                    90: '即将完成，正在下载模型文件...',
+                }
+                updates = {'progress': progress_value}
+                if progress_value in msg_map:
+                    updates['message'] = msg_map[progress_value]
+                asyncio.create_task(store.update_task(task_id, updates))
 
             # 从配置驱动模块读取版本信息
             display_name = vc.display if vc else '标准版'
@@ -614,9 +667,11 @@ async def _handle_cloud_generation(
 
             # 从配置驱动模块读取云端处理消息（支持逐版本配置）
             cloud_msg_template = model_versions.get_cloud_message(version)
-            task_status[task_id]['message'] = cloud_msg_template.format(display=display_name)
+            await store.update_task(task_id, {
+                'message': cloud_msg_template.format(display=display_name)
+            })
 
-            task_status[task_id]['progress'] = 30
+            await store.update_task(task_id, {'progress': 30})
 
             result = await engine.generate(
                 image_path=str(image_path),
@@ -627,11 +682,13 @@ async def _handle_cloud_generation(
             )
 
             if result['success']:
-                task_status[task_id]['progress'] = 100
-                task_status[task_id]['status'] = 'completed'
-                task_status[task_id]['message'] = '生成完成！'
-                task_status[task_id]['glb_path'] = str(output_path)
-                task_status[task_id]['generation_time'] = result['generation_time']
+                await store.update_task(task_id, {
+                    'progress': 100,
+                    'status': 'completed',
+                    'message': '生成完成！',
+                    'glb_path': str(output_path),
+                    'generation_time': result['generation_time']
+                })
 
                 # 记录API调用成功（仅统计）
                 quota_service = QuotaService(db)
@@ -667,7 +724,7 @@ async def _handle_cloud_generation(
                         await db_session.commit()
                         await db_session.refresh(model)
 
-                        task_status[task_id]['model_id'] = model.id
+                        await store.update_task(task_id, {'model_id': str(model.id)})
                         logger.info(f"[Cloud] Model saved to database: {model.id} (URL: {model_url_path})")
 
                 except Exception as db_error:
@@ -678,7 +735,6 @@ async def _handle_cloud_generation(
             else:
                 error_msg = result.get('error', '未知错误')
                 error_code = result.get('error_code', '')
-                task_status[task_id]['status'] = 'failed'
 
                 # 检测是否为资源包耗尽错误（优先使用error_code精确判断）
                 is_resource_exhausted = (
@@ -687,15 +743,21 @@ async def _handle_cloud_generation(
                     'resourcepackexhausted' in error_msg.lower()
                 )
                 if is_resource_exhausted:
-                    task_status[task_id]['message'] = (
-                        '❌ 腾讯混元3D资源包已用完！'
-                        '请前往腾讯云控制台购买更多资源包。'
-                    )
-                    task_status[task_id]['resource_exhausted'] = True
+                    await store.update_task(task_id, {
+                        'status': 'failed',
+                        'message': (
+                            '❌ 腾讯混元3D资源包已用完！'
+                            '请前往腾讯云控制台购买更多资源包。'
+                        ),
+                        'resource_exhausted': True
+                    })
                     logger.error(f"[Cloud] 资源包已耗尽: code={error_code}, msg={error_msg}")
                 else:
                     # 显示实际错误信息（便于排查问题）
-                    task_status[task_id]['message'] = f"生成失败: {error_msg} (code: {error_code})"
+                    await store.update_task(task_id, {
+                        'status': 'failed',
+                        'message': f"生成失败: {error_msg} (code: {error_code})"
+                    })
                     logger.error(f"[Cloud] API调用失败 (非资源包问题): code={error_code}, msg={error_msg}")
 
                 # 记录API调用失败（仅统计）
@@ -705,7 +767,7 @@ async def _handle_cloud_generation(
         except Exception as e:
             error_str = str(e)
             logger.error(f"[Cloud] Generation exception: {error_str}", exc_info=True)
-            task_status[task_id]['status'] = 'failed'
+            store = get_task_store()
 
             # 使用精确匹配检测资源包耗尽
             is_resource_exhausted = (
@@ -714,13 +776,19 @@ async def _handle_cloud_generation(
                 'FailedOperation.ResourcePackExhausted' in error_str
             )
             if is_resource_exhausted:
-                task_status[task_id]['message'] = (
-                    '❌ 腾讯混元3D资源包已用完！'
-                    '请前往腾讯云控制台购买更多资源包。'
-                )
-                task_status[task_id]['resource_exhausted'] = True
+                await store.update_task(task_id, {
+                    'status': 'failed',
+                    'message': (
+                        '❌ 腾讯混元3D资源包已用完！'
+                        '请前往腾讯云控制台购买更多资源包。'
+                    ),
+                    'resource_exhausted': True
+                })
             else:
-                task_status[task_id]['message'] = f"生成失败: {error_str}"
+                await store.update_task(task_id, {
+                    'status': 'failed',
+                    'message': f"生成失败: {error_str}"
+                })
 
             # 记录API调用失败（仅统计）
             try:
@@ -745,7 +813,8 @@ async def _handle_cloud_generation(
 @router.get("/download/{task_id}")
 async def download_result(task_id: str):
     """下载生成结果"""
-    result = task_status.get(task_id)
+    store = get_task_store()
+    result = await store.get_task(task_id)
     if not result or result.get('status') != 'completed':
         raise HTTPException(status_code=404, detail='Result not ready')
     

@@ -14,11 +14,19 @@ services:
       - DEBUG=false
       - ENVIRONMENT=production
     depends_on:
-      - web3d-postgres
-      - web3d-redis
+      web3d-postgres:
+        condition: service_healthy
+      web3d-redis:
+        condition: service_healthy
     networks:
       - web3d-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 
   # PostgreSQL 数据库（Web3D专用）
   web3d-postgres:
@@ -32,9 +40,16 @@ services:
       - "25432:5432"
     volumes:
       - web3d_postgres_data:/var/lib/postgresql/data
+      - ./database/init_database.sql:/docker-entrypoint-initdb.d/01-init.sql
     networks:
       - web3d-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U web3d_user -d web3d"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   # Redis 缓存（Web3D专用）
   web3d-redis:
@@ -48,6 +63,12 @@ services:
     networks:
       - web3d-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_password_2025", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
   # MinIO 对象存储（Web3D专用）
   web3d-minio:
@@ -62,6 +83,38 @@ services:
     volumes:
       - web3d_minio_data:/data
     command: server /data --console-address ":9001"
+    networks:
+      - web3d-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Nginx 反向代理 + HTTPS 统一入口
+  web3d-nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.nginx
+    container_name: web3d-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # 挂载 Nginx 配置（开发调试用，生产环境配置已打包进镜像）
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # 挂载 SSL 证书目录
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      # ACME challenge 目录（Let's Encrypt 验证）
+      - ./nginx/certbot:/var/www/certbot:ro
+      # 生产模式：挂载前端构建后的静态文件（dist 目录）
+      # 开发模式：注释掉下面这行，并在 nginx.conf 中启用前端开发代理
+      - ../src/web-frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      web3d-backend:
+        condition: service_healthy
     networks:
       - web3d-network
     restart: unless-stopped

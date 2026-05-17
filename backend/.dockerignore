@@ -1,0 +1,17 @@
+__pycache__
+*.pyc
+*.pyo
+.env
+.git
+.gitignore
+*.db
+uploads/
+cache/
+node_modules/
+.venv*/
+.vscode/
+*.md
+docker-compose.yml
+Dockerfile
+.dockerignore
+triposr_lib/

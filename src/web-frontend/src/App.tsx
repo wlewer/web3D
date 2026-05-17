@@ -1,5 +1,5 @@
 // 应用入口
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { HomePage, GalleryPage, AuthPage, UploadPage, BookViewerPage, BookGalleryPage } from './pages';
 import { Week2ComponentsTest } from './pages/Test';
@@ -13,6 +13,11 @@ import type { NavMenuItem, PageContext } from './types/template';
 import { LegacyPage } from './core/template/LegacyPage';
 import { TemplateRenderer } from './core/template/TemplateRenderer';
 import './App.css';
+
+// 搭建器编辑器 - 懒加载（代码量大，独立路由入口）
+const LazyEditorApp = lazy(() =>
+  import('./editor/EditorApp').then((mod) => ({ default: mod.EditorApp })),
+);
 
 // 语言切换组件
 function LanguageSwitcher() {
@@ -71,6 +76,7 @@ function NavBar({ currentPage, setCurrentPage, user, onLogout, navItems }: {
   const currentNavItem = useDataDriven
     ? visibleNavItems.find(item => {
         if (currentPage === 'home' && item.route === '/') return true;
+        if (currentPage.startsWith('/')) return item.route === currentPage;
         const pageRouteMap: Record<string, string> = {
           'home': '/', 'gallery': '/gallery', 'workshop': '/workshop',
           'upload': '/upload', 'auth': '/auth', 'book': '/book',
@@ -190,11 +196,22 @@ function AppContent() {
 
   // 页面切换时同步URL
   const handlePageChange = (page: string) => {
-    setCurrentPage(page as typeof currentPage);
+    // 如果 page 是路由字符串（以 / 开头），查找对应 nav_item 并推导 page 标识
+    let actualPage = page;
+    if (page.startsWith('/') && navItems) {
+      const navMatch = navItems.find(n => n.route === page);
+      if (navMatch) {
+        actualPage = navMatch.page_component || page;
+      }
+    }
+
+    setCurrentPage(actualPage as typeof currentPage);
     
     // 优先使用 navItems 中的 route，回退硬编码 pathMap
     if (navItems) {
-      const navItem = navItems.find(item => item.page_component === page);
+      const navItem = navItems.find(item =>
+        item.page_component === actualPage || item.route === actualPage
+      );
       if (navItem) {
         window.history.pushState({}, '', navItem.route);
         return;
@@ -212,11 +229,15 @@ function AppContent() {
       'book': '/book',
       'book-gallery': '/book-gallery',
     };
-    window.history.pushState({}, '', pathMap[page] || '/');
+    window.history.pushState({}, '', pathMap[actualPage] || (actualPage.startsWith('/') ? actualPage : '/'));
   };
 
   // 根据当前路径查找对应的 nav_menu 数据
   const currentNavMenuItem = navItems?.find(item => {
+    if (currentPage.startsWith('/')) {
+      // 路由字符串直接匹配
+      return item.route === currentPage;
+    }
     const routeMap: Record<string, string> = {
       'home': '/', 'gallery': '/gallery', 'workshop': '/workshop',
       'upload': '/upload', 'auth': '/auth', 'book': '/book',
@@ -302,6 +323,16 @@ export default function App() {
           <Route path="/admin/*" element={<AdminEntry />} />
           {/* 处理/admin 根路径 */}
           <Route path="/admin" element={<AdminEntry />} />
+          
+          {/* 搭建器编辑器 */}
+          <Route
+            path="/editor/:pageId"
+            element={
+              <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>加载编辑器...</div>}>
+                <LazyEditorApp />
+              </Suspense>
+            }
+          />
           
           {/* 前台应用 */}
           <Route path="/*" element={<AppContent />} />

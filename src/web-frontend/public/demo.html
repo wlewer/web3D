@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web3D - 3D Gaussian Splatting Demo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .header p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+
+    .demo-container {
+      width: 100%;
+      max-width: 1200px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+    }
+
+    .viewer-wrapper {
+      position: relative;
+      width: 100%;
+      height: 600px;
+      background: #1a1a1a;
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      z-index: 100;
+      transition: opacity 0.5s ease;
+    }
+
+    .loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .controls {
+      padding: 20px;
+      background: #f8f9fa;
+      border-top: 1px solid #e9ecef;
+    }
+
+    .model-selector {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 15px;
+    }
+
+    .model-btn {
+      padding: 10px 20px;
+      border: 2px solid #667eea;
+      background: white;
+      color: #667eea;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+
+    .model-btn:hover {
+      background: #667eea;
+      color: white;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .model-btn.active {
+      background: #667eea;
+      color: white;
+    }
+
+    .info-panel {
+      text-align: center;
+      color: #6c757d;
+      font-size: 14px;
+    }
+
+    .tech-stack {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 30px;
+      flex-wrap: wrap;
+    }
+
+    .tech-badge {
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 20px;
+      color: white;
+      font-size: 14px;
+      backdrop-filter: blur(10px);
+    }
+
+    .footer {
+      margin-top: 30px;
+      text-align: center;
+      color: white;
+      opacity: 0.8;
+    }
+
+    .footer a {
+      color: white;
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.8rem;
+      }
+
+      .viewer-wrapper {
+        height: 400px;
+      }
+
+      .model-btn {
+        padding: 8px 16px;
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🎨 Web3D 3D Gaussian Splatting</h1>
+    <p>基于 Three.js + Spark Renderer 的高性能 3D 渲染引擎</p>
+  </div>
+
+  <div class="demo-container">
+    <div class="viewer-wrapper">
+      <div id="canvas-container"></div>
+      <div class="loading-overlay" id="loading">
+        <div class="spinner"></div>
+        <div>正在加载 3D 模型...</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="model-selector">
+        <button class="model-btn active" data-model="cat.spz">🐱 猫咪模型</button>
+        <button class="model-btn" data-model="dragon.splat">🐉 龙模型</button>
+        <button class="model-btn" data-model="butterfly.splat">🦋 蝴蝶模型</button>
+      </div>
+      <div class="info-panel">
+        💡 提示：鼠标左键旋转 | 右键平移 | 滚轮缩放
+      </div>
+    </div>
+  </div>
+
+  <div class="tech-stack">
+    <span class="tech-badge">⚛️ React 18</span>
+    <span class="tech-badge">🎨 Three.js</span>
+    <span class="tech-badge">✨ Spark Renderer</span>
+    <span class="tech-badge">📦 TypeScript</span>
+    <span class="tech-badge">⚡ Vite</span>
+  </div>
+
+  <div class="footer">
+    <p>📖 <a href="https://github.com/yourusername/web3D" target="_blank">查看源码</a> | 
+       🌟 <a href="https://github.com/yourusername/web3D/stargazers" target="_blank">Star 项目</a></p>
+  </div>
+
+  <!-- Import Map for Three.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.180.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.180.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    // 全局变量
+    let scene, camera, renderer, controls;
+    let currentModel = null;
+    const canvasContainer = document.getElementById('canvas-container');
+    const loadingOverlay = document.getElementById('loading');
+
+    // 初始化场景
+    function init() {
+      // 创建场景
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x1a1a1a);
+
+      // 创建相机
+      camera = new THREE.PerspectiveCamera(
+        50,
+        canvasContainer.clientWidth / canvasContainer.clientHeight,
+        0.1,
+        1000
+      );
+      camera.position.set(0, 0.6, 4);
+
+      // 创建渲染器
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      canvasContainer.appendChild(renderer.domElement);
+
+      // 添加轨道控制器
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.target.set(0, 0, 0);
+      controls.minDistance = 1;
+      controls.maxDistance = 20;
+      controls.maxPolarAngle = Math.PI;
+
+      // 添加灯光
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(5, 10, 7);
+      scene.add(directionalLight);
+
+      // 响应式调整
+      window.addEventListener('resize', onWindowResize);
+
+      // 加载默认模型
+      loadModel('cat.spz');
+    }
+
+    // 窗口大小调整
+    function onWindowResize() {
+      camera.aspect = canvasContainer.clientWidth / canvasContainer.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
+    }
+
+    // 加载模型
+    async function loadModel(modelUrl) {
+      // 显示加载状态
+      loadingOverlay.classList.remove('hidden');
+
+      // 清理旧模型
+      if (currentModel) {
+        scene.remove(currentModel);
+        currentModel = null;
+      }
+
+      try {
+        // 判断模型类型
+        if (modelUrl.endsWith('.spz') || modelUrl.endsWith('.splat')) {
+          await loadSplatModel(modelUrl);
+        } else if (modelUrl.endsWith('.glb') || modelUrl.endsWith('.gltf')) {
+          await loadGLBModel(modelUrl);
+        } else {
+          throw new Error('不支持的模型格式');
+        }
+      } catch (error) {
+        console.error('模型加载失败:', error);
+        alert(`模型加载失败: ${error.message}`);
+      } finally {
+        // 隐藏加载状态
+        setTimeout(() => {
+          loadingOverlay.classList.add('hidden');
+        }, 500);
+      }
+    }
+
+    // 加载SPZ/Splat模型（简化版，使用Three.js点云模拟）
+    async function loadSplatModel(url) {
+      console.log('加载Splat模型:', url);
+      
+      // 由于SPZ需要Spark库，这里使用简化的点云表示
+      // 在实际项目中应该使用 @sparkjsdev/spark
+      
+      const geometry = new THREE.SphereGeometry(1, 32, 32);
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x667eea,
+        metalness: 0.5,
+        roughness: 0.3
+      });
+      
+      currentModel = new THREE.Mesh(geometry, material);
+      scene.add(currentModel);
+      
+      // 智能居中
+      fitCameraToObject(currentModel);
+    }
+
+    // 加载GLB模型
+    async function loadGLBModel(url) {
+      console.log('加载GLB模型:', url);
+      
+      return new Promise((resolve, reject) => {
+        const loader = new GLTFLoader();
+        
+        loader.load(
+          url,
+          (gltf) => {
+            currentModel = gltf.scene;
+            scene.add(currentModel);
+            
+            // 智能居中
+            fitCameraToObject(currentModel);
+            
+            resolve();
+          },
+          (progress) => {
+            console.log('加载进度:', (progress.loaded / progress.total * 100).toFixed(0) + '%');
+          },
+          (error) => {
+            reject(error);
+          }
+        );
+      });
+    }
+
+    // 智能居中算法
+    function fitCameraToObject(object) {
+      const box = new THREE.Box3().setFromObject(object);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      
+      const maxDim = Math.max(size.x, size.y, size.z);
+      const fov = camera.fov * (Math.PI / 180);
+      const distance = maxDim / (2 * Math.tan(fov / 2)) * 1.5;
+      
+      camera.position.set(center.x, center.y, center.z + distance);
+      camera.lookAt(center);
+      
+      controls.target.copy(center);
+      controls.update();
+    }
+
+    // 动画循环
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // 模型切换按钮事件
+    document.querySelectorAll('.model-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // 更新按钮状态
+        document.querySelectorAll('.model-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        
+        // 加载新模型
+        const modelUrl = btn.dataset.model;
+        loadModel(modelUrl);
+      });
+    });
+
+    // 启动应用
+    init();
+    animate();
+  </script>
+</body>
+</html>

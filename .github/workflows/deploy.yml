@@ -1,0 +1,53 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            # Pull latest images
+            docker compose pull web3d-backend
+
+            # Restart services
+            docker compose up -d --remove-orphans
+
+            # Health check - wait for backend to be ready
+            echo "Waiting for backend health check..."
+            for i in $(seq 1 30); do
+              if curl -sf http://localhost:8000/health; then
+                echo ""
+                echo "✅ Backend is healthy!"
+                exit 0
+              fi
+              echo "Attempt $i/30 - waiting..."
+              sleep 5
+            done
+
+            echo "❌ Health check failed after 150 seconds"
+            docker compose logs --tail=50 web3d-backend
+            exit 1

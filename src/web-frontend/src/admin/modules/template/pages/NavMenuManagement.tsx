@@ -5,8 +5,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import UnifiedTable from '@/admin/components/UnifiedTable';
 import {
-  Button, Space, Tag, Switch, Input, InputNumber, Modal, message,
-  Popconfirm, Card, Tooltip, Select, Form, Drawer,
+  Button, Space, Tag, Switch, Input, InputNumber, message,
+  Popconfirm, Card, Tooltip, Select, Form, Drawer, Modal,
   type TableColumnsType,
 } from 'antd';
 import {
@@ -57,13 +57,16 @@ export const NavMenuManagement: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingMenu, setEditingMenu] = useState<NavMenuItem | null>(null);
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
+  const [templateSelectOpen, setTemplateSelectOpen] = useState(false);
+  const [pendingSwitchMenu, setPendingSwitchMenu] = useState<NavMenuItem | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [form] = Form.useForm();
 
   // 获取列表
   const fetchMenus = useCallback(async () => {
     setLoading(true);
     try {
-      const resp = await axiosInstance.get('/api/v1/nav-menus/flat', { params: { include_hidden: true } });
+      const resp = await axiosInstance.get('nav-menus/flat', { params: { include_hidden: true } });
       setMenus(resp.data.data || []);
     } catch (err: any) {
       message.error('获取菜单列表失败: ' + (err?.message || ''));
@@ -75,7 +78,7 @@ export const NavMenuManagement: React.FC = () => {
   // 获取模板选项
   const fetchTemplates = useCallback(async () => {
     try {
-      const resp = await axiosInstance.get('/api/v1/website-templates', { params: { status: 'published', page_size: 100 } });
+      const resp = await axiosInstance.get('website-templates', { params: { status: 'published', page_size: 100 } });
       setTemplates((resp.data.data || []).map((t: any) => ({ id: t.id, name: t.name })));
     } catch {
       // 静默失败
@@ -124,10 +127,10 @@ export const NavMenuManagement: React.FC = () => {
       };
 
       if (editingMenu) {
-        await axiosInstance.put(`/api/v1/nav-menus/${editingMenu.id}`, payload);
+        await axiosInstance.put(`nav-menus/${editingMenu.id}`, payload);
         message.success('菜单已更新');
       } else {
-        await axiosInstance.post('/api/v1/nav-menus', payload);
+        await axiosInstance.post('nav-menus', payload);
         message.success('菜单已创建');
       }
       setDrawerOpen(false);
@@ -140,9 +143,37 @@ export const NavMenuManagement: React.FC = () => {
 
   // 一键切换到模板模式（清除 page_component）
   const switchToTemplateMode = async (menu: NavMenuItem) => {
+    // 如果已有 template_id，直接切换
+    if (menu.template_id) {
+      try {
+        await axiosInstance.put(`nav-menus/${menu.id}`, { page_component: null });
+        message.success(`「${menu.label?.zh || menu.route}」已切换到模板模式`);
+        fetchMenus();
+      } catch (err: any) {
+        message.error('切换失败: ' + (err?.message || ''));
+      }
+      return;
+    }
+    // 没有 template_id，弹出模板选择器
+    setPendingSwitchMenu(menu);
+    setSelectedTemplateId('');
+    setTemplateSelectOpen(true);
+  };
+
+  // 确认模板选择并切换到模板模式
+  const confirmTemplateSelect = async () => {
+    if (!pendingSwitchMenu || !selectedTemplateId) {
+      message.warning('请选择一个模板');
+      return;
+    }
     try {
-      await axiosInstance.put(`/api/v1/nav-menus/${menu.id}`, { page_component: null });
-      message.success(`「${menu.label?.zh || menu.route}」已切换到模板模式`);
+      await axiosInstance.put(`nav-menus/${pendingSwitchMenu.id}`, {
+        template_id: selectedTemplateId,
+        page_component: null,
+      });
+      message.success(`「${pendingSwitchMenu.label?.zh || pendingSwitchMenu.route}」已切换到模板模式`);
+      setTemplateSelectOpen(false);
+      setPendingSwitchMenu(null);
       fetchMenus();
     } catch (err: any) {
       message.error('切换失败: ' + (err?.message || ''));
@@ -152,7 +183,7 @@ export const NavMenuManagement: React.FC = () => {
   // 删除
   const handleDelete = async (id: string) => {
     try {
-      await axiosInstance.delete(`/api/v1/nav-menus/${id}`);
+      await axiosInstance.delete(`nav-menus/${id}`);
       message.success('菜单已删除');
       fetchMenus();
     } catch (err: any) {
@@ -163,7 +194,7 @@ export const NavMenuManagement: React.FC = () => {
   // 切换可见性
   const toggleVisibility = async (menu: NavMenuItem) => {
     try {
-      await axiosInstance.put(`/api/v1/nav-menus/${menu.id}`, { is_visible: !menu.is_visible });
+      await axiosInstance.put(`nav-menus/${menu.id}`, { is_visible: !menu.is_visible });
       message.success(`菜单已${menu.is_visible ? '隐藏' : '显示'}`);
       fetchMenus();
     } catch (err: any) {
@@ -174,10 +205,10 @@ export const NavMenuManagement: React.FC = () => {
   // 列定义
   const columns: TableColumnsType<NavMenuItem> = [
     {
-      title: '排序', dataIndex: 'sort_order', key: 'sort_order', width: 70,
+      title: '排序', dataIndex: 'sort_order', key: 'sort_order', width: 60,
     },
     {
-      title: '显示名称', key: 'label', width: 180,
+      title: '显示名称', key: 'label', width: 160,
       render: (_, record) => (
         <Space>
           {record.icon && <span>{record.icon}</span>}
@@ -186,12 +217,27 @@ export const NavMenuManagement: React.FC = () => {
       ),
     },
     {
-      title: '路由', dataIndex: 'route', key: 'route', width: 180,
+      title: '路由', dataIndex: 'route', key: 'route', width: 160,
       render: (v: string) => <code style={{ fontSize: 12 }}>{v}</code>,
     },
     {
-      title: '页面组件', dataIndex: 'page_component', key: 'page_component', width: 130,
-      render: (v: string | null) => v ? <Tag color="blue">{v}</Tag> : <Tag color="default">模板模式</Tag>,
+      title: '运行模式', key: 'mode', width: 110,
+      render: (_, record) => {
+        if (record.template_id && !record.page_component) {
+          return <Tag color="purple">模板模式</Tag>;
+        }
+        if (record.page_component && !record.template_id) {
+          return <Tag color="blue">组件模式</Tag>;
+        }
+        if (record.page_component && record.template_id) {
+          return <Tag color="orange">混合模式</Tag>;
+        }
+        return <Tag color="red">待配置</Tag>;
+      },
+    },
+    {
+      title: '页面组件', dataIndex: 'page_component', key: 'page_component', width: 120,
+      render: (v: string | null) => v ? <Tag color="blue">{v}</Tag> : <Tag color="default">—</Tag>,
     },
     {
       title: '模板绑定', dataIndex: 'template_id', key: 'template_id', width: 150,
@@ -202,29 +248,36 @@ export const NavMenuManagement: React.FC = () => {
       },
     },
     {
-      title: '可见', dataIndex: 'is_visible', key: 'is_visible', width: 70,
+      title: '可见', dataIndex: 'is_visible', key: 'is_visible', width: 60,
       render: (v: boolean, record) => (
         <Switch size="small" checked={v} onChange={() => toggleVisibility(record)} />
       ),
     },
     {
-      title: '需登录', dataIndex: 'auth_required', key: 'auth_required', width: 80,
+      title: '需登录', dataIndex: 'auth_required', key: 'auth_required', width: 70,
       render: (v: boolean) => v ? <Tag color="orange">是</Tag> : <Tag>否</Tag>,
     },
     {
-      title: '操作', key: 'actions', width: 220, fixed: 'right' as const,
+      title: '操作', key: 'actions', width: 240, fixed: 'right' as const,
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="编辑"><Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} /></Tooltip>
-          {record.page_component && record.template_id ? (
+          {record.template_id ? (
             <Popconfirm
               title={`确定将「${record.label?.zh || record.route}」切换到模板模式？`}
-              description="切换后页面将使用模板引擎渲染，遗留组件将被移除"
+              description={record.page_component ? '切换后页面将使用模板引擎渲染，遗留组件将被移除' : '该菜单已在模板模式下'}
               onConfirm={() => switchToTemplateMode(record)}
+              okText={record.page_component ? '切换' : '确认'}
             >
-              <Tooltip title="切换到模板模式"><Button size="small" type="primary" ghost>模板</Button></Tooltip>
+              <Tooltip title={record.page_component ? '切换到模板模式' : '已在模板模式'}>
+                <Button size="small" type="primary" ghost={!!record.page_component}>{record.page_component ? '激活模板' : '✓ 模板'}</Button>
+              </Tooltip>
             </Popconfirm>
-          ) : null}
+          ) : (
+            <Tooltip title="绑定模板并切换到模板模式">
+              <Button size="small" type="primary" ghost onClick={() => switchToTemplateMode(record)}>绑定模板</Button>
+            </Tooltip>
+          )}
           <Popconfirm title="确定删除此菜单？" onConfirm={() => handleDelete(record.id)}>
             <Tooltip title="删除"><Button size="small" danger icon={<DeleteOutlined />} /></Tooltip>
           </Popconfirm>
@@ -303,6 +356,28 @@ export const NavMenuManagement: React.FC = () => {
           </Form.Item>
         </Form>
       </Drawer>
+
+      {/* 模板选择弹窗（当点击「绑定模板」且未设置 template_id 时触发） */}
+      <Modal
+        title={`选择模板 — ${pendingSwitchMenu?.label?.zh || pendingSwitchMenu?.route || ''}`}
+        open={templateSelectOpen}
+        onOk={confirmTemplateSelect}
+        onCancel={() => { setTemplateSelectOpen(false); setPendingSwitchMenu(null); }}
+        okText="确认切换"
+        cancelText="取消"
+        okButtonProps={{ disabled: !selectedTemplateId }}
+      >
+        <div style={{ marginBottom: 16 }}>
+          请选择一个模板绑定到该菜单。切换后页面将由 <strong>模板引擎</strong> 渲染。
+        </div>
+        <Select
+          style={{ width: '100%' }}
+          placeholder="请选择模板..."
+          value={selectedTemplateId || undefined}
+          onChange={setSelectedTemplateId}
+          options={templates.map(t => ({ value: t.id, label: t.name }))}
+        />
+      </Modal>
     </Card>
   );
 };
