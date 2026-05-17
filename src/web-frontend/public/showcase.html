@@ -13,89 +13,120 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
             min-height: 100vh;
             color: white;
             overflow-x: hidden;
         }
 
         .gallery-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 30px 20px;
+            width: 100%;
+            height: 100vh;
+            padding: 12px 60px;
+            display: flex;
+            align-items: stretch;
         }
 
         .gallery-grid {
+            flex: 1;
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 30px;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: 1fr 1fr;
+            gap: 12px;
+            width: 100%;
+            height: 100%;
         }
 
-        .gallery-card {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 16px;
+        .gallery-card-wrapper {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 12px;
             overflow: hidden;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
             transition: all 0.3s ease;
+            position: relative;
+            min-height: 0;
         }
 
-        .gallery-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
-            border-color: rgba(102, 126, 234, 0.5);
+        .gallery-card-wrapper:hover {
+            border-color: rgba(102, 126, 234, 0.3);
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .gallery-card-3d {
+            flex: 1;
+            position: relative;
+            min-height: 0;
         }
 
         .card-3d-container {
             width: 100%;
-            height: 300px;
+            height: 100%;
             position: relative;
             background: rgba(0, 0, 0, 0.2);
         }
 
+        /* 信息区域 - 在画布下方 */
         .card-info {
-            padding: 20px;
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            flex-shrink: 0;
+            background: rgba(0, 0, 0, 0.2);
         }
 
         .card-title {
-            font-size: 1.4em;
-            font-weight: 600;
-            margin-bottom: 8px;
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+            flex: 1;
         }
 
         .card-tag {
-            display: inline-block;
-            padding: 6px 16px;
+            font-size: 12px;
+            padding: 3px 10px;
             background: rgba(102, 126, 234, 0.2);
-            border-radius: 20px;
-            font-size: 0.9em;
-            color: #667eea;
-        }
-
-        .card-actions {
-            padding: 0 20px 20px;
-            text-align: center;
-        }
-
-        .btn-detail {
-            padding: 12px 40px;
-            background: rgba(102, 126, 234, 0.3);
-            border: 1px solid rgba(102, 126, 234, 0.5);
             border-radius: 12px;
-            color: white;
-            font-size: 0.95em;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
+            color: rgba(255, 255, 255, 0.7);
+            white-space: nowrap;
         }
 
-        .btn-detail:hover {
-            background: rgba(102, 126, 234, 0.5);
-            border-color: rgba(102, 126, 234, 0.7);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        /* 内嵌详情按钮 - 覆盖在3D画布底部 */
+        .gallery-card-detail-btn {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 24px 12px 10px;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.75));
+            border: none;
+            color: #667eea;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: all 0.3s ease;
+            z-index: 5;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .gallery-card-wrapper:hover .gallery-card-detail-btn {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .gallery-card-detail-btn:hover {
+            color: #8b9cf7;
+            background: linear-gradient(transparent, rgba(102, 126, 234, 0.4));
         }
 
         .loading-overlay {
@@ -118,10 +149,10 @@
         .spinner {
             width: 40px;
             height: 40px;
-            border: 4px solid rgba(102, 126, 234, 0.3);
+            border: 3px solid rgba(102, 126, 234, 0.2);
             border-top-color: #667eea;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.8s linear infinite;
         }
 
         @keyframes spin {
@@ -148,7 +179,7 @@
             display: block;
         }
 
-        /* 预览头部 - 覆盖在模型上方 */
+        /* 预览头部 */
         .preview-header {
             position: absolute;
             top: 0;
@@ -189,7 +220,7 @@
             transform: rotate(90deg);
         }
 
-        /* 标签和描述 - 在头部下方 */
+        /* 标签和描述 */
         .preview-info {
             position: absolute;
             top: 80px;
@@ -253,13 +284,20 @@
         }
 
         /* 响应式 */
-        @media (max-width: 768px) {
+        @media (max-width: 1200px) {
             .gallery-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
+                grid-template-rows: repeat(3, 1fr);
             }
+        }
 
-            .preview-header h2 {
-                font-size: 1.3em;
+        @media (max-width: 900px) {
+            .gallery-container {
+                padding: 12px 50px;
+            }
+            .gallery-grid {
+                grid-template-columns: repeat(1, 1fr);
+                grid-template-rows: repeat(6, 1fr);
             }
         }
 
@@ -308,7 +346,7 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // 模型数据（使用公开可用的 GLB 模型）
+        // 模型数据
         const MODELS = [
             {
                 title: 'Damaged Helmet',
@@ -378,36 +416,36 @@
             }
         }
 
-        // 创建卡片 DOM
+        // 创建卡片
         function createCard(model, index) {
-            const card = document.createElement('div');
-            card.className = 'gallery-card';
-            card.id = `card-${index}`;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'gallery-card-wrapper';
+            wrapper.id = `card-${index}`;
 
-            card.innerHTML = `
-                <div class="card-3d-container" id="canvas-${index}"></div>
+            wrapper.innerHTML = `
+                <div class="gallery-card-3d">
+                    <div class="card-3d-container" id="canvas-${index}"></div>
+                    <button class="gallery-card-detail-btn" id="detail-btn-${index}">
+                        🔍 查看详情
+                    </button>
+                    <div class="loading-overlay" id="loading-${index}">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
                 <div class="card-info">
                     <div class="card-title">${model.emoji} ${model.title}</div>
                     <span class="card-tag">${model.tag}</span>
                 </div>
-                <div class="card-actions">
-                    <button class="btn-detail" id="detail-btn-${index}">
-                        🔍 查看详情
-                    </button>
-                </div>
-                <div class="loading-overlay" id="loading-${index}">
-                    <div class="spinner"></div>
-                </div>
             `;
             
             // 只在按钮上绑定点击事件
-            const detailBtn = card.querySelector(`#detail-btn-${index}`);
+            const detailBtn = wrapper.querySelector(`#detail-btn-${index}`);
             detailBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 openPreview(index);
             });
 
-            return card;
+            return wrapper;
         }
 
         // 初始化场景
@@ -425,21 +463,18 @@
             scene.background = new THREE.Color(0x0a0a0f);
             scenes[index] = scene;
 
-            // 添加环境光
+            // 灯光
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambientLight);
 
-            // 添加主光源
             const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
             mainLight.position.set(5, 5, 5);
             scene.add(mainLight);
 
-            // 添加补光
             const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
             fillLight.position.set(-5, -5, -5);
             scene.add(fillLight);
 
-            // 添加底部光
             const bottomLight = new THREE.DirectionalLight(0x667eea, 0.3);
             bottomLight.position.set(0, -3, 0);
             scene.add(bottomLight);
@@ -476,7 +511,7 @@
             control.target.set(0, 0, 0);
             controls[index] = control;
 
-            // 先添加测试立方体
+            // 测试立方体
             const testGeometry = new THREE.BoxGeometry(1, 1, 1);
             const testMaterial = new THREE.MeshStandardMaterial({ 
                 color: 0x667eea,
@@ -487,17 +522,14 @@
             testCube.name = 'test-cube';
             scene.add(testCube);
                         
-            // 立即隐藏加载层
             loadingOverlay.classList.add('hidden');
 
             // 加载模型
             try {
                 await loadGLBModel(index, modelUrl, scene);
-                // 移除测试立方体
                 scene.remove(testCube);
             } catch (error) {
                 console.error(`❌ 模型 ${index} 加载失败:`, error);
-                // 保留测试立方体作为占位符
             }
 
             // 响应式
@@ -506,7 +538,7 @@
             });
         }
 
-        // 加载 GLB 模型
+        // 加载模型
         async function loadGLBModel(index, modelUrl, scene) {
             return new Promise((resolve, reject) => {
                 const loader = new GLTFLoader();
@@ -515,7 +547,6 @@
                     (gltf) => {
                         const model = gltf.scene;
                         
-                        // 智能居中
                         const box = new THREE.Box3().setFromObject(model);
                         const center = box.getCenter(new THREE.Vector3());
                         const size = box.getSize(new THREE.Vector3());
@@ -562,14 +593,11 @@
             
             document.body.appendChild(modal);
             
-            // 绑定事件
             document.getElementById('close-preview-btn').addEventListener('click', () => closePreview());
             document.getElementById('preview-screenshot-btn').addEventListener('click', () => handlePreviewScreenshot());
             
-            // 初始化预览场景
             setTimeout(() => initPreviewScene(index), 100);
             
-            // ESC 关闭
             document.addEventListener('keydown', handleEscKey);
         }
 
@@ -724,7 +752,6 @@
                 galleryGrid.appendChild(card);
             });
             
-            // 延迟初始化场景
             setTimeout(() => {
                 MODELS.forEach((model, index) => {
                     initScene(index, model.url);
