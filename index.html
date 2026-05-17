@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>旗舰SQL生成器 · 子查询增强版</title>
+    <style>
+        /* 立体感设计 + 强化警告样式 + 顶部左右布局 */
+        * { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; }
+        body { background: linear-gradient(145deg, #d9e2ef 0%, #c0cee2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 8px; }
+        .card { background: #f0f4fc; width: 100%; max-width: 1500px; border-radius: 28px; 
+                box-shadow: 0 25px 40px -15px #0f233a, inset 0 1px 2px rgba(255,255,255,0.8), inset 0 -2px 3px rgba(0,0,0,0.05);
+                padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; border: 1px solid rgba(255,255,255,0.6); backdrop-filter: blur(2px); }
+
+        /* 顶部行：标题 + 标签页 + 语言切换 左右布局 */
+        .header-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 2px; }
+        .title-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        h1 { font-size: 1.5rem; font-weight: 600; color: #0b2a44; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; 
+             text-shadow: 0 1px 2px white; margin: 0; }
+        h1 small { font-size: 0.7rem; font-weight: 400; color: #4f6b92; background: #eaf0fa; padding: 3px 10px; border-radius: 30px; 
+                   box-shadow: inset 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px white; }
+
+        .right-group { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+        .tab-btn { background: #ecf3fd; border: 1px solid #a6c0e3; padding: 6px 20px; border-radius: 40px; font-weight: 600; font-size: 0.8rem; color: #1e3a60; cursor: pointer;
+                   box-shadow: inset 0 1px 3px white, 0 3px 5px -3px #1f3a66; transition: 0.1s; border: 1px solid rgba(255,255,255,0.6); }
+        .tab-btn.active { background: linear-gradient(145deg, #1f865b, #166b45); color: white; border-color: #0f5a37; box-shadow: 0 6px 10px -6px #0f4d34, inset 0 1px 2px rgba(255,255,255,0.4); text-shadow: 0 1px 1px black; }
+        .tab-btn:hover { background: #dde9ff; transform: translateY(-1px); }
+        .tab-btn.active:hover { background: linear-gradient(145deg, #259e68, #1b7e50); }
+
+        .lang-switch { background: white; border-radius: 40px; padding: 4px 8px; font-size: 0.75rem; font-weight: 600; box-shadow: inset 0 1px 3px white, 0 2px 4px rgba(0,0,0,0.1); border: 1px solid #b0c8e7; cursor: pointer; user-select: none; }
+        .lang-switch span { padding: 2px 8px; border-radius: 30px; transition: 0.1s; }
+        .lang-switch .active-lang { background: #1f865b; color: white; box-shadow: 0 2px 5px -2px #0f4d34; }
+
+        .grid-main { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 2px 0 0; }
+        .config-card { background: #f8faff; border-radius: 24px; padding: 10px 12px; 
+                       box-shadow: 0 8px 15px -6px #1f3a66, inset 0 1px 2px white, inset 0 -1px 2px rgba(0,0,0,0.05);
+                       border: 1px solid rgba(255,255,255,0.7); transition: all 0.1s ease; }
+        .config-card:hover { box-shadow: 0 10px 18px -6px #1f3a66, inset 0 1px 3px white; }
+        .config-card label { display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.2px; color: #1f3d66; margin-bottom: 4px; 
+                             text-shadow: 0 1px 1px white; }
+        .config-card textarea, .config-card input, .config-card select { width: 100%; padding: 6px 10px; border-radius: 20px; border: 1px solid #b9ceec; 
+                 background: white; font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;
+                 box-shadow: inset 0 2px 4px rgba(0,0,0,0.02), 0 1px 2px white; transition: all 0.1s; }
+        .config-card textarea:focus, .config-card input:focus { border-color: #1d7a54; outline: none; 
+                 box-shadow: inset 0 2px 5px rgba(0,50,30,0.1), 0 0 0 3px rgba(29,122,84,0.2); }
+
+        .table-row { display: flex; gap: 10px; align-items: stretch; }
+        .table-row .config-card:first-child { flex: 1.2; }
+        .table-row .config-card:last-child { flex: 2.5; }
+
+        .equal-h { display: flex; flex-direction: column; }
+        .equal-h textarea { flex: 1; min-height: 70px; resize: vertical; }
+
+        .action-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #e5effb; border-radius: 60px; padding: 6px 16px; 
+                      box-shadow: inset 0 1px 4px rgba(255,255,255,0.8), inset 0 -2px 3px rgba(0,0,0,0.05), 0 8px 12px -8px #1f3a66;
+                      border: 1px solid rgba(255,255,255,0.7); }
+        .auto-inc-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; background: white; padding: 3px 12px; border-radius: 40px; 
+                          box-shadow: inset 0 1px 3px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #b0c8e7; }
+        .auto-inc-group select, .auto-inc-group input[type="number"] { border: none; background: transparent; padding: 4px 6px; font-weight: 500; width: auto; min-width: 70px; font-size: 0.7rem; }
+        .auto-inc-group input[type="checkbox"] { width: 16px; height: 16px; accent-color: #1d7a54; margin: 0; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1)); }
+
+        .condition-group { display: flex; align-items: center; gap: 6px; background: white; border-radius: 40px; padding: 3px 12px; border: 1px solid #b0c8e7; 
+                           box-shadow: inset 0 1px 3px rgba(255,255,255,0.8), 0 2px 4px rgba(0,0,0,0.02); }
+        .condition-group span { font-size: 0.7rem; font-weight: 500; color: #1e3f6b; }
+        .condition-group input { border: none; background: transparent; width: 130px; font-size: 0.7rem; padding: 4px 0; font-family: 'JetBrains Mono', monospace; }
+        .condition-group input:focus { outline: none; }
+
+        .file-group { display: flex; align-items: center; gap: 10px; margin-left: 0; }
+        .btn-primary { background: linear-gradient(145deg, #1f865b, #166b45); color: white; border: none; padding: 6px 20px; border-radius: 40px; font-weight: 600; font-size: 0.8rem; 
+                       box-shadow: 0 6px 12px -6px #0f4d34, inset 0 1px 2px rgba(255,255,255,0.4); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+                       transition: all 0.1s; border: 1px solid rgba(255,255,255,0.3); }
+        .btn-primary:hover { background: linear-gradient(145deg, #259e68, #1b7e50); box-shadow: 0 8px 14px -6px #0f4d34, inset 0 1px 3px white; transform: translateY(-1px); }
+        .btn-primary:active { transform: translateY(1px); box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
+        .btn-outline { background: #ecf3fd; border: 1px solid #a6c0e3; padding: 4px 16px; border-radius: 40px; font-weight: 500; color: #1e3a60; font-size: 0.7rem; cursor: pointer;
+                       box-shadow: inset 0 1px 3px white, 0 3px 5px -3px #1f3a66; transition: 0.1s; }
+        .btn-outline:hover { background: #dde9ff; }
+
+        .sql-output { background: #142337; border-radius: 24px; padding: 14px; border: 1px solid #3f5a82; margin-top: 4px; 
+                      box-shadow: inset 0 0 0 1px #5a77a3, 0 12px 20px -12px black; }
+        .sql-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .sql-header h3 { color: white; margin: 0; font-weight: 500; font-size: 1rem; text-shadow: 0 1px 2px black; }
+        #sqlText { background: #1e2d45; border: 1px solid #415d88; border-radius: 18px; padding: 12px; color: #d8e8ff; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; line-height: 1.4; width: 100%; min-height: 150px; max-height: 250px; overflow: auto; white-space: pre; resize: vertical; 
+                   box-shadow: inset 0 4px 8px rgba(0,0,0,0.6); }
+
+        .footer-note { display: flex; justify-content: space-between; color: #2f4c77; font-size: 0.65rem; margin-top: 4px; text-shadow: 0 1px 1px white; }
+
+        /* 强化警告样式 */
+        .warning-msg { color: #ffddb0; background: #8b2e2e; padding: 8px 14px; border-radius: 30px; font-size: 0.75rem; margin-top: 8px; 
+                       box-shadow: inset 0 2px 5px rgba(0,0,0,0.5), 0 0 0 2px #ff8a5c; border: 1px solid #ffb571; 
+                       font-weight: 500; line-height: 1.5; white-space: pre-wrap; }
+        .warning-msg::before { content: "⚠️ "; font-weight: bold; }
+
+        .badge { background: #dae6ff; color: #1d3e6b; padding: 2px 10px; border-radius: 30px; font-size: 0.65rem; font-weight: 500; 
+                 box-shadow: inset 0 1px 2px white, 0 1px 2px rgba(0,0,0,0.1); }
+        #file-name { font-size: 0.75rem; color: #20406b; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 1px white; }
+        .comma-hint { font-size:0.65rem; color:#a05530; background:#fdede1; padding:2px 8px; border-radius:20px; margin-left: 6px; box-shadow: inset 0 1px 2px white; }
+        .force-noquote-area { margin-top: 8px; border-top: 1px dashed #a0bde0; padding-top: 8px; }
+        .force-noquote-area label { font-size:0.7rem; color:#1f4b7a; margin-bottom: 2px; }
+
+        /* 表达式工具栏 */
+        .expr-toolbar { display: flex; gap: 6px; margin: 8px 0 4px; flex-wrap: wrap; }
+        .expr-preview { background: #e9f0fc; border-radius: 18px; padding: 8px 12px; margin-top: 6px; border: 1px solid #b0c8e7; font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; white-space: pre-wrap; word-break: break-all; max-height: 100px; overflow: auto; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05); }
+        .test-data-input { display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+        .test-data-input input { flex: 1; min-width: 200px; font-size: 0.7rem; }
+
+        select { appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 6px center; background-size: 12px; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <!-- 顶部行：标题左，标签页+语言切换右 -->
+    <div class="header-row">
+        <div class="title-group">
+            <h1>
+                <span data-i18n="appTitle">🚀 旗舰SQL生成器 · 子查询增强版</span>
+                <small id="mode-badge">INSERT | 日期自动识别</small>
+            </h1>
+        </div>
+        <div class="right-group">
+            <div class="tabs" id="tabContainer">
+                <button class="tab-btn active" data-mode="insert" data-i18n="tabInsert">INSERT</button>
+                <button class="tab-btn" data-mode="update" data-i18n="tabUpdate">UPDATE</button>
+                <button class="tab-btn" data-mode="delete" data-i18n="tabDelete">DELETE</button>
+            </div>
+            <div class="lang-switch" id="langSwitch">
+                <span id="langZh" class="active-lang">中</span>
+                <span id="langEn">EN</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 第一行：表名 + 列名 -->
+    <div class="table-row">
+        <div class="config-card">
+            <label><span data-i18n="tableNameLabel">📋 表名</span> <span style="color:#b00;">*</span></label>
+            <input type="text" id="tableNameInput" value="CP_CMN_CUSTOMER_CONTRACT" data-i18n-placeholder="tableNamePlaceholder" placeholder="例如: MY_TABLE">
+        </div>
+        <div class="config-card">
+            <label><span data-i18n="columnsLabel">📌 列名</span> <span class="badge" data-i18n="commaNewline">逗号或换行</span> <span style="color:#b00;">*</span></label>
+            <textarea id="columnsTextarea" rows="3" data-i18n-placeholder="columnsPlaceholder" placeholder="CUS_ID, DATA_ID, CONTRACT_NO ...">id, CUS_ID, DATA_ID, CONTRACT_NO, EFFECTIVE_DATE_BEGIN, EFFECTIVE_DATE_END, IS_NOT_USED</textarea>
+            <span class="comma-hint" data-i18n="commaHint">📌 支持英文逗号或换行</span>
+        </div>
+    </div>
+
+    <!-- 第二行：映射、表达式 两列等高 -->
+    <div class="grid-main">
+        <div class="config-card equal-h">
+            <label><span data-i18n="mappingLabel">🗺️ 列映射 (列名:字母/数字)</span></label>
+            <textarea id="mappingTextarea" rows="3" data-i18n-placeholder="mappingPlaceholder" placeholder="CUS_ID: A&#10;CONTRACT_NO: 3">CUS_ID: D
+CONTRACT_NO: 2</textarea>
+            <div style="font-size:0.65rem; color:#3d587b; margin-top:2px;" data-i18n="mappingHint">🔹 冲突/越界自动重分配并警告</div>
+            <!-- 强制不加引号列配置框 -->
+            <div class="force-noquote-area">
+                <label><span data-i18n="forceNoQuoteLabel">🚫 强制不加引号列名 (逗号/换行分隔)</span></label>
+                <textarea id="forceNoQuoteTextarea" rows="2" data-i18n-placeholder="forceNoQuotePlaceholder" placeholder="例如: CUS_ID, IS_NOT_USED">CUS_ID
+IS_NOT_USED
+</textarea>
+                <div style="font-size:0.6rem; color:#b04532; margin-top:2px;" data-i18n="forceNoQuoteHint">加入框内的列无论类型原样输出，不加单引号</div>
+            </div>
+        </div>
+        <div class="config-card equal-h">
+            <label><span data-i18n="exprLabel">🧩 列值表达式 (列名:表达式, 用{{列名}}引用)</span></label>
+            <textarea id="exprTextarea" rows="3" data-i18n-placeholder="exprPlaceholder" placeholder="CUS_ID: (SELECT cus_id FROM c WHERE cus_no = {{CONTRACT_NO}})&#10;IS_NOT_USED: 0">CUS_ID: (SELECT cus_id FROM c WHERE cus_no = {{CUS_ID}})</textarea>
+            <div style="font-size:0.65rem; color:#3d587b; margin-top:2px;" data-i18n="exprHint">🔹 {{列名}} 自动根据值类型生成字面量</div>
+            
+            <!-- 子查询增强工具栏 -->
+            <div class="expr-toolbar">
+                <button class="btn-outline" id="insertSubqueryBtn" style="font-size:0.65rem; padding:2px 10px;" data-i18n="insertSubqueryBtn">📎 子查询模板</button>
+                <button class="btn-outline" id="previewExprBtn" style="font-size:0.65rem; padding:2px 10px;" data-i18n="previewExprBtn">🔍 预览表达式</button>
+            </div>
+            <div class="test-data-input" id="testDataContainer" style="display: none;">
+                <input type="text" id="testDataInput" placeholder='{"CUS_ID":"C001","CONTRACT_NO":"CT001"}' value='{"CUS_ID":"C001","CONTRACT_NO":"CT001"}'>
+                <button class="btn-outline" id="runTestBtn" style="font-size:0.65rem;" data-i18n="testBtn">测试</button>
+            </div>
+            <div id="previewResult" class="expr-preview" style="display: none;">-- 点击测试查看替换结果</div>
+        </div>
+    </div>
+
+    <!-- 第三行：自增 / 条件列 + 首行标题 + 文件上传 + 增强按钮 -->
+    <div class="action-bar">
+        <!-- 自增区块 (仅INSERT可见) -->
+        <div class="auto-inc-group" id="autoIncGroup">
+            <input type="checkbox" id="enableAutoInc">
+            <label for="enableAutoInc" data-i18n="autoIncLabel" style="font-weight:500; font-size:0.75rem;">自增</label>
+            <select id="autoIncColumnSelect" disabled style="font-size:0.7rem;">
+                <option value="" data-i18n="autoIncSelectDefault">—选择列—</option>
+            </select>
+            <span data-i18n="startLabel" style="font-size:0.7rem;">起始</span>
+            <input type="number" id="autoIncStart" value="1" min="0" step="1" disabled style="width:50px; font-size:0.7rem;">
+        </div>
+
+        <!-- 条件列区块 (UPDATE/DELETE显示) 默认隐藏 -->
+        <div class="condition-group" id="whereConditionGroup" style="display: none;">
+            <span data-i18n="whereLabel">🔑 WHERE列</span> <span style="color:#b00;">*</span>
+            <input type="text" id="whereColumnsInput" data-i18n-placeholder="wherePlaceholder" placeholder="col1, col2 (条件列)" value="CUS_ID, CONTRACT_NO">
+        </div>
+
+        <!-- 首行标题独立 -->
+        <div style="display:flex; align-items:center; gap:4px; background:white; border-radius:30px; padding:3px 12px; border:1px solid #b0c8e7; box-shadow:inset 0 1px 3px white;">
+            <input type="checkbox" id="hasHeader" checked style="width:14px; height:14px;">
+            <label for="hasHeader" data-i18n="headerLabel" style="font-size:0.7rem;">首行标题</label>
+        </div>
+
+        <div class="file-group">
+            <label for="excel-upload" class="btn-primary" id="chooseFileBtn" style="padding:5px 14px;" data-i18n="chooseFile">📂 选择Excel</label>
+            <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv" style="display:none;">
+            <span id="file-name" data-i18n="noFile">未选择文件</span>
+            <!-- 新增示例按钮 -->
+            <button class="btn-outline" id="sampleBtn" data-i18n="sampleBtn">📊 加载示例</button>
+            <button class="btn-primary" id="generateBtn" style="padding:5px 16px;">⚡ 生成 INSERT</button>
+        </div>
+    </div>
+
+    <!-- SQL输出区域 -->
+    <div class="sql-output">
+        <div class="sql-header">
+            <h3><span data-i18n="sqlLabel">📎 SQL ·</span> <span id="rowCount">0</span> <span data-i18n="sqlCountSuffix">条</span></h3>
+            <div style="display:flex; gap:6px;">
+                <button class="btn-outline" id="copyBtn" data-i18n="copyBtn">📋 复制</button>
+                <button class="btn-outline" id="downloadBtn" data-i18n="downloadBtn">⬇️ 下载</button>
+                <button class="btn-outline" id="clearBtn" data-i18n="clearBtn">🗑️ 清空</button>
+                <!-- 新增分享按钮 -->
+                <button class="btn-outline" id="shareBtn" data-i18n="shareBtn">🔗 分享</button>
+            </div>
+        </div>
+        <pre id="sqlText">-- 配置表名、列名，上传Excel，选择标签页，点击生成</pre>
+        <div id="warningMsg" class="warning-msg" style="display: none;"></div>
+    </div>
+
+    <div class="footer-note">
+        <span data-i18n="footerLeft">🔸 映射优先，剩余列自动分配</span>
+        <span data-i18n="footerRight">🔹 日期自动识别 · 配置自动保存 · 支持分享链接 · 子查询增强</span>
+    </div>
+    <!-- 未来增强方向提示 -->
+    <div style="font-size:0.6rem; color:#3d5a80; text-align:center; margin-top:2px; background:#e3ecf9; border-radius:30px; padding:4px 12px;">
+        <span data-i18n="futurePlans">🔮 未来计划：表达式语法高亮 · 实时行预览 · 更多子查询模板 · 列值历史记录</span>
+    </div>
+</div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+
+<script>
+(function() {
+    // ---------- 语言包 ----------
+    const i18n = {
+        zh: {
+            appTitle: '🚀 旗舰SQL生成器 · 子查询增强版',
+            tabInsert: 'INSERT',
+            tabUpdate: 'UPDATE',
+            tabDelete: 'DELETE',
+            tableNameLabel: '📋 表名',
+            tableNamePlaceholder: '例如: MY_TABLE',
+            columnsLabel: '📌 列名',
+            commaNewline: '逗号或换行',
+            columnsPlaceholder: 'CUS_ID, DATA_ID, CONTRACT_NO ...',
+            commaHint: '📌 支持英文逗号或换行',
+            mappingLabel: '🗺️ 列映射 (列名:字母/数字)',
+            mappingPlaceholder: 'CUS_ID: A\nCONTRACT_NO: 3',
+            mappingHint: '🔹 冲突/越界自动重分配并警告',
+            forceNoQuoteLabel: '🚫 强制不加引号列名 (逗号/换行分隔)',
+            forceNoQuotePlaceholder: '例如: CUS_ID, IS_NOT_USED',
+            forceNoQuoteHint: '加入框内的列无论类型原样输出，不加单引号',
+            exprLabel: '🧩 列值表达式 (列名:表达式, 用{{列名}}引用)',
+            exprPlaceholder: 'CUS_ID: (SELECT cus_id FROM c WHERE cus_no = {{CONTRACT_NO}})\nIS_NOT_USED: 0',
+            exprHint: '🔹 {{列名}} 自动根据值类型生成字面量',
+            insertSubqueryBtn: '📎 子查询模板',
+            previewExprBtn: '🔍 预览表达式',
+            testBtn: '测试',
+            autoIncLabel: '自增',
+            autoIncSelectDefault: '—选择列—',
+            startLabel: '起始',
+            whereLabel: '🔑 WHERE列',
+            wherePlaceholder: 'col1, col2 (条件列)',
+            headerLabel: '首行标题',
+            chooseFile: '📂 选择Excel',
+            noFile: '未选择文件',
+            sampleBtn: '📊 加载示例',
+            generateBtn: '⚡ 生成 {mode}',
+            copyBtn: '📋 复制',
+            downloadBtn: '⬇️ 下载',
+            clearBtn: '🗑️ 清空',
+            shareBtn: '🔗 分享',
+            sqlLabel: '📎 SQL ·',
+            sqlCountSuffix: '条',
+            footerLeft: '🔸 映射优先，剩余列自动分配',
+            footerRight: '🔹 日期自动识别 · 配置自动保存 · 支持分享链接 · 子查询增强',
+            futurePlans: '🔮 未来计划：表达式语法高亮 · 实时行预览 · 更多子查询模板 · 列值历史记录',
+            modeInsert: 'INSERT',
+            modeUpdate: 'UPDATE',
+            modeDelete: 'DELETE',
+            dateAuto: '日期自动识别',
+            shareSuccess: '分享链接已复制到剪贴板',
+            sampleLoaded: '示例数据已加载，点击生成按钮查看SQL',
+            previewPlaceholder: '-- 点击测试查看替换结果',
+        },
+        en: {
+            appTitle: '🚀 Flagship SQL Generator · Subquery Enhanced',
+            tabInsert: 'INSERT',
+            tabUpdate: 'UPDATE',
+            tabDelete: 'DELETE',
+            tableNameLabel: '📋 Table Name',
+            tableNamePlaceholder: 'e.g., MY_TABLE',
+            columnsLabel: '📌 Columns',
+            commaNewline: 'comma/line separated',
+            columnsPlaceholder: 'CUS_ID, DATA_ID, CONTRACT_NO ...',
+            commaHint: '📌 Use commas or new lines',
+            mappingLabel: '🗺️ Column Mapping (col:letter/number)',
+            mappingPlaceholder: 'CUS_ID: A\nCONTRACT_NO: 3',
+            mappingHint: '🔹 Conflicts/out-of-range auto reassign + warning',
+            forceNoQuoteLabel: '🚫 Force No-Quote Columns (comma/line)',
+            forceNoQuotePlaceholder: 'e.g., CUS_ID, IS_NOT_USED',
+            forceNoQuoteHint: 'Values in these columns will be output as-is, no quotes',
+            exprLabel: '🧩 Value Expression (col:expr, use {{col}})',
+            exprPlaceholder: 'CUS_ID: (SELECT cus_id FROM c WHERE cus_no = {{CONTRACT_NO}})\nIS_NOT_USED: 0',
+            exprHint: '🔹 {{col}} replaced by literal according to type',
+            insertSubqueryBtn: '📎 Subquery Template',
+            previewExprBtn: '🔍 Preview Expr',
+            testBtn: 'Test',
+            autoIncLabel: 'Auto Inc',
+            autoIncSelectDefault: '—select col—',
+            startLabel: 'Start',
+            whereLabel: '🔑 WHERE cols',
+            wherePlaceholder: 'col1, col2 (where columns)',
+            headerLabel: 'Header',
+            chooseFile: '📂 Choose Excel',
+            noFile: 'No file chosen',
+            sampleBtn: '📊 Load Sample',
+            generateBtn: '⚡ Generate {mode}',
+            copyBtn: '📋 Copy',
+            downloadBtn: '⬇️ Download',
+            clearBtn: '🗑️ Clear',
+            shareBtn: '🔗 Share',
+            sqlLabel: '📎 SQL ·',
+            sqlCountSuffix: 'rows',
+            footerLeft: '🔸 Mapping priority, remaining cols auto-assigned',
+            footerRight: '🔹 Dates auto formatted · Config saved · Share link · Subquery enhanced',
+            futurePlans: '🔮 Future: syntax highlight · live row preview · more templates · value history',
+            modeInsert: 'INSERT',
+            modeUpdate: 'UPDATE',
+            modeDelete: 'DELETE',
+            dateAuto: 'auto date',
+            shareSuccess: 'Share link copied to clipboard',
+            sampleLoaded: 'Sample data loaded, click generate to see SQL',
+            previewPlaceholder: '-- Click test to see result',
+        }
+    };
+
+    let currentLang = 'zh'; // 默认中文
+
+    // DOM 元素
+    const tableNameInput = document.getElementById('tableNameInput');
+    const columnsTextarea = document.getElementById('columnsTextarea');
+    const mappingTextarea = document.getElementById('mappingTextarea');
+    const forceNoQuoteTextarea = document.getElementById('forceNoQuoteTextarea');
+    const exprTextarea = document.getElementById('exprTextarea');
+    const enableAutoInc = document.getElementById('enableAutoInc');
+    const autoIncColumnSelect = document.getElementById('autoIncColumnSelect');
+    const autoIncStart = document.getElementById('autoIncStart');
+    const whereColumnsInput = document.getElementById('whereColumnsInput');
+    const fileInput = document.getElementById('excel-upload');
+    const fileNameSpan = document.getElementById('file-name');
+    const hasHeaderChk = document.getElementById('hasHeader');
+    const generateBtn = document.getElementById('generateBtn');
+    const sqlTextPre = document.getElementById('sqlText');
+    const rowCountSpan = document.getElementById('rowCount');
+    const warningDiv = document.getElementById('warningMsg');
+    const copyBtn = document.getElementById('copyBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const shareBtn = document.getElementById('shareBtn');
+    const sampleBtn = document.getElementById('sampleBtn');
+    const autoIncGroup = document.getElementById('autoIncGroup');
+    const whereConditionGroup = document.getElementById('whereConditionGroup');
+    const modeBadge = document.getElementById('mode-badge');
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const langZh = document.getElementById('langZh');
+    const langEn = document.getElementById('langEn');
+    const chooseFileBtn = document.getElementById('chooseFileBtn');
+
+    // 新增元素
+    const insertSubqueryBtn = document.getElementById('insertSubqueryBtn');
+    const previewExprBtn = document.getElementById('previewExprBtn');
+    const testDataContainer = document.getElementById('testDataContainer');
+    const testDataInput = document.getElementById('testDataInput');
+    const runTestBtn = document.getElementById('runTestBtn');
+    const previewResult = document.getElementById('previewResult');
+
+    let currentMode = 'insert';   // 'insert', 'update', 'delete'
+
+    // ---------- 工具函数 ----------
+    function parseColumns(input) {
+        if (!input.trim()) return [];
+        const lines = input.split('\n');
+        const columns = [];
+        lines.forEach(line => {
+            if (line.includes(',')) {
+                const parts = line.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                columns.push(...parts);
+            } else {
+                const trimmed = line.trim();
+                if (trimmed) columns.push(trimmed);
+            }
+        });
+        return columns;
+    }
+
+    function parseForceNoQuoteColumns(input, validColumns, warningCollector) {
+        const lines = input.split('\n');
+        const noQuoteSet = new Set();
+        const lowerToCol = new Map();
+        validColumns.forEach(col => lowerToCol.set(col.toLowerCase(), col));
+        lines.forEach(line => {
+            let parts;
+            if (line.includes(',')) {
+                parts = line.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            } else {
+                const trimmed = line.trim();
+                if (trimmed) parts = [trimmed];
+                else parts = [];
+            }
+            parts.forEach(p => {
+                const lower = p.toLowerCase();
+                if (lowerToCol.has(lower)) {
+                    noQuoteSet.add(lowerToCol.get(lower));
+                } else {
+                    warningCollector(`⚠️ 强制不加引号列 "${p}" 不在列定义中，已忽略`);
+                }
+            });
+        });
+        return noQuoteSet;
+    }
+
+    function columnLetterToIndex(letter) {
+        let index = 0;
+        for (let i = 0; i < letter.length; i++) {
+            index = index * 26 + (letter.charCodeAt(i) - 64);
+        }
+        return index - 1;
+    }
+
+    function parseUserMapping(mappingText, validColumns, warningCollector) {
+        const lines = mappingText.split('\n');
+        const mapping = new Map();
+        const lowerToCol = new Map(validColumns.map(col => [col.toLowerCase(), col]));
+        lines.forEach((line, idx) => {
+            line = line.trim();
+            if (!line || line.startsWith('#')) return;
+            const colonIdx = line.indexOf(':');
+            if (colonIdx === -1) return;
+            const colName = line.substring(0, colonIdx).trim();
+            const colPos = line.substring(colonIdx + 1).trim();
+            if (!colName || !colPos) return;
+            const lowerCol = colName.toLowerCase();
+            if (!lowerToCol.has(lowerCol)) {
+                warningCollector(`⚠️ 映射行 ${idx+1} 列名 "${colName}" 不存在，忽略`);
+                return;
+            }
+            const actualCol = lowerToCol.get(lowerCol);
+            let colIndex;
+            if (/^\d+$/.test(colPos)) {
+                colIndex = parseInt(colPos, 10) - 1;
+            } else if (/^[A-Za-z]+$/.test(colPos)) {
+                colIndex = columnLetterToIndex(colPos.toUpperCase());
+            } else {
+                warningCollector(`⚠️ 映射行 ${idx+1} 位置 "${colPos}" 无效，忽略`);
+                return;
+            }
+            if (colIndex < 0) {
+                warningCollector(`⚠️ 映射行 ${idx+1} 位置 "${colPos}" 产生负索引，忽略`);
+                return;
+            }
+            mapping.set(actualCol, colIndex);
+        });
+        return mapping;
+    }
+
+    function parseExprMap(exprText, validColumns, warningCollector) {
+        const lines = exprText.split('\n');
+        const exprMap = new Map();
+        const lowerToCol = new Map(validColumns.map(col => [col.toLowerCase(), col]));
+        lines.forEach((line, idx) => {
+            line = line.trim();
+            if (!line || line.startsWith('#')) return;
+            const colonIdx = line.indexOf(':');
+            if (colonIdx === -1) return;
+            const colName = line.substring(0, colonIdx).trim();
+            const expr = line.substring(colonIdx + 1).trim();
+            if (!colName || !expr) return;
+            const lowerCol = colName.toLowerCase();
+            if (!lowerToCol.has(lowerCol)) {
+                warningCollector(`⚠️ 表达式行 ${idx+1} 列名 "${colName}" 不存在，忽略`);
+                return;
+            }
+            const actualCol = lowerToCol.get(lowerCol);
+            exprMap.set(actualCol, expr);
+        });
+        return exprMap;
+    }
+
+    function updateAutoIncColumns() {
+        const cols = parseColumns(columnsTextarea.value);
+        if (cols.length === 0) {
+            autoIncColumnSelect.innerHTML = '<option value="">' + (currentLang === 'zh' ? '—先填列名—' : '—fill columns first—') + '</option>';
+            return;
+        }
+        let opts = '<option value="">' + (currentLang === 'zh' ? '—选择自增列—' : '—select auto inc col—') + '</option>';
+        cols.forEach((col, idx) => opts += `<option value="${idx}">${idx+1}. ${col}</option>`);
+        autoIncColumnSelect.innerHTML = opts;
+    }
+    columnsTextarea.addEventListener('input', updateAutoIncColumns);
+    updateAutoIncColumns();
+
+    enableAutoInc.addEventListener('change', function(e) {
+        const dis = !e.target.checked;
+        autoIncColumnSelect.disabled = dis;
+        autoIncStart.disabled = dis;
+    });
+
+    fileInput.addEventListener('change', function(e) {
+        const text = e.target.files[0] ? e.target.files[0].name : (currentLang === 'zh' ? '未选择文件' : 'No file chosen');
+        fileNameSpan.innerText = text;
+    });
+
+    // 日期格式化
+    function formatDateISO(date) {
+        if (!date || isNaN(date)) return null;
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+
+    function noQuoteLiteral(value) {
+        if (value === null || value === undefined || value === '') return 'NULL';
+        if (value instanceof Date && !isNaN(value)) {
+            return formatDateISO(value);
+        }
+        return String(value);
+    }
+
+    function valueToSqlLiteral(value, colName, noQuoteSet) {
+        if (noQuoteSet.has(colName)) {
+            return noQuoteLiteral(value);
+        }
+        if (value === null || value === undefined || value === '') return 'NULL';
+        if (value instanceof Date && !isNaN(value)) {
+            return `'${formatDateISO(value)}'`;
+        }
+        if (typeof value === 'number' && !isNaN(value)) {
+            return String(value);
+        }
+        let strVal;
+        if (typeof value === 'string') strVal = value.trim();
+        else strVal = String(value);
+        if (strVal === '') return 'NULL';
+        strVal = strVal.replace(/'/g, "''");
+        return `'${strVal}'`;
+    }
+
+    function getPlaceholderSQL(value, colName, noQuoteSet) {
+        if (noQuoteSet.has(colName)) {
+            return noQuoteLiteral(value);
+        }
+        if (value === null || value === undefined) return 'NULL';
+        if (value instanceof Date && !isNaN(value)) {
+            return `'${formatDateISO(value)}'`;
+        }
+        if (typeof value === 'number' && !isNaN(value)) {
+            return String(value);
+        }
+        let strVal;
+        if (typeof value === 'string') strVal = value;
+        else strVal = String(value);
+        strVal = strVal.replace(/'/g, "''");
+        return `'${strVal}'`;
+    }
+
+    function replacePlaceholders(expr, rowValuesByCol, colLowerMap, noQuoteSet, warningCollector) {
+        return expr.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (match, p1) => {
+            const targetColRaw = p1.trim();
+            const targetLower = targetColRaw.toLowerCase();
+            if (!colLowerMap.has(targetLower)) {
+                warningCollector(`⚠️ 占位符 {{${targetColRaw}}} 列不存在，保留原样`);
+                return match;
+            }
+            const actualCol = colLowerMap.get(targetLower);
+            const rawVal = rowValuesByCol.get(actualCol);
+            return getPlaceholderSQL(rawVal, actualCol, noQuoteSet);
+        });
+    }
+
+    function parseExcel(buffer) {
+        const wb = XLSX.read(buffer, { type: 'array', cellDates: true, dateNF: 'yyyy-mm-dd' });
+        const firstSheet = wb.SheetNames[0];
+        const sheet = wb.Sheets[firstSheet];
+        return XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: false });
+    }
+
+    function buildRowLiteralMap(row, columns, resolvedIdxMap, exprMap, noQuoteSet, addWarning, lowerToCol) {
+        const literalMap = new Map();
+        for (let col of columns) {
+            const idx = resolvedIdxMap.get(col);
+            const cell = (idx !== null && idx >= 0 && idx < row.length) ? row[idx] : null;
+            let literal;
+            if (exprMap.has(col)) {
+                let expr = exprMap.get(col);
+                try {
+                    const rawValues = new Map();
+                    columns.forEach(c => {
+                        const i = resolvedIdxMap.get(c);
+                        rawValues.set(c, (i !== null && i < row.length) ? row[i] : null);
+                    });
+                    literal = replacePlaceholders(expr, rawValues, lowerToCol, noQuoteSet, addWarning);
+                } catch (e) {
+                    addWarning(`列${col}表达式错误: ${e.message}`);
+                    literal = 'NULL';
+                }
+            } else {
+                literal = valueToSqlLiteral(cell, col, noQuoteSet);
+            }
+            literalMap.set(col, literal);
+        }
+        return literalMap;
+    }
+
+    // ---------- 本地存储 ----------
+    function saveToLocalStorage() {
+        const config = {
+            tableName: tableNameInput.value,
+            columns: columnsTextarea.value,
+            mapping: mappingTextarea.value,
+            forceNoQuote: forceNoQuoteTextarea.value,
+            expr: exprTextarea.value,
+            whereCols: whereColumnsInput.value,
+            hasHeader: hasHeaderChk.checked,
+            autoIncEnabled: enableAutoInc.checked,
+            autoIncCol: autoIncColumnSelect.value,
+            autoIncStart: autoIncStart.value,
+            mode: currentMode,
+            lang: currentLang,
+        };
+        localStorage.setItem('sqlGeneratorConfig', JSON.stringify(config));
+    }
+
+    function loadFromLocalStorage() {
+        const saved = localStorage.getItem('sqlGeneratorConfig');
+        if (saved) {
+            try {
+                const config = JSON.parse(saved);
+                tableNameInput.value = config.tableName || '';
+                columnsTextarea.value = config.columns || '';
+                mappingTextarea.value = config.mapping || '';
+                forceNoQuoteTextarea.value = config.forceNoQuote || '';
+                exprTextarea.value = config.expr || '';
+                whereColumnsInput.value = config.whereCols || 'CUS_ID, CONTRACT_NO';
+                hasHeaderChk.checked = config.hasHeader !== undefined ? config.hasHeader : true;
+                enableAutoInc.checked = config.autoIncEnabled || false;
+                autoIncColumnSelect.value = config.autoIncCol || '';
+                autoIncStart.value = config.autoIncStart || '1';
+                if (config.mode) setActiveTab(config.mode);
+                if (config.lang) setLanguage(config.lang);
+            } catch (e) {}
+        }
+    }
+
+    // 监听输入变化自动保存
+    const autoSaveElements = [tableNameInput, columnsTextarea, mappingTextarea, forceNoQuoteTextarea, exprTextarea, whereColumnsInput, hasHeaderChk, enableAutoInc, autoIncColumnSelect, autoIncStart];
+    autoSaveElements.forEach(el => el.addEventListener('input', saveToLocalStorage));
+    autoSaveElements.forEach(el => el.addEventListener('change', saveToLocalStorage));
+
+    // ---------- URL 参数 ----------
+    function loadFromURLParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('table')) tableNameInput.value = urlParams.get('table');
+        if (urlParams.has('columns')) columnsTextarea.value = urlParams.get('columns');
+        if (urlParams.has('mapping')) mappingTextarea.value = urlParams.get('mapping');
+        if (urlParams.has('force')) forceNoQuoteTextarea.value = urlParams.get('force');
+        if (urlParams.has('expr')) exprTextarea.value = urlParams.get('expr');
+        if (urlParams.has('where')) whereColumnsInput.value = urlParams.get('where');
+        if (urlParams.has('header')) hasHeaderChk.checked = urlParams.get('header') === 'true';
+        if (urlParams.has('mode')) setActiveTab(urlParams.get('mode'));
+        if (urlParams.has('lang')) setLanguage(urlParams.get('lang'));
+    }
+
+    // 生成分享链接
+    function generateShareURL() {
+        const params = new URLSearchParams();
+        params.set('table', tableNameInput.value);
+        params.set('columns', columnsTextarea.value);
+        params.set('mapping', mappingTextarea.value);
+        params.set('force', forceNoQuoteTextarea.value);
+        params.set('expr', exprTextarea.value);
+        params.set('where', whereColumnsInput.value);
+        params.set('header', hasHeaderChk.checked);
+        params.set('mode', currentMode);
+        params.set('lang', currentLang);
+        return window.location.origin + window.location.pathname + '?' + params.toString();
+    }
+
+    // ---------- 示例数据 ----------
+    function loadSampleData() {
+        // 构建一个简单的示例Excel文件内容
+        const sampleData = [
+            ['CUS_ID', 'CONTRACT_NO', 'AMOUNT', 'SIGN_DATE'],
+            ['C001', 'CT001', 1200, new Date('2023-01-15')],
+            ['C002', 'CT002', 2500, new Date('2023-02-20')],
+            ['C003', 'CT003', 800, new Date('2023-03-10')],
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(sampleData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const file = new File([wbout], 'sample.xlsx', { type: 'application/octet-stream' });
+        // 模拟选择文件
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        fileInput.files = dataTransfer.files;
+        fileNameSpan.innerText = file.name;
+
+        // 自动填充一些配置以匹配示例
+        tableNameInput.value = 'contracts';
+        columnsTextarea.value = 'CUS_ID, CONTRACT_NO, AMOUNT, SIGN_DATE';
+        mappingTextarea.value = 'CUS_ID: A\nCONTRACT_NO: B\nAMOUNT: C\nSIGN_DATE: D';
+        forceNoQuoteTextarea.value = 'AMOUNT';
+        exprTextarea.value = 'SIGN_DATE: TO_DATE({{SIGN_DATE}}, \'YYYY-MM-DD\')';
+        hasHeaderChk.checked = true;
+
+        // 提示用户
+        alert(i18n[currentLang].sampleLoaded);
+        saveToLocalStorage();
+    }
+
+    sampleBtn.addEventListener('click', loadSampleData);
+
+    // ---------- 子查询增强功能 ----------
+    insertSubqueryBtn.addEventListener('click', function() {
+        // 在当前光标位置或追加插入子查询模板
+        const template = '(SELECT ... FROM ... WHERE ... = {{col}})';
+        exprTextarea.value += (exprTextarea.value ? '\n' : '') + 'NEW_COL: ' + template;
+        exprTextarea.focus();
+        saveToLocalStorage();
+    });
+
+    // 预览表达式切换显示
+    previewExprBtn.addEventListener('click', function() {
+        if (testDataContainer.style.display === 'none') {
+            testDataContainer.style.display = 'flex';
+            previewResult.style.display = 'block';
+        } else {
+            testDataContainer.style.display = 'none';
+            previewResult.style.display = 'none';
+        }
+    });
+
+    // 测试表达式
+    runTestBtn.addEventListener('click', function() {
+        try {
+            const testJson = testDataInput.value.trim();
+            if (!testJson) {
+                previewResult.innerText = '-- 请输入测试数据';
+                return;
+            }
+            const testData = JSON.parse(testJson);
+            const columns = parseColumns(columnsTextarea.value);
+            const noQuoteSet = parseForceNoQuoteColumns(forceNoQuoteTextarea.value, columns, () => {});
+            const exprMap = parseExprMap(exprTextarea.value, columns, () => {});
+            const lowerToCol = new Map(columns.map(col => [col.toLowerCase(), col]));
+
+            // 只预览第一个表达式（取第一行）
+            if (exprMap.size === 0) {
+                previewResult.innerText = '-- 没有定义表达式';
+                return;
+            }
+
+            // 构建rowValuesByCol
+            const rowValuesByCol = new Map();
+            columns.forEach(col => {
+                rowValuesByCol.set(col, testData[col] !== undefined ? testData[col] : null);
+            });
+
+            // 替换每个表达式并显示结果
+            const results = [];
+            for (let [col, expr] of exprMap.entries()) {
+                try {
+                    const replaced = replacePlaceholders(expr, rowValuesByCol, lowerToCol, noQuoteSet, (msg) => {});
+                    results.push(`${col}: ${expr}  =>  ${replaced}`);
+                } catch (e) {
+                    results.push(`${col}: 替换失败 - ${e.message}`);
+                }
+            }
+            previewResult.innerText = results.join('\n');
+        } catch (e) {
+            previewResult.innerText = '-- JSON解析错误: ' + e.message;
+        }
+    });
+
+    // ---------- 语言切换 ----------
+    function setLanguage(lang) {
+        currentLang = lang;
+        if (lang === 'zh') {
+            langZh.classList.add('active-lang');
+            langEn.classList.remove('active-lang');
+        } else {
+            langEn.classList.add('active-lang');
+            langZh.classList.remove('active-lang');
+        }
+
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            if (i18n[lang][key]) {
+                el.innerText = i18n[lang][key];
+            }
+        });
+
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            if (i18n[lang][key]) {
+                el.placeholder = i18n[lang][key];
+            }
+        });
+
+        updateAutoIncColumns();
+
+        if (!fileInput.files || !fileInput.files[0]) {
+            fileNameSpan.innerText = i18n[lang].noFile;
+        }
+
+        updateModeBadge();
+        updateGenerateBtnText();
+        // 更新预览占位符
+        if (previewResult.innerText === i18n[lang === 'zh' ? 'en' : 'zh'].previewPlaceholder) {
+            previewResult.innerText = i18n[lang].previewPlaceholder;
+        }
+
+        saveToLocalStorage();
+    }
+
+    function updateModeBadge() {
+        const modeMap = {
+            insert: i18n[currentLang].modeInsert,
+            update: i18n[currentLang].modeUpdate,
+            delete: i18n[currentLang].modeDelete
+        };
+        modeBadge.innerText = `${modeMap[currentMode]} | ${i18n[currentLang].dateAuto}`;
+    }
+
+    function updateGenerateBtnText() {
+        const modeMap = {
+            insert: i18n[currentLang].modeInsert,
+            update: i18n[currentLang].modeUpdate,
+            delete: i18n[currentLang].modeDelete
+        };
+        generateBtn.innerText = i18n[currentLang].generateBtn.replace('{mode}', modeMap[currentMode]);
+    }
+
+    // 模式切换
+    function setActiveTab(mode) {
+        currentMode = mode;
+        tabBtns.forEach(btn => {
+            const m = btn.dataset.mode;
+            if (m === mode) btn.classList.add('active');
+            else btn.classList.remove('active');
+        });
+        updateModeBadge();
+        updateGenerateBtnText();
+
+        if (mode === 'insert') {
+            autoIncGroup.style.display = 'flex';
+            whereConditionGroup.style.display = 'none';
+        } else {
+            autoIncGroup.style.display = 'none';
+            whereConditionGroup.style.display = 'flex';
+            enableAutoInc.checked = false;
+            autoIncColumnSelect.disabled = true;
+            autoIncStart.disabled = true;
+        }
+        saveToLocalStorage();
+    }
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            setActiveTab(btn.dataset.mode);
+        });
+    });
+
+    langZh.addEventListener('click', () => setLanguage('zh'));
+    langEn.addEventListener('click', () => setLanguage('en'));
+
+    // 初始化：先加载本地存储，再加载URL参数（URL参数覆盖存储）
+    loadFromLocalStorage();
+    loadFromURLParams();
+    setLanguage(currentLang); // 确保UI更新
+    setActiveTab(currentMode); // 确保正确显示
+
+    // ---------- 生成主流程 ----------
+    generateBtn.addEventListener('click', function() {
+        warningDiv.style.display = 'none';
+        warningDiv.innerText = '';
+
+        const tableName = tableNameInput.value.trim();
+        if (!tableName) { alert(currentLang === 'zh' ? '请输入表名' : 'Please enter table name'); return; }
+        const columns = parseColumns(columnsTextarea.value);
+        if (columns.length === 0) { alert(currentLang === 'zh' ? '至少定义一个列' : 'Define at least one column'); return; }
+
+        const localWarnings = [];
+        const addWarning = (msg) => localWarnings.push(msg);
+
+        const userMapping = parseUserMapping(mappingTextarea.value, columns, addWarning);
+        const noQuoteSet = parseForceNoQuoteColumns(forceNoQuoteTextarea.value, columns, addWarning);
+        const exprMap = parseExprMap(exprTextarea.value, columns, addWarning);
+
+        let whereColumns = [];
+        if (currentMode !== 'insert') {
+            const whereRaw = whereColumnsInput.value.trim();
+            if (whereRaw) {
+                whereColumns = parseColumns(whereRaw);
+                const colSet = new Set(columns);
+                whereColumns = whereColumns.filter(w => {
+                    if (!colSet.has(w)) {
+                        addWarning(`⚠️ 条件列 "${w}" 不在列名列表中，已忽略`);
+                        return false;
+                    }
+                    return true;
+                });
+            }
+            if (whereColumns.length === 0 && currentMode !== 'insert') {
+                alert(currentLang === 'zh' ? 'UPDATE/DELETE 模式下必须指定至少一个有效的WHERE列' : 'UPDATE/DELETE mode requires at least one WHERE column');
+                return;
+            }
+        }
+
+        let autoInc = { enabled: false };
+        if (currentMode === 'insert' && enableAutoInc.checked) {
+            const colIndex = autoIncColumnSelect.value;
+            if (colIndex === '') { alert(currentLang === 'zh' ? '请选择自增列' : 'Select auto increment column'); return; }
+            const startVal = parseInt(autoIncStart.value, 10);
+            if (isNaN(startVal)) { alert(currentLang === 'zh' ? '起始值必须为数字' : 'Start value must be a number'); return; }
+            autoInc = { enabled: true, colIndex: parseInt(colIndex, 10), startValue: startVal };
+        }
+
+        const file = fileInput.files[0];
+        if (!file) { alert(currentLang === 'zh' ? '请选择Excel文件' : 'Please select an Excel file'); return; }
+
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                const data = parseExcel(ev.target.result);
+                if (localWarnings.length) {
+                    warningDiv.innerText = localWarnings.slice(0,10).join('\n') + (localWarnings.length>10?`\n...等${localWarnings.length}条`:'');
+                    warningDiv.style.display = 'block';
+                }
+
+                let result;
+                if (currentMode === 'insert') {
+                    result = generateInsert(data, tableName, columns, hasHeaderChk.checked, autoInc, exprMap, userMapping, noQuoteSet, addWarning);
+                } else if (currentMode === 'update') {
+                    result = generateUpdate(data, tableName, columns, whereColumns, hasHeaderChk.checked, exprMap, userMapping, noQuoteSet, addWarning);
+                } else {
+                    result = generateDelete(data, tableName, whereColumns, hasHeaderChk.checked, exprMap, userMapping, noQuoteSet, columns, addWarning);
+                }
+
+                sqlTextPre.innerText = result.sql || '-- 无生成';
+                rowCountSpan.innerText = result.count;
+
+                if (result.warning) {
+                    const combined = (warningDiv.innerText ? warningDiv.innerText + '\n' : '') + result.warning;
+                    warningDiv.innerText = combined;
+                    warningDiv.style.display = 'block';
+                }
+
+            } catch (err) {
+                sqlTextPre.innerText = '-- 解析错误: ' + err.message;
+                warningDiv.innerText = '❌ 解析失败: ' + err.message;
+                warningDiv.style.display = 'block';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    // ---------- INSERT生成 ----------
+    function generateInsert(data, tableName, columns, hasHeader, autoInc, exprMap, userMapping, noQuoteSet, addWarning) {
+        if (!data || data.length === 0) return { sql: '-- Excel无数据', count: 0 };
+        const startRow = hasHeader ? 1 : 0;
+        const rows = data.slice(startRow);
+        if (rows.length === 0) return { sql: '-- 数据行为空', count: 0 };
+
+        let excelColCount = 0;
+        for (let row of data) if (Array.isArray(row) && row.length > excelColCount) excelColCount = row.length;
+
+        const resolvedIdxMap = new Map();
+        const occupied = new Set();
+        for (let col of columns) {
+            if (userMapping.has(col)) {
+                const idx = userMapping.get(col);
+                if (idx >= 0 && idx < excelColCount) {
+                    if (!occupied.has(idx)) { occupied.add(idx); resolvedIdxMap.set(col, idx); }
+                    else addWarning(`⚠️ 列“${col}”映射索引 ${idx} 被占用，自动分配`);
+                } else addWarning(`⚠️ 列“${col}”映射索引 ${idx} 超出范围，自动分配`);
+            }
+        }
+        let nextIdx = 0;
+        for (let col of columns) {
+            if (resolvedIdxMap.has(col)) continue;
+            while (occupied.has(nextIdx) && nextIdx < excelColCount) nextIdx++;
+            if (nextIdx >= excelColCount) {
+                addWarning(`❌ 列“${col}”无法分配索引，值将为NULL`);
+                resolvedIdxMap.set(col, null);
+            } else { occupied.add(nextIdx); resolvedIdxMap.set(col, nextIdx); nextIdx++; }
+        }
+
+        const lowerToCol = new Map(columns.map(col => [col.toLowerCase(), col]));
+        const lines = [];
+        let currentAutoId = autoInc.enabled ? autoInc.startValue : null;
+
+        for (let r = 0; r < rows.length; r++) {
+            const row = rows[r];
+            if (!Array.isArray(row)) continue;
+            const values = [];
+            for (let c = 0; c < columns.length; c++) {
+                const col = columns[c];
+                if (autoInc.enabled && c === autoInc.colIndex) {
+                    values.push(String(currentAutoId));
+                    continue;
+                }
+                const idx = resolvedIdxMap.get(col);
+                const cell = (idx !== null && idx >= 0 && idx < row.length) ? row[idx] : null;
+                if (exprMap.has(col)) {
+                    let expr = exprMap.get(col);
+                    try {
+                        const rawVals = new Map(columns.map(col => [col, (resolvedIdxMap.get(col) !== null && resolvedIdxMap.get(col) < row.length) ? row[resolvedIdxMap.get(col)] : null]));
+                        const replaced = replacePlaceholders(expr, rawVals, lowerToCol, noQuoteSet, addWarning);
+                        values.push(replaced);
+                    } catch (e) { values.push('NULL'); addWarning(`行${r+1}列${col}表达式错误`); }
+                } else {
+                    values.push(valueToSqlLiteral(cell, col, noQuoteSet));
+                }
+            }
+            lines.push(`INSERT INTO ${tableName} (${columns.join(', ')}) VALUES (${values.join(', ')});`);
+            if (autoInc.enabled) currentAutoId++;
+        }
+        return { sql: lines.join('\n'), count: lines.length, warning: '' };
+    }
+
+    // ---------- UPDATE生成 ----------
+    function generateUpdate(data, tableName, columns, whereCols, hasHeader, exprMap, userMapping, noQuoteSet, addWarning) {
+        if (!data || data.length === 0) return { sql: '-- Excel无数据', count: 0 };
+        const startRow = hasHeader ? 1 : 0;
+        const rows = data.slice(startRow);
+        if (rows.length === 0) return { sql: '-- 数据行为空', count: 0 };
+
+        let excelColCount = 0;
+        for (let row of data) if (Array.isArray(row) && row.length > excelColCount) excelColCount = row.length;
+
+        const resolvedIdxMap = new Map();
+        const occupied = new Set();
+        for (let col of columns) {
+            if (userMapping.has(col)) {
+                const idx = userMapping.get(col);
+                if (idx >= 0 && idx < excelColCount) {
+                    if (!occupied.has(idx)) { occupied.add(idx); resolvedIdxMap.set(col, idx); }
+                    else addWarning(`⚠️ 列“${col}”映射索引 ${idx} 被占用，自动分配`);
+                } else addWarning(`⚠️ 列“${col}”映射索引 ${idx} 超出范围，自动分配`);
+            }
+        }
+        let nextIdx = 0;
+        for (let col of columns) {
+            if (resolvedIdxMap.has(col)) continue;
+            while (occupied.has(nextIdx) && nextIdx < excelColCount) nextIdx++;
+            if (nextIdx >= excelColCount) { resolvedIdxMap.set(col, null); addWarning(`❌ 列“${col}”无法分配索引`); }
+            else { occupied.add(nextIdx); resolvedIdxMap.set(col, nextIdx); nextIdx++; }
+        }
+
+        const lowerToCol = new Map(columns.map(col => [col.toLowerCase(), col]));
+        const lines = [];
+        const whereSet = new Set(whereCols);
+
+        for (let r = 0; r < rows.length; r++) {
+            const row = rows[r];
+            if (!Array.isArray(row)) continue;
+
+            const literalMap = new Map();
+            for (let col of columns) {
+                const idx = resolvedIdxMap.get(col);
+                const cell = (idx !== null && idx < row.length) ? row[idx] : null;
+                if (exprMap.has(col)) {
+                    try {
+                        const rawVals = new Map(columns.map(c => [c, (resolvedIdxMap.get(c) !== null && resolvedIdxMap.get(c) < row.length) ? row[resolvedIdxMap.get(c)] : null]));
+                        const replaced = replacePlaceholders(exprMap.get(col), rawVals, lowerToCol, noQuoteSet, addWarning);
+                        literalMap.set(col, replaced);
+                    } catch (e) { literalMap.set(col, 'NULL'); addWarning(`行${r+1}列${col}表达式错误`); }
+                } else {
+                    literalMap.set(col, valueToSqlLiteral(cell, col, noQuoteSet));
+                }
+            }
+
+            const setParts = [];
+            const whereParts = [];
+            for (let col of columns) {
+                const lit = literalMap.get(col);
+                if (whereSet.has(col)) {
+                    whereParts.push(`${col} = ${lit}`);
+                } else {
+                    setParts.push(`${col} = ${lit}`);
+                }
+            }
+            if (setParts.length === 0) {
+                addWarning(`行${r+1}没有要更新的列 (所有列均为条件列)`);
+                continue;
+            }
+            lines.push(`UPDATE ${tableName} SET ${setParts.join(', ')} WHERE ${whereParts.join(' AND ')};`);
+        }
+        return { sql: lines.join('\n'), count: lines.length, warning: '' };
+    }
+
+    // ---------- DELETE生成 ----------
+    function generateDelete(data, tableName, whereCols, hasHeader, exprMap, userMapping, noQuoteSet, allColumns, addWarning) {
+        if (!data || data.length === 0) return { sql: '-- Excel无数据', count: 0 };
+        const startRow = hasHeader ? 1 : 0;
+        const rows = data.slice(startRow);
+        if (rows.length === 0) return { sql: '-- 数据行为空', count: 0 };
+
+        let excelColCount = 0;
+        for (let row of data) if (Array.isArray(row) && row.length > excelColCount) excelColCount = row.length;
+
+        const resolvedIdxMap = new Map();
+        const occupied = new Set();
+        for (let col of allColumns) {
+            if (userMapping.has(col)) {
+                const idx = userMapping.get(col);
+                if (idx >= 0 && idx < excelColCount) {
+                    if (!occupied.has(idx)) { occupied.add(idx); resolvedIdxMap.set(col, idx); }
+                    else addWarning(`⚠️ 列“${col}”映射索引 ${idx} 被占用，自动分配`);
+                } else addWarning(`⚠️ 列“${col}”映射索引 ${idx} 超出范围，自动分配`);
+            }
+        }
+        let nextIdx = 0;
+        for (let col of allColumns) {
+            if (resolvedIdxMap.has(col)) continue;
+            while (occupied.has(nextIdx) && nextIdx < excelColCount) nextIdx++;
+            if (nextIdx >= excelColCount) { resolvedIdxMap.set(col, null); }
+            else { occupied.add(nextIdx); resolvedIdxMap.set(col, nextIdx); nextIdx++; }
+        }
+
+        const lowerToCol = new Map(allColumns.map(col => [col.toLowerCase(), col]));
+        const lines = [];
+        const whereSet = new Set(whereCols);
+
+        for (let r = 0; r < rows.length; r++) {
+            const row = rows[r];
+            if (!Array.isArray(row)) continue;
+
+            const whereParts = [];
+            for (let col of whereCols) {
+                const idx = resolvedIdxMap.get(col);
+                const cell = (idx !== null && idx < row.length) ? row[idx] : null;
+                let literal;
+                if (exprMap.has(col)) {
+                    try {
+                        const rawVals = new Map(allColumns.map(c => [c, (resolvedIdxMap.get(c) !== null && resolvedIdxMap.get(c) < row.length) ? row[resolvedIdxMap.get(c)] : null]));
+                        literal = replacePlaceholders(exprMap.get(col), rawVals, lowerToCol, noQuoteSet, addWarning);
+                    } catch (e) { literal = 'NULL'; addWarning(`行${r+1}列${col}表达式错误`); }
+                } else {
+                    literal = valueToSqlLiteral(cell, col, noQuoteSet);
+                }
+                whereParts.push(`${col} = ${literal}`);
+            }
+            if (whereParts.length === 0) continue;
+            lines.push(`DELETE FROM ${tableName} WHERE ${whereParts.join(' AND ')};`);
+        }
+        return { sql: lines.join('\n'), count: lines.length, warning: '' };
+    }
+
+    // 复制、下载、清空、分享
+    copyBtn.addEventListener('click', function() {
+        const sql = sqlTextPre.innerText;
+        if (!sql || sql.startsWith('-- 配置')) return alert(currentLang === 'zh' ? '没有可复制的SQL' : 'No SQL to copy');
+        navigator.clipboard.writeText(sql).then(() => alert(currentLang === 'zh' ? '已复制' : 'Copied')).catch(() => alert(currentLang === 'zh' ? '复制失败' : 'Copy failed'));
+    });
+
+    downloadBtn.addEventListener('click', function() {
+        const sql = sqlTextPre.innerText;
+        if (!sql || sql.startsWith('-- 配置')) return alert(currentLang === 'zh' ? '没有可下载的SQL' : 'No SQL to download');
+        const tableName = tableNameInput.value.trim() || 'table';
+        const modeMap = { insert: 'INSERT', update: 'UPDATE', delete: 'DELETE' };
+        const filename = `${tableName}_${modeMap[currentMode]}.sql`;
+        const blob = new Blob([sql], { type: 'application/sql' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; a.click();
+        URL.revokeObjectURL(url);
+    });
+
+    clearBtn.addEventListener('click', function() {
+        sqlTextPre.innerText = '-- ' + (currentLang === 'zh' ? '已清空，可重新生成' : 'Cleared, ready to generate');
+        rowCountSpan.innerText = '0';
+        warningDiv.style.display = 'none';
+        warningDiv.innerText = '';
+        fileInput.value = '';
+        fileNameSpan.innerText = i18n[currentLang].noFile;
+        saveToLocalStorage();
+    });
+
+    shareBtn.addEventListener('click', function() {
+        const url = generateShareURL();
+        if (navigator.share) {
+            navigator.share({
+                title: 'SQL Generator Config',
+                text: 'Check out this SQL generator setup',
+                url: url,
+            }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(url).then(() => {
+                alert(i18n[currentLang].shareSuccess);
+            });
+        }
+    });
+
+    chooseFileBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        fileInput.click();
+    });
+
+    // 可选：集成Google Analytics（注释掉，由部署者自行启用）
+    // (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    // (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    // m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    // })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+    // ga('create', 'UA-XXXXX-Y', 'auto');
+    // ga('send', 'pageview');
+})();
+</script>
+<!-- 未来增强方向注释（供开发者参考） 
+     1. 表达式语法高亮：可使用CodeMirror或Ace编辑器嵌入
+     2. 实时行预览：在生成SQL前，可选择Excel中的某行实时查看替换结果
+     3. 更多子查询模板：支持关联子查询、EXISTS、IN等模板
+     4. 列值历史记录：保存最近使用的表达式，方便复用
+     5. 暗色主题切换
+     6. 导出配置为JSON文件，导入配置
+     7. 支持更多数据库方言（MySQL, PostgreSQL, Oracle日期函数差异）
+-->
+</body>
+</html>
