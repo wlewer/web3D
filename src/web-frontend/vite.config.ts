@@ -4,6 +4,8 @@ import path from 'path'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // GitHub Pages 部署需要设置 base 路径
+  base: process.env.NODE_ENV === 'production' ? '/web3D/' : '/',
   plugins: [
     react(),
   ],
